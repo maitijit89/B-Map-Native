@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Dimensions } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons, Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { LatLng, PlaceCategory } from '@/types';
 import { BMapColors } from '@/constants/bmap-theme';
@@ -45,8 +45,102 @@ export const DEFAULT_REGION = {
   longitudeDelta: 0.05,
 };
 
-// Universal high-fidelity map visualizer
-export function BMapView({
+interface MarkerPinProps {
+  marker: BMapMarkerItem;
+  region: {
+    latitude: number;
+    longitude: number;
+    latitudeDelta: number;
+    longitudeDelta: number;
+  };
+  isDark: boolean;
+  onPress?: (marker: BMapMarkerItem) => void;
+}
+
+const getMarkerIcon = (category?: PlaceCategory) => {
+  switch (category) {
+    case 'ev':
+      return <Ionicons name="flash" size={16} color="#FFFFFF" />;
+    case 'toll':
+      return <MaterialCommunityIcons name="card-account-details-outline" size={16} color="#FFFFFF" />;
+    case 'hazard':
+      return <Ionicons name="warning" size={16} color="#FFFFFF" />;
+    case 'sos':
+    case 'hospital':
+      return <Ionicons name="medical" size={16} color="#FFFFFF" />;
+    case 'taxi':
+      return <FontAwesome5 name="taxi" size={14} color="#000000" />;
+    case 'user':
+      return <Ionicons name="navigate" size={16} color="#FFFFFF" />;
+    default:
+      return <Ionicons name="location" size={16} color="#FFFFFF" />;
+  }
+};
+
+const getMarkerBgColor = (category?: PlaceCategory) => {
+  switch (category) {
+    case 'ev':
+      return BMapColors.evCyan;
+    case 'toll':
+      return BMapColors.fastagPurple;
+    case 'hazard':
+      return BMapColors.warningAmber;
+    case 'sos':
+    case 'hospital':
+      return BMapColors.emergencyRed;
+    case 'taxi':
+      return '#FFD700';
+    case 'user':
+      return '#1E88E5';
+    default:
+      return BMapColors.primary;
+  }
+};
+
+const MapMarkerPin = React.memo(function MapMarkerPin({
+  marker,
+  region,
+  isDark,
+  onPress,
+}: MarkerPinProps) {
+  const latDiff = (marker.coordinate.latitude - region.latitude) / region.latitudeDelta;
+  const lngDiff = (marker.coordinate.longitude - region.longitude) / region.longitudeDelta;
+
+  const topPercent = Math.max(10, Math.min(85, 50 - latDiff * 35));
+  const leftPercent = Math.max(10, Math.min(85, 50 + lngDiff * 35));
+  const isTaxi = marker.category === 'taxi';
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.8}
+      style={[
+        styles.markerPin,
+        {
+          top: `${topPercent}%` as any,
+          left: `${leftPercent}%` as any,
+          backgroundColor: getMarkerBgColor(marker.category),
+          transform: [{ scale: isTaxi ? 0.9 : 1 }],
+        },
+      ]}
+      onPress={() => onPress && onPress(marker)}
+    >
+      {getMarkerIcon(marker.category)}
+      {marker.title ? (
+        <View style={[styles.markerCallout, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
+          <Text
+            numberOfLines={1}
+            style={[styles.markerTitle, { color: isDark ? '#FFFFFF' : '#1E293B' }]}
+          >
+            {marker.title}
+          </Text>
+        </View>
+      ) : null}
+    </TouchableOpacity>
+  );
+});
+
+// Universal high-fidelity map visualizer (Memoized for 60fps performance on 3GB RAM devices)
+function BMapViewComponent({
   region = DEFAULT_REGION,
   markers = [],
   polylines = [],
@@ -80,55 +174,15 @@ export function BMapView({
     return '#FFD54F';
   };
 
-  const getMarkerIcon = (category?: PlaceCategory) => {
-    switch (category) {
-      case 'ev':
-        return <Ionicons name="flash" size={16} color="#FFFFFF" />;
-      case 'toll':
-        return <MaterialCommunityIcons name="card-account-details-outline" size={16} color="#FFFFFF" />;
-      case 'hazard':
-        return <Ionicons name="warning" size={16} color="#FFFFFF" />;
-      case 'sos':
-      case 'hospital':
-        return <Ionicons name="medical" size={16} color="#FFFFFF" />;
-      case 'taxi':
-        return <FontAwesome5 name="taxi" size={14} color="#000000" />;
-      case 'user':
-        return <Ionicons name="navigate" size={16} color="#FFFFFF" />;
-      default:
-        return <Ionicons name="location" size={16} color="#FFFFFF" />;
-    }
-  };
-
-  const getMarkerBgColor = (category?: PlaceCategory) => {
-    switch (category) {
-      case 'ev':
-        return BMapColors.evCyan;
-      case 'toll':
-        return BMapColors.fastagPurple;
-      case 'hazard':
-        return BMapColors.warningAmber;
-      case 'sos':
-      case 'hospital':
-        return BMapColors.emergencyRed;
-      case 'taxi':
-        return '#FFD700';
-      case 'user':
-        return '#1E88E5';
-      default:
-        return BMapColors.primary;
-    }
-  };
-
   return (
     <View style={[styles.container, { backgroundColor: getBackgroundColor() }, style]}>
       {/* Stylized Vector Grid / Map Terrain Visual */}
-      <View style={styles.gridLayer}>
+      <View style={styles.gridLayer} pointerEvents="none">
         {/* River/Water body decorative curve */}
         <View
           style={[
             styles.waterBody,
-            { backgroundColor: isDark ? '#0B2545' : isSatellite ? '#0D3B66' : '#BBDEFB' },
+            { backgroundColor: isDark ? 'rgba(11, 37, 69, 0.85)' : isSatellite ? 'rgba(13, 59, 102, 0.85)' : 'rgba(187, 222, 251, 0.85)' },
           ]}
         />
 
@@ -179,48 +233,19 @@ export function BMapView({
       </View>
 
       {/* Interactive Markers */}
-      <View style={styles.markerContainer}>
-        {markers.map((marker, index) => {
-          const latDiff = (marker.coordinate.latitude - region.latitude) / region.latitudeDelta;
-          const lngDiff = (marker.coordinate.longitude - region.longitude) / region.longitudeDelta;
-
-          const topPercent = Math.max(10, Math.min(85, 50 - latDiff * 35));
-          const leftPercent = Math.max(10, Math.min(85, 50 + lngDiff * 35));
-
-          const isTaxi = marker.category === 'taxi';
-
-          return (
-            <TouchableOpacity
-              key={marker.id || `marker-${index}`}
-              activeOpacity={0.8}
-              style={[
-                styles.markerPin,
-                {
-                  top: `${topPercent}%` as any,
-                  left: `${leftPercent}%` as any,
-                  backgroundColor: getMarkerBgColor(marker.category),
-                  transform: [{ scale: isTaxi ? 0.9 : 1 }],
-                },
-              ]}
-              onPress={() => onMarkerPress && onMarkerPress(marker)}
-            >
-              {getMarkerIcon(marker.category)}
-              {marker.title && (
-                <View style={[styles.markerCallout, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
-                  <Text
-                    numberOfLines={1}
-                    style={[styles.markerTitle, { color: isDark ? '#FFFFFF' : '#1E293B' }]}
-                  >
-                    {marker.title}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          );
-        })}
+      <View style={styles.markerContainer} pointerEvents="box-none">
+        {markers.map((marker, index) => (
+          <MapMarkerPin
+            key={marker.id || `marker-${index}`}
+            marker={marker}
+            region={region}
+            isDark={isDark}
+            onPress={onMarkerPress}
+          />
+        ))}
 
         {/* User Pulse Location Marker */}
-        <View style={styles.userLocationMarker}>
+        <View style={styles.userLocationMarker} pointerEvents="none">
           <View style={styles.userPulseRing} />
           <View style={styles.userCoreDot}>
             <Ionicons name="navigate" size={12} color="#FFFFFF" />
@@ -237,6 +262,8 @@ export function BMapView({
     </View>
   );
 }
+
+export const BMapView = React.memo(BMapViewComponent);
 
 const styles = StyleSheet.create({
   container: {
@@ -262,7 +289,6 @@ const styles = StyleSheet.create({
     height: 70,
     borderRadius: 35,
     transform: [{ rotate: '-18deg' }],
-    opacity: 0.8,
   },
   highwayHorizontal: {
     position: 'absolute',
@@ -365,10 +391,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
     zIndex: 10,
   },
   markerCallout: {
@@ -378,10 +404,10 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 1,
     minWidth: 70,
     alignItems: 'center',
   },

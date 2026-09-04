@@ -17,6 +17,7 @@ import Animated, {
   withRepeat,
   withTiming,
   Easing,
+  cancelAnimation,
 } from 'react-native-reanimated';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { BMapColors, BMapElevation, BMapTypography } from '@/constants/bmap-theme';
@@ -82,7 +83,12 @@ export default function NationalSOSScreen() {
       -1,
       false
     );
-  }, []);
+
+    return () => {
+      cancelAnimation(pulseScale);
+      cancelAnimation(pulseOpacity);
+    };
+  }, [pulseScale, pulseOpacity]);
 
   const animatedRingStyle = useAnimatedStyle(() => {
     return {

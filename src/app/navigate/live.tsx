@@ -19,6 +19,18 @@ import {
   VERNACULAR_ALERTS,
   playVernacularAlert,
 } from '@/services/voiceGuidance';
+import { moderateScale, isSmallDevice } from '@/utils/responsive';
+
+const STATIC_LIVE_POLYLINES = [
+  {
+    coordinates: [
+      { latitude: 28.6139, longitude: 77.2090 },
+      { latitude: 28.4952, longitude: 77.0891 },
+    ],
+    strokeColor: BMapColors.primary,
+    strokeWidth: 6,
+  },
+];
 
 export default function LiveNavigationScreen() {
   const router = useRouter();
@@ -103,16 +115,7 @@ export default function LiveNavigationScreen() {
       {/* Background Interactive Map in HUD mode */}
       <BMapView
         mapStyleType={isDark ? 'dark' : 'daylight'}
-        polylines={[
-          {
-            coordinates: [
-              { latitude: 28.6139, longitude: 77.2090 },
-              { latitude: 28.4952, longitude: 77.0891 },
-            ],
-            strokeColor: BMapColors.primary,
-            strokeWidth: 6,
-          },
-        ]}
+        polylines={STATIC_LIVE_POLYLINES}
       />
 
       {/* Top Navigation HUD Directional Banner (High-Contrast Dark Green) */}
@@ -307,24 +310,24 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 30,
-    paddingHorizontal: 16,
+    paddingHorizontal: isSmallDevice ? 10 : 16,
     gap: 8,
   },
   maneuverBanner: {
     backgroundColor: '#004D40', // High contrast dark emerald green
-    borderRadius: 20,
-    padding: 16,
+    borderRadius: isSmallDevice ? 16 : 20,
+    padding: isSmallDevice ? 12 : 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: isSmallDevice ? 10 : 14,
     borderWidth: 1.5,
     borderColor: '#00BFA5',
     ...BMapElevation.hud,
   },
   maneuverIconBox: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: isSmallDevice ? 46 : 56,
+    height: isSmallDevice ? 46 : 56,
+    borderRadius: isSmallDevice ? 23 : 28,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -334,13 +337,13 @@ const styles = StyleSheet.create({
   },
   distanceManeuverText: {
     color: '#FFFFFF',
-    fontSize: 24,
+    fontSize: moderateScale(isSmallDevice ? 18 : 24),
     fontWeight: '900',
     letterSpacing: -0.5,
   },
   maneuverStreetText: {
     color: '#E0F2F1',
-    fontSize: 14,
+    fontSize: moderateScale(isSmallDevice ? 12 : 14),
     fontWeight: '600',
   },
   speakerButton: {

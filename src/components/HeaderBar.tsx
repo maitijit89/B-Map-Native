@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, useColorScheme } from 'react-
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { BMapColors, BMapTypography } from '@/constants/bmap-theme';
+import { moderateScale, isSmallDevice } from '@/utils/responsive';
 
 interface HeaderBarProps {
   title: string;
@@ -43,15 +44,35 @@ export function HeaderBar({
       <View style={styles.leftContainer}>
         {showBack && (
           <TouchableOpacity activeOpacity={0.7} onPress={handleBack} style={styles.iconButton}>
-            <Ionicons name="arrow-back" size={24} color={accentColor || colors.text} />
+            <Ionicons name="arrow-back" size={isSmallDevice ? 20 : 24} color={accentColor || colors.text} />
           </TouchableOpacity>
         )}
         <View style={styles.titleContainer}>
-          <Text style={[styles.title, BMapTypography.titleLarge, { color: colors.text }]} numberOfLines={1}>
+          <Text
+            style={[
+              styles.title,
+              BMapTypography.titleLarge,
+              {
+                color: colors.text,
+                fontSize: moderateScale(isSmallDevice ? 16 : 18),
+              },
+            ]}
+            numberOfLines={1}
+          >
             {title}
           </Text>
           {subtitle && (
-            <Text style={[styles.subtitle, BMapTypography.bodySmall, { color: colors.textSecondary }]} numberOfLines={1}>
+            <Text
+              style={[
+                styles.subtitle,
+                BMapTypography.bodySmall,
+                {
+                  color: colors.textSecondary,
+                  fontSize: moderateScale(isSmallDevice ? 11 : 12),
+                },
+              ]}
+              numberOfLines={1}
+            >
               {subtitle}
             </Text>
           )}
@@ -60,9 +81,19 @@ export function HeaderBar({
 
       {(rightActionIcon || rightActionLabel) && (
         <TouchableOpacity activeOpacity={0.7} onPress={onRightActionPress} style={styles.rightButton}>
-          {rightActionIcon && <Ionicons name={rightActionIcon} size={22} color={accentColor || BMapColors.primary} />}
+          {rightActionIcon && (
+            <Ionicons name={rightActionIcon} size={isSmallDevice ? 18 : 22} color={accentColor || BMapColors.primary} />
+          )}
           {rightActionLabel && (
-            <Text style={[styles.rightLabel, { color: accentColor || BMapColors.primary }]}>
+            <Text
+              style={[
+                styles.rightLabel,
+                {
+                  color: accentColor || BMapColors.primary,
+                  fontSize: moderateScale(isSmallDevice ? 12 : 14),
+                },
+              ]}
+            >
               {rightActionLabel}
             </Text>
           )}
@@ -74,8 +105,8 @@ export function HeaderBar({
 
 const styles = StyleSheet.create({
   headerContainer: {
-    height: 60,
-    paddingHorizontal: 16,
+    height: isSmallDevice ? 52 : 60,
+    paddingHorizontal: moderateScale(14),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -85,12 +116,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    gap: 12,
+    gap: isSmallDevice ? 8 : 12,
   },
   iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: isSmallDevice ? 34 : 40,
+    height: isSmallDevice ? 34 : 40,
+    borderRadius: isSmallDevice ? 17 : 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -104,15 +135,14 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   rightButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: moderateScale(10),
+    paddingVertical: 6,
+    borderRadius: 18,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
   rightLabel: {
-    fontSize: 14,
     fontWeight: '700',
   },
 });

@@ -7,6 +7,7 @@ import {
   FlatList,
   StyleSheet,
   useColorScheme,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -14,6 +15,7 @@ import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-ico
 import { BMapColors, BMapElevation, BMapTypography } from '@/constants/bmap-theme';
 import { HeaderBar } from '@/components/HeaderBar';
 import { RouteOption } from '@/types';
+import { moderateScale, isSmallDevice } from '@/utils/responsive';
 
 type TransportMode = 'Car' | 'Two-Wheeler' | 'Walking' | 'Bicycle';
 
@@ -209,6 +211,10 @@ export default function RoutePlannerScreen() {
         data={MOCK_ROUTES}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.routesList}
+        initialNumToRender={3}
+        maxToRenderPerBatch={4}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS === 'android'}
         renderItem={({ item }) => {
           const isSelected = selectedRouteId === item.id;
           const adjustedDuration = Math.round(item.durationMinutes * activeModeMultiplier);
@@ -344,8 +350,8 @@ const styles = StyleSheet.create({
   },
   modeBarContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    gap: 8,
+    paddingHorizontal: isSmallDevice ? 10 : 16,
+    gap: isSmallDevice ? 4 : 8,
     marginBottom: 8,
   },
   modeButton: {
@@ -353,21 +359,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    height: 40,
-    borderRadius: 20,
+    gap: isSmallDevice ? 4 : 6,
+    height: isSmallDevice ? 36 : 40,
+    borderRadius: isSmallDevice ? 18 : 20,
     borderWidth: 1,
+    paddingHorizontal: 2,
   },
   modeLabel: {
-    fontSize: 12,
+    fontSize: moderateScale(isSmallDevice ? 10 : 12),
   },
   routesList: {
-    padding: 16,
-    gap: 14,
+    padding: isSmallDevice ? 12 : 16,
+    gap: isSmallDevice ? 10 : 14,
   },
   routeCard: {
-    borderRadius: 20,
-    padding: 16,
+    borderRadius: 18,
+    padding: isSmallDevice ? 12 : 16,
     gap: 10,
     ...BMapElevation.level2,
   },

@@ -1,25 +1,24 @@
 import React, { useEffect } from 'react';
-import { Stack, DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
+import { Stack } from 'expo-router';
+import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SplashScreen from 'expo-splash-screen';
+import { enableScreens } from 'react-native-screens';
 import { BMapColors } from '@/constants/bmap-theme';
 
-// Prevent splash auto-hide while assets and auth load
-SplashScreen.preventAutoHideAsync().catch(() => {});
+// Enable native screen view recycling without freezing React fibers
+enableScreens(true);
 
 export default function RootLayout() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
 
   useEffect(() => {
-    // Hide splash screen smoothly
-    const timer = setTimeout(async () => {
-      await SplashScreen.hideAsync().catch(() => {});
-    }, 500);
-    return () => clearTimeout(timer);
+    // Hide splash screen immediately on mount
+    SplashScreen.hideAsync().catch(() => {});
   }, []);
 
   const customDarkTheme = {

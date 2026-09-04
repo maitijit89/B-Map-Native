@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,24 +7,21 @@ import {
   ScrollView,
   StyleSheet,
   useColorScheme,
-  Dimensions,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { BMapColors, BMapElevation, BMapTypography } from '@/constants/bmap-theme';
 import { BMapView, BMapMarkerItem } from '@/components/BMapView';
 import { PlaceDetailsSheet } from '@/components/PlaceDetailsSheet';
 import { PlacePOI } from '@/types';
-import { EV_STATIONS_DATA } from '@/services/evData';
-import { NATIONAL_TOLL_PLAZAS } from '@/services/fastagData';
-import { useTelemetry } from '@/services/telemetry';
+import { getLatestTelemetry } from '@/services/telemetry';
+import { moderateScale, isSmallDevice } from '@/utils/responsive';
 
 type MapLayerType = 'daylight' | 'dark' | 'satellite' | 'terrain';
 
 const QUICK_FILTER_CHIPS = [
-  { id: 'all', label: 'All Layers', icon: 'layers-outline' },
+  { id: 'all', label: 'All Places', icon: 'layers-outline' },
   { id: 'ev', label: 'EV Stations', icon: 'flash-outline', color: BMapColors.evCyan },
   { id: 'toll', label: 'FASTag Tolls', icon: 'card-outline', color: BMapColors.fastagPurple },
   { id: 'hazard', label: 'Road Hazards', icon: 'warning-outline', color: BMapColors.warningAmber },
@@ -99,14 +96,14 @@ export default function ExploreMapScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const colors = isDark ? BMapColors.dark : BMapColors.light;
-  const telemetry = useTelemetry();
 
   const [activeFilter, setActiveFilter] = useState('all');
   const [mapLayer, setMapLayer] = useState<MapLayerType>('daylight');
   const [searchQuery, setSearchQuery] = useState('');
+  const [highlightedPlace, setHighlightedPlace] = useState<PlacePOI | null>(INITIAL_POIS[0]);
   const [selectedPlace, setSelectedPlace] = useState<PlacePOI | null>(null);
 
-  // Filter markers based on selected chip
+  // Filter markers based on selected chip - only show relevant markers on the map
   const filteredPOIs = useMemo(() => {
     if (activeFilter === 'all') return INITIAL_POIS;
     return INITIAL_POIS.filter(p => p.category === activeFilter);
@@ -123,56 +120,116 @@ export default function ExploreMapScreen() {
     }));
   }, [filteredPOIs]);
 
-  const handleMarkerPress = (marker: BMapMarkerItem) => {
+  const handleMarkerPress = useCallback((marker: BMapMarkerItem) => {
     if (marker.data) {
-      setSelectedPlace(marker.data as PlacePOI);
+      setHighlightedPlace(marker.data as PlacePOI);
     }
-  };
+  }, []);
 
-  const cycleLayer = () => {
+  const handleFilterSelect = useCallback(
+    (chipId: string) => {
+      setActiveFilter(chipId);
+      const matches = chipId === 'all' ? INITIAL_POIS : INITIAL_POIS.filter(p => p.category === chipId);
+      if (matches.length > 0) {
+        setHighlightedPlace(matches[0]);
+      }
+    },
+    []
+  );
+
+  const cycleLayer = useCallback(() => {
     const layers: MapLayerType[] = ['daylight', 'satellite', 'terrain', 'dark'];
-    const nextIdx = (layers.indexOf(mapLayer) + 1) % layers.length;
-    setMapLayer(layers[nextIdx]);
-  };
+    setMapLayer(prev => {
+      const nextIdx = (layers.indexOf(prev) + 1) % layers.length;
+      return layers[nextIdx];
+    });
+  }, []);
 
-  const handleCenterLocation = () => {
-    // Open user's own location as a POI preview
-    setSelectedPlace({
+  const handleCenterLocation = useCallback(() => {
+    const loc = getLatestTelemetry();
+    const userPOI: PlacePOI = {
       id: 'user-current-poi',
       title: 'Your Live Location',
       category: 'poi',
       rating: 5.0,
       reviewCount: 1,
-      address: telemetry.addressString || 'Connaught Place, New Delhi',
+      address: loc.addressString || 'Connaught Place, New Delhi',
       digipin: 'DL-982-KP34',
-      coordinates: { latitude: telemetry.latitude, longitude: telemetry.longitude },
+      coordinates: { latitude: loc.latitude, longitude: loc.longitude },
       distanceKm: 0,
-    });
+    };
+    setHighlightedPlace(userPOI);
+  }, []);
+
+  const handleVoiceCommand = useCallback(() => {
+    setSearchQuery('Connaught Place EV Hub');
+  }, []);
+
+  const handleNavigateToPlace = useCallback(
+    (place: PlacePOI) => {
+      router.push({
+        pathname: '/navigate/route-planner' as any,
+        params: {
+          destTitle: place.title,
+          destLat: place.coordinates.latitude.toString(),
+          destLng: place.coordinates.longitude.toString(),
+          destDigipin: place.digipin,
+        },
+      });
+    },
+    [router]
+  );
+
+  const getCategoryColor = (category?: string) => {
+    switch (category) {
+      case 'ev':
+        return BMapColors.evCyan;
+      case 'toll':
+        return BMapColors.fastagPurple;
+      case 'hazard':
+        return BMapColors.warningAmber;
+      case 'sos':
+        return BMapColors.emergencyRed;
+      default:
+        return BMapColors.primary;
+    }
   };
 
-  const handleVoiceCommand = () => {
-    // Navigate or prompt search
-    setSearchQuery('Navigate to CyberCity EV Hub');
+  const getCategoryLabel = (category?: string) => {
+    switch (category) {
+      case 'ev':
+        return 'EV FAST CHARGING';
+      case 'toll':
+        return 'FASTAG TOLL PLAZA';
+      case 'hazard':
+        return 'ROAD HAZARD';
+      case 'sos':
+        return '112 EMERGENCY TRAUMA';
+      default:
+        return 'LANDMARK DESTINATION';
+    }
   };
 
   return (
     <View style={styles.container}>
-      {/* Full-Screen Vector Map Component */}
+      {/* High-Performance Vector Map Canvas */}
       <BMapView
         mapStyleType={mapLayer}
         markers={mapMarkers}
         onMarkerPress={handleMarkerPress}
-        onMapPress={() => setSelectedPlace(null)}
+        onMapPress={() => {
+          // Keep highlighted place or toggle
+        }}
       />
 
-      {/* Top Floating Overlay Container with SafeAreaView */}
+      {/* Top Floating Overlay Container */}
       <SafeAreaView style={styles.topOverlay} edges={['top']} pointerEvents="box-none">
         {/* Search Hero Bar */}
         <View
           style={[
             styles.searchHeroBar,
             {
-              backgroundColor: isDark ? 'rgba(18, 27, 36, 0.95)' : 'rgba(255, 255, 255, 0.96)',
+              backgroundColor: isDark ? 'rgba(18, 27, 36, 0.96)' : 'rgba(255, 255, 255, 0.97)',
               borderColor: colors.border,
             },
           ]}
@@ -182,12 +239,14 @@ export default function ExploreMapScreen() {
             onPress={() => router.push('/(tabs)/features' as any)}
             style={styles.leadingDrawerIcon}
           >
-            <Ionicons name="menu" size={24} color={colors.text} />
+            <Ionicons name="menu" size={isSmallDevice ? 20 : 22} color={colors.text} />
           </TouchableOpacity>
 
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
-            placeholder="Search address, DIGIPIN, toll plaza, EV..."
+            placeholder={
+              isSmallDevice ? 'Search place, DIGIPIN, EV...' : 'Search place, DIGIPIN, toll, EV...'
+            }
             placeholderTextColor={colors.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -203,16 +262,20 @@ export default function ExploreMapScreen() {
 
           {searchQuery.length > 0 ? (
             <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.actionIcon}>
-              <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
+              <Ionicons
+                name="close-circle"
+                size={isSmallDevice ? 18 : 20}
+                color={colors.textSecondary}
+              />
             </TouchableOpacity>
           ) : (
             <TouchableOpacity onPress={handleVoiceCommand} style={styles.actionIcon}>
-              <Ionicons name="mic" size={22} color={BMapColors.primary} />
+              <Ionicons name="mic" size={isSmallDevice ? 20 : 22} color={BMapColors.primary} />
             </TouchableOpacity>
           )}
         </View>
 
-        {/* Horizontal Category Chips */}
+        {/* Horizontal Category Filter Pills */}
         <ScrollView
           horizontal={true}
           showsHorizontalScrollIndicator={false}
@@ -224,13 +287,7 @@ export default function ExploreMapScreen() {
               <TouchableOpacity
                 key={chip.id}
                 activeOpacity={0.8}
-                onPress={() => {
-                  setActiveFilter(chip.id);
-                  if (chip.id === 'toll') router.push('/features/fastag' as any);
-                  else if (chip.id === 'ev') router.push('/features/ev-charging' as any);
-                  else if (chip.id === 'hazard') router.push('/features/report-hazard' as any);
-                  else if (chip.id === 'sos') router.push('/features/sos' as any);
-                }}
+                onPress={() => handleFilterSelect(chip.id)}
                 style={[
                   styles.filterChip,
                   {
@@ -245,7 +302,7 @@ export default function ExploreMapScreen() {
               >
                 <Ionicons
                   name={chip.icon as any}
-                  size={16}
+                  size={15}
                   color={isSelected ? '#FFFFFF' : chip.color || colors.text}
                 />
                 <Text
@@ -265,15 +322,21 @@ export default function ExploreMapScreen() {
         </ScrollView>
       </SafeAreaView>
 
-      {/* Floating Action Controls (Bottom-Right) */}
-      <View style={styles.fabContainer} pointerEvents="box-none">
+      {/* Floating Action Controls (Right side above bottom peek card) */}
+      <View
+        style={[
+          styles.fabContainer,
+          { bottom: highlightedPlace ? (isSmallDevice ? 160 : 175) : (isSmallDevice ? 24 : 32) },
+        ]}
+        pointerEvents="box-none"
+      >
         {/* Layer Switcher FAB */}
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={cycleLayer}
           style={[styles.fabButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
         >
-          <MaterialCommunityIcons name="layers" size={22} color={BMapColors.primary} />
+          <MaterialCommunityIcons name="layers" size={20} color={BMapColors.primary} />
           <Text style={[styles.fabLabel, { color: colors.text }]}>{mapLayer.toUpperCase()}</Text>
         </TouchableOpacity>
 
@@ -283,7 +346,7 @@ export default function ExploreMapScreen() {
           onPress={() => router.push('/navigate/route-planner' as any)}
           style={[styles.fabButton, { backgroundColor: BMapColors.primary }]}
         >
-          <Ionicons name="navigate" size={22} color="#FFFFFF" />
+          <Ionicons name="navigate" size={20} color="#FFFFFF" />
         </TouchableOpacity>
 
         {/* Center Location FAB */}
@@ -292,15 +355,116 @@ export default function ExploreMapScreen() {
           onPress={handleCenterLocation}
           style={[styles.fabButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
         >
-          <Ionicons name="locate" size={22} color={BMapColors.secondary} />
+          <Ionicons name="locate" size={20} color={BMapColors.secondary} />
         </TouchableOpacity>
       </View>
 
-      {/* Spatial Place Details Bottom Sheet */}
+      {/* Bottom Floating Place Peek Card - On-demand spatial intelligence */}
+      {highlightedPlace && (
+        <View
+          style={[
+            styles.bottomPeekCard,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          {/* Top Category Badge & Dismiss */}
+          <View style={styles.peekHeaderRow}>
+            <View
+              style={[
+                styles.categoryPill,
+                { backgroundColor: `${getCategoryColor(highlightedPlace.category)}18` },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.categoryPillText,
+                  { color: getCategoryColor(highlightedPlace.category) },
+                ]}
+              >
+                {getCategoryLabel(highlightedPlace.category)}
+              </Text>
+            </View>
+
+            <View style={styles.ratingCluster}>
+              <Ionicons name="star" size={13} color="#FFB300" />
+              <Text style={[styles.ratingNumber, { color: colors.text }]}>
+                {highlightedPlace.rating.toFixed(1)}
+              </Text>
+              <Text style={[styles.distSnippet, { color: colors.textSecondary }]}>
+                • {highlightedPlace.distanceKm} km
+              </Text>
+
+              <TouchableOpacity
+                onPress={() => setHighlightedPlace(null)}
+                style={styles.peekCloseBtn}
+              >
+                <Ionicons name="close" size={16} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Place Title & Address Snippet */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => setSelectedPlace(highlightedPlace)}
+            style={styles.titleClickArea}
+          >
+            <Text
+              style={[
+                styles.peekTitle,
+                BMapTypography.titleMedium,
+                { color: colors.text, fontSize: moderateScale(isSmallDevice ? 15 : 16) },
+              ]}
+              numberOfLines={1}
+            >
+              {highlightedPlace.title}
+            </Text>
+            <Text
+              style={[
+                styles.peekAddress,
+                { color: colors.textSecondary, fontSize: moderateScale(isSmallDevice ? 11 : 12) },
+              ]}
+              numberOfLines={1}
+            >
+              {highlightedPlace.address}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Bottom Quick Action Buttons */}
+          <View style={styles.peekActionsRow}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => handleNavigateToPlace(highlightedPlace)}
+              style={[styles.directionsBtn, { backgroundColor: BMapColors.primary }]}
+            >
+              <Ionicons name="navigate" size={15} color="#FFFFFF" />
+              <Text style={styles.directionsBtnText}>Directions</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setSelectedPlace(highlightedPlace)}
+              style={[
+                styles.detailsBtn,
+                { backgroundColor: colors.surfaceVariant, borderColor: colors.border },
+              ]}
+            >
+              <Ionicons name="information-circle-outline" size={15} color={colors.text} />
+              <Text style={[styles.detailsBtnText, { color: colors.text }]}>Full Details</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Lightweight Native Spatial Place Details Modal */}
       {selectedPlace && (
         <PlaceDetailsSheet
           place={selectedPlace}
           onClose={() => setSelectedPlace(null)}
+          onNavigatePress={handleNavigateToPlace}
         />
       )}
     </View>
@@ -317,67 +481,155 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     zIndex: 20,
-    gap: 10,
-    paddingHorizontal: 16,
+    gap: isSmallDevice ? 6 : 8,
+    paddingHorizontal: isSmallDevice ? 10 : 14,
   },
   searchHeroBar: {
-    height: 52,
-    borderRadius: 26,
+    height: isSmallDevice ? 44 : 48,
+    borderRadius: 24,
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: isSmallDevice ? 10 : 12,
     ...BMapElevation.level2,
   },
   leadingDrawerIcon: {
-    padding: 6,
-    marginRight: 6,
+    padding: 4,
+    marginRight: 4,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: moderateScale(isSmallDevice ? 12 : 13),
     height: '100%',
   },
   actionIcon: {
-    padding: 6,
+    padding: 4,
   },
   chipsScrollContent: {
-    gap: 8,
-    paddingVertical: 4,
+    gap: 6,
+    paddingVertical: 2,
   },
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    gap: 5,
+    paddingHorizontal: isSmallDevice ? 9 : 12,
+    paddingVertical: isSmallDevice ? 6 : 7,
+    borderRadius: 18,
     borderWidth: 1,
     ...BMapElevation.level1,
   },
   filterChipText: {
-    fontSize: 13,
+    fontSize: moderateScale(isSmallDevice ? 11 : 12),
   },
   fabContainer: {
     position: 'absolute',
-    bottom: 24,
-    right: 16,
+    right: isSmallDevice ? 10 : 14,
     zIndex: 20,
-    gap: 12,
+    gap: 10,
     alignItems: 'center',
   },
   fabButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: isSmallDevice ? 42 : 46,
+    height: isSmallDevice ? 42 : 46,
+    borderRadius: 23,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    ...BMapElevation.level3,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
   },
   fabLabel: {
-    fontSize: 8,
+    fontSize: 7,
     fontWeight: '800',
     marginTop: -2,
+  },
+  bottomPeekCard: {
+    position: 'absolute',
+    bottom: isSmallDevice ? 12 : 16,
+    left: isSmallDevice ? 10 : 14,
+    right: isSmallDevice ? 10 : 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: isSmallDevice ? 12 : 14,
+    gap: 8,
+    zIndex: 25,
+    ...BMapElevation.level3,
+  },
+  peekHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  categoryPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  categoryPillText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  ratingCluster: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  ratingNumber: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  distSnippet: {
+    fontSize: 11,
+  },
+  peekCloseBtn: {
+    padding: 2,
+    marginLeft: 6,
+  },
+  titleClickArea: {
+    gap: 2,
+  },
+  peekTitle: {
+    fontWeight: '700',
+  },
+  peekAddress: {
+    lineHeight: 16,
+  },
+  peekActionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 2,
+  },
+  directionsBtn: {
+    flex: 1.2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: isSmallDevice ? 8 : 10,
+    borderRadius: 10,
+  },
+  directionsBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: moderateScale(isSmallDevice ? 12 : 13),
+  },
+  detailsBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: isSmallDevice ? 8 : 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  detailsBtnText: {
+    fontWeight: '600',
+    fontSize: moderateScale(isSmallDevice ? 11 : 12),
   },
 });

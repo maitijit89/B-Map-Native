@@ -6,20 +6,20 @@ import {
   FlatList,
   StyleSheet,
   useColorScheme,
-  Dimensions,
   Modal,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { BMapColors, BMapElevation, BMapTypography } from '@/constants/bmap-theme';
 import { HeaderBar } from '@/components/HeaderBar';
 import { BMapView, BMapMarkerItem } from '@/components/BMapView';
 import { EVStation } from '@/types';
 import { EV_STATIONS_DATA } from '@/services/evData';
+import { SCREEN_WIDTH, isSmallDevice, moderateScale } from '@/utils/responsive';
 
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = width * 0.82;
+const CARD_WIDTH = isSmallDevice ? SCREEN_WIDTH * 0.88 : SCREEN_WIDTH * 0.82;
 const CARD_SPACING = 12;
 
 type ConnectorType = 'CCS2' | 'Type2_AC' | 'CHAdeMO' | 'GB/T' | '2W_3W_Swap';
@@ -133,6 +133,10 @@ export default function EVChargingRadarScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.cardsScroll}
           keyExtractor={item => item.id}
+          initialNumToRender={2}
+          maxToRenderPerBatch={3}
+          windowSize={3}
+          removeClippedSubviews={Platform.OS === 'android'}
           renderItem={({ item, index }) => {
             const isAvailable = item.availablePorts > 0;
 
@@ -441,7 +445,7 @@ const styles = StyleSheet.create({
   },
   navigateBtnText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: moderateScale(isSmallDevice ? 11 : 12),
     fontWeight: '700',
   },
   modalBackdrop: {
