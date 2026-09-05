@@ -1,4 +1,25 @@
 import { MetroFareRate } from '@/types';
+import { IndianEcosystemAPI } from '@/api/api';
+import { IndianCity, FareEstimateResponse } from '@/api/types';
+
+export async function fetchMeteredFareEstimate(
+  city: IndianCity,
+  distanceKm: number,
+  durationMinutes = 25,
+  isNight = false
+): Promise<FareEstimateResponse | null> {
+  try {
+    const res = await IndianEcosystemAPI.estimateMeteredFare({
+      city,
+      distance_km: distanceKm,
+      duration_minutes: durationMinutes,
+      is_night_time: isNight,
+    });
+    return res.data?.data || null;
+  } catch {
+    return null;
+  }
+}
 
 export const METRO_FARE_RATES: Record<string, MetroFareRate> = {
   Delhi: {

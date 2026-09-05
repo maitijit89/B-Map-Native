@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   ScrollView,
   Switch,
   StyleSheet,
@@ -11,9 +10,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Slider from '@react-native-community/slider';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
-import { BMapColors, BMapElevation, BMapTypography } from '@/constants/bmap-theme';
+import { BMapColors, BMapElevation } from '@/constants/bmap-theme';
 import { HeaderBar } from '@/components/HeaderBar';
-import { METRO_FARE_RATES, calculateMeteredFare } from '@/services/fareCalculator';
+import { calculateMeteredFare } from '@/services/fareCalculator';
+import { AnimatedPressable } from '@/components/ui/animated-pressable';
+import { FadeInView } from '@/components/ui/fade-in-view';
 
 const CITIES = ['Delhi', 'Mumbai', 'Bengaluru', 'Kolkata', 'Chennai', 'Hyderabad'];
 
@@ -27,7 +28,7 @@ export default function FareEstimatorScreen() {
   const [distanceKm, setDistanceKm] = useState<number>(8.5);
   const [isNightSurcharge, setIsNightSurcharge] = useState<boolean>(false);
   const [waitingMinutes, setWaitingMinutes] = useState<number>(10);
-  const [luggageCount, setLuggageCount] = useState<number>(1);
+  const [luggageCount] = useState<number>(1);
   const [isBreakdownExpanded, setIsBreakdownExpanded] = useState<boolean>(true);
 
   const fareResult = calculateMeteredFare(
@@ -49,134 +50,139 @@ export default function FareEstimatorScreen() {
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* City Selector Horizontal Bar */}
-        <View style={styles.sectionBlock}>
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>SELECT INDIAN METRO</Text>
-          <ScrollView horizontal={true} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cityScroll}>
-            {CITIES.map(city => {
-              const isSelected = selectedCity === city;
-              return (
-                <TouchableOpacity
-                  key={city}
-                  activeOpacity={0.8}
-                  onPress={() => setSelectedCity(city)}
-                  style={[
-                    styles.cityChip,
-                    {
-                      backgroundColor: isSelected ? BMapColors.primary : colors.surface,
-                      borderColor: isSelected ? BMapColors.primary : colors.border,
-                    },
-                  ]}
-                >
-                  <Text
+        <FadeInView delay={50} direction="down">
+          <View style={styles.sectionBlock}>
+            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>SELECT INDIAN METRO</Text>
+            <ScrollView horizontal={true} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cityScroll}>
+              {CITIES.map(city => {
+                const isSelected = selectedCity === city;
+                return (
+                  <AnimatedPressable
+                    key={city}
+                    onPress={() => setSelectedCity(city)}
+                    scaleTo={0.94}
                     style={[
-                      styles.cityChipText,
+                      styles.cityChip,
                       {
-                        color: isSelected ? '#FFFFFF' : colors.text,
-                        fontWeight: isSelected ? '700' : '600',
+                        backgroundColor: isSelected ? BMapColors.primary : colors.surface,
+                        borderColor: isSelected ? BMapColors.primary : colors.border,
                       },
                     ]}
                   >
-                    {city}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
+                    <Text
+                      style={[
+                        styles.cityChipText,
+                        {
+                          color: isSelected ? '#FFFFFF' : colors.text,
+                          fontWeight: isSelected ? '700' : '600',
+                        },
+                      ]}
+                    >
+                      {city}
+                    </Text>
+                  </AnimatedPressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </FadeInView>
 
         {/* Vehicle Mode Toggle: Auto vs Cab */}
-        <View style={[styles.vehicleToggleCard, { backgroundColor: colors.surfaceVariant }]}>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setVehicleType('auto')}
-            style={[
-              styles.vehicleTab,
-              vehicleType === 'auto' && [styles.activeVehicleTab, { backgroundColor: colors.surface }],
-            ]}
-          >
-            <MaterialCommunityIcons
-              name="rickshaw"
-              size={20}
-              color={vehicleType === 'auto' ? '#CA8A04' : colors.textSecondary}
-            />
-            <Text
+        <FadeInView delay={120} direction="down">
+          <View style={[styles.vehicleToggleCard, { backgroundColor: colors.surfaceVariant }]}>
+            <AnimatedPressable
+              onPress={() => setVehicleType('auto')}
+              scaleTo={0.96}
               style={[
-                styles.vehicleTabText,
-                {
-                  color: vehicleType === 'auto' ? colors.text : colors.textSecondary,
-                  fontWeight: vehicleType === 'auto' ? '700' : '600',
-                },
+                styles.vehicleTab,
+                vehicleType === 'auto' && [styles.activeVehicleTab, { backgroundColor: colors.surface }],
               ]}
             >
-              Metered Auto
-            </Text>
-          </TouchableOpacity>
+              <MaterialCommunityIcons
+                name="rickshaw"
+                size={20}
+                color={vehicleType === 'auto' ? '#CA8A04' : colors.textSecondary}
+              />
+              <Text
+                style={[
+                  styles.vehicleTabText,
+                  {
+                    color: vehicleType === 'auto' ? colors.text : colors.textSecondary,
+                    fontWeight: vehicleType === 'auto' ? '700' : '600',
+                  },
+                ]}
+              >
+                Metered Auto
+              </Text>
+            </AnimatedPressable>
 
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setVehicleType('cab')}
-            style={[
-              styles.vehicleTab,
-              vehicleType === 'cab' && [styles.activeVehicleTab, { backgroundColor: colors.surface }],
-            ]}
-          >
-            <FontAwesome5
-              name="taxi"
-              size={18}
-              color={vehicleType === 'cab' ? '#CA8A04' : colors.textSecondary}
-            />
-            <Text
+            <AnimatedPressable
+              onPress={() => setVehicleType('cab')}
+              scaleTo={0.96}
               style={[
-                styles.vehicleTabText,
-                {
-                  color: vehicleType === 'cab' ? colors.text : colors.textSecondary,
-                  fontWeight: vehicleType === 'cab' ? '700' : '600',
-                },
+                styles.vehicleTab,
+                vehicleType === 'cab' && [styles.activeVehicleTab, { backgroundColor: colors.surface }],
               ]}
             >
-              Metered Black & Yellow Cab
-            </Text>
-          </TouchableOpacity>
-        </View>
+              <FontAwesome5
+                name="taxi"
+                size={18}
+                color={vehicleType === 'cab' ? '#CA8A04' : colors.textSecondary}
+              />
+              <Text
+                style={[
+                  styles.vehicleTabText,
+                  {
+                    color: vehicleType === 'cab' ? colors.text : colors.textSecondary,
+                    fontWeight: vehicleType === 'cab' ? '700' : '600',
+                  },
+                ]}
+              >
+                Metered Black & Yellow Cab
+              </Text>
+            </AnimatedPressable>
+          </View>
+        </FadeInView>
 
         {/* Calculated Fare Hero Card */}
-        <View
-          style={[
-            styles.fareHeroCard,
-            {
-              backgroundColor: isDark ? '#1C1917' : '#FEFCE8',
-              borderColor: '#FACC15',
-            },
-          ]}
-        >
-          <View style={styles.fareHeroTop}>
-            <View>
-              <Text style={styles.fareHeroLabel}>ESTIMATED RTA FARE</Text>
-              <Text style={[styles.fareAmountText, { color: colors.text }]}>₹{fareResult.totalFare}</Text>
-              <Text style={[styles.fareCityText, { color: colors.textSecondary }]}>
-                Official {fareResult.city} Govt. Tariff Card
-              </Text>
-            </View>
-
-            <View style={styles.meterBadge}>
-              <MaterialCommunityIcons name="speedometer" size={24} color="#CA8A04" />
-              <Text style={styles.meterBadgeText}>Digital Meter</Text>
-            </View>
-          </View>
-
-          {/* Expandable Itemized Cost Breakdown */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => setIsBreakdownExpanded(!isBreakdownExpanded)}
-            style={[styles.breakdownHeader, { borderTopColor: isDark ? '#292524' : '#FEF08A' }]}
+        <FadeInView delay={180} direction="up">
+          <View
+            style={[
+              styles.fareHeroCard,
+              {
+                backgroundColor: isDark ? '#1C1917' : '#FEFCE8',
+                borderColor: '#FACC15',
+              },
+            ]}
           >
-            <Text style={[styles.breakdownTitle, { color: colors.text }]}>Itemized Cost Breakdown</Text>
-            <Ionicons
-              name={isBreakdownExpanded ? 'chevron-up' : 'chevron-down'}
-              size={18}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
+            <View style={styles.fareHeroTop}>
+              <View>
+                <Text style={styles.fareHeroLabel}>ESTIMATED RTA FARE</Text>
+                <Text style={[styles.fareAmountText, { color: colors.text }]}>₹{fareResult.totalFare}</Text>
+                <Text style={[styles.fareCityText, { color: colors.textSecondary }]}>
+                  Official {fareResult.city} Govt. Tariff Card
+                </Text>
+              </View>
+
+              <View style={styles.meterBadge}>
+                <MaterialCommunityIcons name="speedometer" size={24} color="#CA8A04" />
+                <Text style={styles.meterBadgeText}>Digital Meter</Text>
+              </View>
+            </View>
+
+            {/* Expandable Itemized Cost Breakdown */}
+            <AnimatedPressable
+              onPress={() => setIsBreakdownExpanded(!isBreakdownExpanded)}
+              scaleTo={0.98}
+              style={[styles.breakdownHeader, { borderTopColor: isDark ? '#292524' : '#FEF08A' }]}
+            >
+              <Text style={[styles.breakdownTitle, { color: colors.text }]}>Itemized Cost Breakdown</Text>
+              <Ionicons
+                name={isBreakdownExpanded ? 'chevron-up' : 'chevron-down'}
+                size={18}
+                color={colors.textSecondary}
+              />
+            </AnimatedPressable>
 
           {isBreakdownExpanded && (
             <View style={styles.breakdownDetails}>
@@ -220,10 +226,12 @@ export default function FareEstimatorScreen() {
               )}
             </View>
           )}
-        </View>
+          </View>
+        </FadeInView>
 
         {/* Interactive Controls Card: Distance, Night Surcharge, Waiting Time Slider */}
-        <View style={[styles.controlsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <FadeInView delay={240} direction="up">
+          <View style={[styles.controlsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           {/* Distance Slider */}
           <View style={styles.controlRow}>
             <View style={styles.controlLabelGroup}>
@@ -285,6 +293,7 @@ export default function FareEstimatorScreen() {
             />
           </View>
         </View>
+        </FadeInView>
       </ScrollView>
     </SafeAreaView>
   );

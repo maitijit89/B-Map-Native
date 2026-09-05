@@ -5,19 +5,19 @@ import {
   ScrollView,
   StyleSheet,
   useColorScheme,
-  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { BMapColors, BMapElevation, BMapTypography } from '@/constants/bmap-theme';
 import { HeaderBar } from '@/components/HeaderBar';
+import { FadeInView } from '@/components/ui/fade-in-view';
 
 export default function EnvironmentScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const colors = isDark ? BMapColors.dark : BMapColors.light;
 
-  const [aqiScore, setAqiScore] = useState<number>(245); // Unhealthy/Severe typical winter reading
+  const [aqiScore] = useState<number>(245); // Unhealthy/Severe typical winter reading
 
   const getAqiCategory = (score: number) => {
     if (score <= 50) return { label: 'Good', color: '#16A34A', bg: '#DCFCE7', desc: 'Air quality is satisfactory. Safe for outdoor driving and active mobility.' };
@@ -36,17 +36,18 @@ export default function EnvironmentScreen() {
         accentColor="#0284C7"
       />
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* AQI Hero Card with dynamic color coding */}
-        <View
-          style={[
-            styles.aqiHeroCard,
-            {
-              backgroundColor: isDark ? '#1E1B18' : aqiInfo.bg,
-              borderColor: aqiInfo.color,
-            },
-          ]}
-        >
+        <FadeInView delay={60} direction="down">
+          <View
+            style={[
+              styles.aqiHeroCard,
+              {
+                backgroundColor: isDark ? '#1E1B18' : aqiInfo.bg,
+                borderColor: aqiInfo.color,
+              },
+            ]}
+          >
           <View style={styles.aqiTopRow}>
             <View>
               <Text style={[styles.aqiLabel, { color: aqiInfo.color }]}>LIVE AIR QUALITY INDEX (IMD / CPCB)</Text>
@@ -74,101 +75,106 @@ export default function EnvironmentScreen() {
             </Text>
           </View>
         </View>
+        </FadeInView>
 
         {/* 2x2 Environmental Intelligence Grid */}
-        <View style={styles.gridSection}>
-          <Text style={[styles.sectionHeading, BMapTypography.titleMedium, { color: colors.text }]}>
-            Highway Weather & Environmental Parameters
-          </Text>
+        <FadeInView delay={160} direction="up">
+          <View style={styles.gridSection}>
+            <Text style={[styles.sectionHeading, BMapTypography.titleMedium, { color: colors.text }]}>
+              Highway Weather & Environmental Parameters
+            </Text>
 
-          <View style={styles.envGrid}>
-            {/* 1. Winter Dense Fog Highway Visibility */}
-            <View style={[styles.gridCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={[styles.gridIconCircle, { backgroundColor: '#F1F5F9' }]}>
-                <MaterialCommunityIcons name="weather-fog" size={24} color="#64748B" />
-              </View>
-              <Text style={[styles.gridCardTitle, { color: colors.textMuted }]}>
-                FOG VISIBILITY
-              </Text>
-              <Text style={[styles.gridMainValue, { color: colors.text }]}>120 Meters</Text>
-              <View style={[styles.gridStatusPill, { backgroundColor: '#FEF3C7' }]}>
-                <Text style={[styles.gridStatusText, { color: '#92400E' }]}>
-                  Dense Fog • Max 40 km/h
+            <View style={styles.envGrid}>
+              {/* 1. Winter Dense Fog Highway Visibility */}
+              <View style={[styles.gridCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View style={[styles.gridIconCircle, { backgroundColor: '#F1F5F9' }]}>
+                  <MaterialCommunityIcons name="weather-fog" size={24} color="#64748B" />
+                </View>
+                <Text style={[styles.gridCardTitle, { color: colors.textMuted }]}>
+                  FOG VISIBILITY
                 </Text>
+                <Text style={[styles.gridMainValue, { color: colors.text }]}>120 Meters</Text>
+                <View style={[styles.gridStatusPill, { backgroundColor: '#FEF3C7' }]}>
+                  <Text style={[styles.gridStatusText, { color: '#92400E' }]}>
+                    Dense Fog • Max 40 km/h
+                  </Text>
+                </View>
               </View>
-            </View>
 
-            {/* 2. IMD Monsoon Alert Level */}
-            <View style={[styles.gridCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={[styles.gridIconCircle, { backgroundColor: '#FFEDD5' }]}>
-                <Ionicons name="thunderstorm" size={24} color="#EA580C" />
-              </View>
-              <Text style={[styles.gridCardTitle, { color: colors.textMuted }]}>
-                MONSOON ALERT
-              </Text>
-              <Text style={[styles.gridMainValue, { color: '#EA580C' }]}>Orange Alert</Text>
-              <View style={[styles.gridStatusPill, { backgroundColor: '#FFEDD5' }]}>
-                <Text style={[styles.gridStatusText, { color: '#9A3412' }]}>
-                  Heavy Showers (IMD)
+              {/* 2. IMD Monsoon Alert Level */}
+              <View style={[styles.gridCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View style={[styles.gridIconCircle, { backgroundColor: '#FFEDD5' }]}>
+                  <Ionicons name="thunderstorm" size={24} color="#EA580C" />
+                </View>
+                <Text style={[styles.gridCardTitle, { color: colors.textMuted }]}>
+                  MONSOON ALERT
                 </Text>
+                <Text style={[styles.gridMainValue, { color: '#EA580C' }]}>Orange Alert</Text>
+                <View style={[styles.gridStatusPill, { backgroundColor: '#FFEDD5' }]}>
+                  <Text style={[styles.gridStatusText, { color: '#9A3412' }]}>
+                    Heavy Showers (IMD)
+                  </Text>
+                </View>
               </View>
-            </View>
 
-            {/* 3. Solar Radiation Index */}
-            <View style={[styles.gridCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={[styles.gridIconCircle, { backgroundColor: '#FEF9C3' }]}>
-                <Ionicons name="sunny" size={24} color="#CA8A04" />
-              </View>
-              <Text style={[styles.gridCardTitle, { color: colors.textMuted }]}>
-                SOLAR UV INDEX
-              </Text>
-              <Text style={[styles.gridMainValue, { color: colors.text }]}>7.2 High</Text>
-              <View style={[styles.gridStatusPill, { backgroundColor: '#FEF9C3' }]}>
-                <Text style={[styles.gridStatusText, { color: '#854D0E' }]}>
-                  Sun Visor Required
+              {/* 3. Solar Radiation Index */}
+              <View style={[styles.gridCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View style={[styles.gridIconCircle, { backgroundColor: '#FEF9C3' }]}>
+                  <Ionicons name="sunny" size={24} color="#CA8A04" />
+                </View>
+                <Text style={[styles.gridCardTitle, { color: colors.textMuted }]}>
+                  SOLAR UV INDEX
                 </Text>
+                <Text style={[styles.gridMainValue, { color: colors.text }]}>7.2 High</Text>
+                <View style={[styles.gridStatusPill, { backgroundColor: '#FEF9C3' }]}>
+                  <Text style={[styles.gridStatusText, { color: '#854D0E' }]}>
+                    Sun Visor Required
+                  </Text>
+                </View>
               </View>
-            </View>
 
-            {/* 4. Pollen Allergy Risk Level */}
-            <View style={[styles.gridCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={[styles.gridIconCircle, { backgroundColor: '#DCFCE7' }]}>
-                <MaterialCommunityIcons name="flower-pollen" size={24} color="#16A34A" />
-              </View>
-              <Text style={[styles.gridCardTitle, { color: colors.textMuted }]}>
-                POLLEN RISK
-              </Text>
-              <Text style={[styles.gridMainValue, { color: colors.text }]}>Moderate</Text>
-              <View style={[styles.gridStatusPill, { backgroundColor: '#DCFCE7' }]}>
-                <Text style={[styles.gridStatusText, { color: '#166534' }]}>
-                  Grass & Oak Pollen
+              {/* 4. Pollen Allergy Risk Level */}
+              <View style={[styles.gridCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View style={[styles.gridIconCircle, { backgroundColor: '#DCFCE7' }]}>
+                  <MaterialCommunityIcons name="flower-pollen" size={24} color="#16A34A" />
+                </View>
+                <Text style={[styles.gridCardTitle, { color: colors.textMuted }]}>
+                  POLLEN RISK
                 </Text>
+                <Text style={[styles.gridMainValue, { color: colors.text }]}>Moderate</Text>
+                <View style={[styles.gridStatusPill, { backgroundColor: '#DCFCE7' }]}>
+                  <Text style={[styles.gridStatusText, { color: '#166534' }]}>
+                    Grass & Oak Pollen
+                  </Text>
+                </View>
               </View>
             </View>
           </View>
-        </View>
+        </FadeInView>
 
         {/* Live Weather Forecast Bar */}
-        <View style={[styles.forecastCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.forecastTitle, BMapTypography.titleSmall, { color: colors.text }]}>
-            Upcoming Highway Forecast (Next 6 Hours)
-          </Text>
-          <View style={styles.forecastRow}>
-            {[
-              { time: '04 PM', temp: '26°C', rain: '20%', icon: 'sunny-outline' },
-              { time: '06 PM', temp: '24°C', rain: '65%', icon: 'rainy-outline' },
-              { time: '08 PM', temp: '21°C', rain: '80%', icon: 'thunderstorm-outline' },
-              { time: '10 PM', temp: '19°C', rain: '40%', icon: 'cloudy-outline' },
-            ].map(f => (
-              <View key={f.time} style={styles.forecastItem}>
-                <Text style={[styles.fTime, { color: colors.textSecondary }]}>{f.time}</Text>
-                <Ionicons name={f.icon as any} size={22} color={BMapColors.primary} />
-                <Text style={[styles.fTemp, { color: colors.text }]}>{f.temp}</Text>
-                <Text style={styles.fRain}>{f.rain}</Text>
-              </View>
-            ))}
+        <FadeInView delay={240} direction="up">
+          <View style={[styles.forecastCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.forecastTitle, BMapTypography.titleSmall, { color: colors.text }]}>
+              Upcoming Highway Forecast (Next 6 Hours)
+            </Text>
+            <View style={styles.forecastRow}>
+              {[
+                { time: '04 PM', temp: '26°C', rain: '20%', icon: 'sunny-outline' },
+                { time: '06 PM', temp: '24°C', rain: '65%', icon: 'rainy-outline' },
+                { time: '08 PM', temp: '21°C', rain: '80%', icon: 'thunderstorm-outline' },
+                { time: '10 PM', temp: '19°C', rain: '40%', icon: 'cloudy-outline' },
+              ].map(f => (
+                <View key={f.time} style={styles.forecastItem}>
+                  <Text style={[styles.fTime, { color: colors.textSecondary }]}>{f.time}</Text>
+                  <Ionicons name={f.icon as any} size={22} color={BMapColors.primary} />
+                  <Text style={[styles.fTemp, { color: colors.text }]}>{f.temp}</Text>
+                  <Text style={styles.fRain}>{f.rain}</Text>
+                </View>
+              ))}
+            </View>
           </View>
-        </View>
+        </FadeInView>
       </ScrollView>
     </SafeAreaView>
   );

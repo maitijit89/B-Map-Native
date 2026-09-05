@@ -1,8 +1,17 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons, Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  withSequence,
+  withSpring,
+  Easing,
+} from 'react-native-reanimated';
 import { LatLng, PlaceCategory } from '@/types';
-import { BMapColors } from '@/constants/bmap-theme';
+import { BMapColors, BMapAnimation } from '@/constants/bmap-theme';
 
 export interface BMapMarkerItem {
   id: string;
@@ -31,6 +40,7 @@ interface BMapViewProps {
   markers?: BMapMarkerItem[];
   polylines?: BMapPolylineItem[];
   mapStyleType?: 'daylight' | 'dark' | 'satellite' | 'terrain';
+  showTrafficOverlay?: boolean;
   onMarkerPress?: (marker: BMapMarkerItem) => void;
   onMapPress?: () => void;
   style?: any;
@@ -110,21 +120,44 @@ const MapMarkerPin = React.memo(function MapMarkerPin({
   const leftPercent = Math.max(10, Math.min(85, 50 + lngDiff * 35));
   const isTaxi = marker.category === 'taxi';
 
+  // Animated bounce on mount
+  const markerScale = useSharedValue(0);
+
+  useEffect(() => {
+    markerScale.value = withSpring(1, BMapAnimation.bounceSpring);
+  }, [markerScale]);
+
+  const markerAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: markerScale.value * (isTaxi ? 0.9 : 1) }],
+  }));
+
+  const handlePress = () => {
+    markerScale.value = withSequence(
+      withSpring(1.25, { damping: 6, stiffness: 400 }),
+      withSpring(1, BMapAnimation.pressSpring)
+    );
+    onPress?.(marker);
+  };
+
   return (
-    <TouchableOpacity
-      activeOpacity={0.8}
+    <Animated.View
       style={[
         styles.markerPin,
         {
           top: `${topPercent}%` as any,
           left: `${leftPercent}%` as any,
           backgroundColor: getMarkerBgColor(marker.category),
-          transform: [{ scale: isTaxi ? 0.9 : 1 }],
         },
+        markerAnimatedStyle,
       ]}
-      onPress={() => onPress && onPress(marker)}
     >
-      {getMarkerIcon(marker.category)}
+      <TouchableOpacity
+        activeOpacity={0.8}
+        onPress={handlePress}
+        style={styles.markerTouchable}
+      >
+        {getMarkerIcon(marker.category)}
+      </TouchableOpacity>
       {marker.title ? (
         <View style={[styles.markerCallout, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF' }]}>
           <Text
@@ -135,9 +168,42 @@ const MapMarkerPin = React.memo(function MapMarkerPin({
           </Text>
         </View>
       ) : null}
-    </TouchableOpacity>
+    </Animated.View>
   );
 });
+
+/** Animated user location pulse ring */
+function UserLocationPulse() {
+  const pulseScale = useSharedValue(1);
+  const pulseOpacity = useSharedValue(0.4);
+
+  useEffect(() => {
+    pulseScale.value = withRepeat(
+      withTiming(1.8, { duration: 2000, easing: Easing.out(Easing.ease) }),
+      -1,
+      false
+    );
+    pulseOpacity.value = withRepeat(
+      withTiming(0, { duration: 2000, easing: Easing.out(Easing.ease) }),
+      -1,
+      false
+    );
+  }, [pulseOpacity, pulseScale]);
+
+  const pulseAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseScale.value }],
+    opacity: pulseOpacity.value,
+  }));
+
+  return (
+    <View style={styles.userLocationMarker} pointerEvents="none">
+      <Animated.View style={[styles.userPulseRing, pulseAnimatedStyle]} />
+      <View style={styles.userCoreDot}>
+        <Ionicons name="navigate" size={12} color="#FFFFFF" />
+      </View>
+    </View>
+  );
+}
 
 // Universal high-fidelity map visualizer (Memoized for 60fps performance on 3GB RAM devices)
 function BMapViewComponent({
@@ -145,6 +211,7 @@ function BMapViewComponent({
   markers = [],
   polylines = [],
   mapStyleType = 'daylight',
+  showTrafficOverlay = false,
   onMarkerPress,
   onMapPress,
   style,
@@ -187,9 +254,34 @@ function BMapViewComponent({
         />
 
         {/* Arterial Highways */}
-        <View style={[styles.highwayHorizontal, { backgroundColor: getArterialRoadColor() }]} />
-        <View style={[styles.highwayVertical, { backgroundColor: getArterialRoadColor() }]} />
-        <View style={[styles.highwayDiagonal, { backgroundColor: getGridRoadColor() }]} />
+        <View style={[styles.highwayHorizontal, { backgroundColor: getArterialRoadColor() }]}>
+          {showTrafficOverlay && (
+            <View style={styles.trafficFlowRow}>
+              <View style={[styles.trafficFlowSegment, { flex: 0.45, backgroundColor: '#10B981' }]} />
+              <View style={[styles.trafficFlowSegment, { flex: 0.35, backgroundColor: '#F59E0B' }]} />
+              <View style={[styles.trafficFlowSegment, { flex: 0.20, backgroundColor: '#EF4444' }]} />
+            </View>
+          )}
+        </View>
+
+        <View style={[styles.highwayVertical, { backgroundColor: getArterialRoadColor() }]}>
+          {showTrafficOverlay && (
+            <View style={styles.trafficFlowCol}>
+              <View style={[styles.trafficFlowSegment, { flex: 0.60, backgroundColor: '#10B981' }]} />
+              <View style={[styles.trafficFlowSegment, { flex: 0.25, backgroundColor: '#F59E0B' }]} />
+              <View style={[styles.trafficFlowSegment, { flex: 0.15, backgroundColor: '#10B981' }]} />
+            </View>
+          )}
+        </View>
+
+        <View style={[styles.highwayDiagonal, { backgroundColor: getGridRoadColor() }]}>
+          {showTrafficOverlay && (
+            <View style={styles.trafficFlowRow}>
+              <View style={[styles.trafficFlowSegment, { flex: 0.70, backgroundColor: '#10B981' }]} />
+              <View style={[styles.trafficFlowSegment, { flex: 0.30, backgroundColor: '#F59E0B' }]} />
+            </View>
+          )}
+        </View>
 
         {/* Road Grid Patterns */}
         <View style={[styles.gridLineH1, { backgroundColor: getGridRoadColor() }]} />
@@ -244,19 +336,14 @@ function BMapViewComponent({
           />
         ))}
 
-        {/* User Pulse Location Marker */}
-        <View style={styles.userLocationMarker} pointerEvents="none">
-          <View style={styles.userPulseRing} />
-          <View style={styles.userCoreDot}>
-            <Ionicons name="navigate" size={12} color="#FFFFFF" />
-          </View>
-        </View>
+        {/* Animated User Pulse Location Marker */}
+        <UserLocationPulse />
       </View>
 
       {/* Map Mode Badge */}
       <View style={styles.styleBadge}>
         <Text style={styles.styleBadgeText}>
-          {mapStyleType.toUpperCase()} • INDIA SPATIAL GRID
+          {mapStyleType.toUpperCase()} • INDIA SPATIAL GRID{showTrafficOverlay ? ' • TRAFFIC LIVE 🟢' : ''}
         </Text>
       </View>
     </View>
@@ -397,6 +484,13 @@ const styles = StyleSheet.create({
     elevation: 2,
     zIndex: 10,
   },
+  markerTouchable: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   markerCallout: {
     position: 'absolute',
     bottom: 38,
@@ -419,30 +513,35 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: '50%',
     left: '50%',
-    marginLeft: -16,
-    marginTop: -16,
-    width: 32,
-    height: 32,
+    marginLeft: -20,
+    marginTop: -20,
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 12,
   },
   userPulseRing: {
     position: 'absolute',
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(30, 136, 229, 0.25)',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(30, 136, 229, 0.3)',
   },
   userCoreDot: {
     width: 22,
     height: 22,
     borderRadius: 11,
     backgroundColor: '#1E88E5',
-    borderWidth: 2,
+    borderWidth: 2.5,
     borderColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#1E88E5',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    elevation: 4,
   },
   styleBadge: {
     position: 'absolute',
@@ -458,5 +557,22 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '700',
     letterSpacing: 0.5,
+  },
+  trafficFlowRow: {
+    flex: 1,
+    flexDirection: 'row',
+    height: '100%',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  trafficFlowCol: {
+    flex: 1,
+    flexDirection: 'column',
+    width: '100%',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  trafficFlowSegment: {
+    opacity: 0.95,
   },
 });

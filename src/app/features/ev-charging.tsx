@@ -1,8 +1,7 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   FlatList,
   StyleSheet,
   useColorScheme,
@@ -18,6 +17,10 @@ import { BMapView, BMapMarkerItem } from '@/components/BMapView';
 import { EVStation } from '@/types';
 import { EV_STATIONS_DATA } from '@/services/evData';
 import { SCREEN_WIDTH, isSmallDevice, moderateScale } from '@/utils/responsive';
+import { AnimatedPressable } from '@/components/ui/animated-pressable';
+import { FadeInView } from '@/components/ui/fade-in-view';
+import { IndianEcosystemAPI } from '@/api/api';
+import { getLatestTelemetry } from '@/services/telemetry';
 
 const CARD_WIDTH = isSmallDevice ? SCREEN_WIDTH * 0.88 : SCREEN_WIDTH * 0.82;
 const CARD_SPACING = 12;
@@ -32,12 +35,45 @@ const CONNECTOR_OPTIONS: { id: ConnectorType; label: string; desc: string }[] = 
   { id: '2W_3W_Swap', label: '2W / 3W Battery Swap', desc: 'Ather / Bounce / Battery Smart' },
 ];
 
+function mapBackendEVStation(s: any): EVStation {
+  const lat = s.location?.lat || s.location?.latitude || 28.495;
+  const lng = s.location?.lng || s.location?.longitude || 77.089;
+  const connectors = Array.isArray(s.connectors)
+    ? s.connectors.map((c: any) =>
+        typeof c === 'string'
+          ? c
+          : c.type === 'TYPE_2'
+          ? 'Type2_AC'
+          : c.type
+      )
+    : ['CCS2', 'Type2_AC'];
+  const totalPorts =
+    s.connectors?.reduce((acc: number, c: any) => acc + (c.total_ports || 1), 0) || 6;
+  const availPorts =
+    s.connectors?.reduce((acc: number, c: any) => acc + (c.available_ports || 1), 0) || 3;
+
+  return {
+    id: s.id,
+    name: s.name,
+    network: (s.operator || 'Tata Power EZ Charge') as any,
+    address: s.address,
+    coordinates: { latitude: lat, longitude: lng },
+    distanceKm: 2.1,
+    availablePorts: availPorts,
+    totalPorts: totalPorts,
+    maxPowerKw: s.power_kw || 60,
+    connectors,
+    costPerKwh: s.cost_per_kwh_inr || 18.5,
+  };
+}
+
 export default function EVChargingRadarScreen() {
   const router = useRouter();
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const colors = isDark ? BMapColors.dark : BMapColors.light;
 
+  const [stations, setStations] = useState<EVStation[]>(EV_STATIONS_DATA);
   const [selectedConnectors, setSelectedConnectors] = useState<ConnectorType[]>([
     'CCS2',
     'Type2_AC',
@@ -48,13 +84,36 @@ export default function EVChargingRadarScreen() {
 
   const flatListRef = useRef<FlatList>(null);
 
+  // Fetch real EV stations from Go backend
+  useEffect(() => {
+    let isMounted = true;
+    const fetchStations = async () => {
+      try {
+        const loc = getLatestTelemetry();
+        const res = await IndianEcosystemAPI.getEVStations(loc.latitude, loc.longitude, 40);
+        const remoteStations = res.data?.data?.stations;
+        if (isMounted && remoteStations && remoteStations.length > 0) {
+          const mapped = remoteStations.map(mapBackendEVStation);
+          setStations(mapped);
+        }
+      } catch (err) {
+        console.warn('Failed to fetch EV stations from backend:', err);
+      }
+    };
+
+    fetchStations();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   // Filter stations based on selected connectors
   const filteredStations = useMemo(() => {
-    if (selectedConnectors.length === 0) return EV_STATIONS_DATA;
-    return EV_STATIONS_DATA.filter(station =>
-      station.connectors.some(c => selectedConnectors.includes(c as ConnectorType))
+    if (selectedConnectors.length === 0) return stations;
+    return stations.filter((station) =>
+      station.connectors.some((c) => selectedConnectors.includes(c as ConnectorType))
     );
-  }, [selectedConnectors]);
+  }, [stations, selectedConnectors]);
 
   const mapMarkers: BMapMarkerItem[] = useMemo(() => {
     return filteredStations.map((station, idx) => ({
@@ -102,16 +161,18 @@ export default function EVChargingRadarScreen() {
         />
 
         {/* Floating Active Filter Summary Badge */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => setIsFilterModalVisible(true)}
-          style={[styles.floatingFilterBadge, { backgroundColor: colors.surface, borderColor: colors.border }]}
-        >
-          <Ionicons name="options-outline" size={16} color={BMapColors.evCyan} />
-          <Text style={[styles.filterBadgeText, { color: colors.text }]}>
-            {selectedConnectors.length} Connector Types Selected
-          </Text>
-        </TouchableOpacity>
+        <FadeInView delay={150} direction="down" style={styles.floatingFilterBadgeOuter}>
+          <AnimatedPressable
+            onPress={() => setIsFilterModalVisible(true)}
+            scaleTo={0.93}
+            style={[styles.floatingFilterBadge, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          >
+            <Ionicons name="options-outline" size={16} color={BMapColors.evCyan} />
+            <Text style={[styles.filterBadgeText, { color: colors.text }]}>
+              {selectedConnectors.length} Connector Types Selected
+            </Text>
+          </AnimatedPressable>
+        </FadeInView>
       </View>
 
       {/* Split Layout: Bottom 40% Horizontally Paged FlatList with Station Cards */}
@@ -141,94 +202,96 @@ export default function EVChargingRadarScreen() {
             const isAvailable = item.availablePorts > 0;
 
             return (
-              <View
-                style={[
-                  styles.stationCard,
-                  {
-                    width: CARD_WIDTH,
-                    backgroundColor: isDark ? '#16222F' : '#FFFFFF',
-                    borderColor: index === selectedStationIndex ? BMapColors.evCyan : colors.border,
-                    borderWidth: index === selectedStationIndex ? 2 : 1,
-                  },
-                ]}
-              >
-                {/* Station Top Row: Brand & Distance */}
-                <View style={styles.stationTopRow}>
-                  <View style={styles.brandCluster}>
-                    <View style={[styles.brandIconBox, { backgroundColor: '#E0F7FA' }]}>
-                      <Ionicons name="flash" size={16} color={BMapColors.evCyan} />
+              <FadeInView delay={index * 60} direction="up">
+                <View
+                  style={[
+                    styles.stationCard,
+                    {
+                      width: CARD_WIDTH,
+                      backgroundColor: isDark ? '#16222F' : '#FFFFFF',
+                      borderColor: index === selectedStationIndex ? BMapColors.evCyan : colors.border,
+                      borderWidth: index === selectedStationIndex ? 2 : 1,
+                    },
+                  ]}
+                >
+                  {/* Station Top Row: Brand & Distance */}
+                  <View style={styles.stationTopRow}>
+                    <View style={styles.brandCluster}>
+                      <View style={[styles.brandIconBox, { backgroundColor: '#E0F7FA' }]}>
+                        <Ionicons name="flash" size={16} color={BMapColors.evCyan} />
+                      </View>
+                      <View>
+                        <Text style={[styles.brandName, { color: BMapColors.evCyan }]}>{item.network}</Text>
+                        <Text style={[styles.stationTitle, BMapTypography.titleSmall, { color: colors.text }]} numberOfLines={1}>
+                          {item.name}
+                        </Text>
+                      </View>
                     </View>
-                    <View>
-                      <Text style={[styles.brandName, { color: BMapColors.evCyan }]}>{item.network}</Text>
-                      <Text style={[styles.stationTitle, BMapTypography.titleSmall, { color: colors.text }]} numberOfLines={1}>
-                        {item.name}
-                      </Text>
+
+                    <View style={styles.distanceBadge}>
+                      <Text style={styles.distanceText}>{item.distanceKm} km</Text>
                     </View>
                   </View>
 
-                  <View style={styles.distanceBadge}>
-                    <Text style={styles.distanceText}>{item.distanceKm} km</Text>
-                  </View>
-                </View>
-
-                {/* Real-Time Available Ports Badge in Green */}
-                <View style={styles.portsAvailabilityRow}>
-                  <View
-                    style={[
-                      styles.portBadge,
-                      { backgroundColor: isAvailable ? '#E8F5E9' : '#FFEBEE' },
-                    ]}
-                  >
-                    <Ionicons
-                      name={isAvailable ? 'checkmark-circle' : 'close-circle'}
-                      size={14}
-                      color={isAvailable ? '#2E7D32' : '#C62828'}
-                    />
-                    <Text
+                  {/* Real-Time Available Ports Badge in Green */}
+                  <View style={styles.portsAvailabilityRow}>
+                    <View
                       style={[
-                        styles.portBadgeText,
-                        { color: isAvailable ? '#2E7D32' : '#C62828' },
+                        styles.portBadge,
+                        { backgroundColor: isAvailable ? '#E8F5E9' : '#FFEBEE' },
                       ]}
                     >
-                      {item.availablePorts}/{item.totalPorts} Available
-                    </Text>
-                  </View>
-
-                  <View style={styles.powerPill}>
-                    <Text style={styles.powerText}>{item.maxPowerKw} kW DC Fast</Text>
-                  </View>
-                </View>
-
-                {/* Connector Tags */}
-                <View style={styles.connectorsCluster}>
-                  {item.connectors.map((c: string) => (
-                    <View key={c} style={[styles.connectorChip, { backgroundColor: colors.surfaceVariant }]}>
-                      <Text style={[styles.connectorChipText, { color: colors.textSecondary }]}>
-                        {c.replace('_', ' ')}
+                      <Ionicons
+                        name={isAvailable ? 'checkmark-circle' : 'close-circle'}
+                        size={14}
+                        color={isAvailable ? '#2E7D32' : '#C62828'}
+                      />
+                      <Text
+                        style={[
+                          styles.portBadgeText,
+                          { color: isAvailable ? '#2E7D32' : '#C62828' },
+                        ]}
+                      >
+                        {item.availablePorts}/{item.totalPorts} Available
                       </Text>
                     </View>
-                  ))}
-                </View>
 
-                {/* Bottom Action: Navigate */}
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => {
-                    router.push({
-                      pathname: '/navigate/route-planner' as any,
-                      params: {
-                        destTitle: item.name,
-                        destLat: item.coordinates.latitude.toString(),
-                        destLng: item.coordinates.longitude.toString(),
-                      },
-                    });
-                  }}
-                  style={[styles.navigateBtn, { backgroundColor: BMapColors.evCyan }]}
-                >
-                  <Ionicons name="navigate" size={16} color="#FFFFFF" />
-                  <Text style={styles.navigateBtnText}>Navigate to EV Charger (₹{item.costPerKwh}/kWh)</Text>
-                </TouchableOpacity>
-              </View>
+                    <View style={styles.powerPill}>
+                      <Text style={styles.powerText}>{item.maxPowerKw} kW DC Fast</Text>
+                    </View>
+                  </View>
+
+                  {/* Connector Tags */}
+                  <View style={styles.connectorsCluster}>
+                    {item.connectors.map((c: string) => (
+                      <View key={c} style={[styles.connectorChip, { backgroundColor: colors.surfaceVariant }]}>
+                        <Text style={[styles.connectorChipText, { color: colors.textSecondary }]}>
+                          {c.replace('_', ' ')}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  {/* Bottom Action: Navigate */}
+                  <AnimatedPressable
+                    onPress={() => {
+                      router.push({
+                        pathname: '/navigate/route-planner' as any,
+                        params: {
+                          destTitle: item.name,
+                          destLat: item.coordinates.latitude.toString(),
+                          destLng: item.coordinates.longitude.toString(),
+                        },
+                      });
+                    }}
+                    scaleTo={0.96}
+                    style={[styles.navigateBtn, { backgroundColor: BMapColors.evCyan }]}
+                  >
+                    <Ionicons name="navigate" size={16} color="#FFFFFF" />
+                    <Text style={styles.navigateBtnText}>Navigate to EV Charger (₹{item.costPerKwh}/kWh)</Text>
+                  </AnimatedPressable>
+                </View>
+              </FadeInView>
             );
           }}
         />
@@ -242,26 +305,27 @@ export default function EVChargingRadarScreen() {
               <Text style={[styles.modalTitle, BMapTypography.titleLarge, { color: colors.text }]}>
                 EV Connector Filters
               </Text>
-              <TouchableOpacity
+              <AnimatedPressable
                 onPress={() => setIsFilterModalVisible(false)}
+                scaleTo={0.9}
                 style={[styles.modalCloseBtn, { backgroundColor: colors.surfaceVariant }]}
               >
                 <Ionicons name="close" size={20} color={colors.text} />
-              </TouchableOpacity>
+              </AnimatedPressable>
             </View>
 
             <View style={styles.modalList}>
               {CONNECTOR_OPTIONS.map(opt => {
                 const isSelected = selectedConnectors.includes(opt.id);
                 return (
-                  <TouchableOpacity
+                  <AnimatedPressable
                     key={opt.id}
-                    activeOpacity={0.8}
                     onPress={() => toggleConnector(opt.id)}
+                    scaleTo={0.96}
                     style={[
                       styles.connectorOptionRow,
                       {
-                        backgroundColor: isSelected ? '#E0F7FA' : colors.surfaceVariant,
+                        backgroundColor: isSelected ? (isDark ? '#0C323B' : '#E0F7FA') : colors.surfaceVariant,
                         borderColor: isSelected ? BMapColors.evCyan : colors.border,
                       },
                     ]}
@@ -280,17 +344,18 @@ export default function EVChargingRadarScreen() {
                       size={22}
                       color={isSelected ? BMapColors.evCyan : colors.textMuted}
                     />
-                  </TouchableOpacity>
+                  </AnimatedPressable>
                 );
               })}
             </View>
 
-            <TouchableOpacity
+            <AnimatedPressable
               onPress={() => setIsFilterModalVisible(false)}
+              scaleTo={0.96}
               style={[styles.applyBtn, { backgroundColor: BMapColors.evCyan }]}
             >
               <Text style={styles.applyBtnText}>Apply EV Filters</Text>
-            </TouchableOpacity>
+            </AnimatedPressable>
           </View>
         </View>
       </Modal>
@@ -306,10 +371,13 @@ const styles = StyleSheet.create({
     flex: 6, // Top 60%
     position: 'relative',
   },
-  floatingFilterBadge: {
+  floatingFilterBadgeOuter: {
     position: 'absolute',
     top: 12,
     left: 16,
+    zIndex: 10,
+  },
+  floatingFilterBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,

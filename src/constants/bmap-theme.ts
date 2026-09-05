@@ -8,78 +8,140 @@ export const BMapColors = {
   primary: '#E65100', // Saffron Amber
   primaryDark: '#BF360C',
   primaryLight: '#FF8A50',
-  secondary: '#00875A', // GLOSA Emerald Green
-  secondaryLight: '#00C853',
-  tertiary: '#0B192C', // Deep Indigo Navy
+  navBlue: '#2563EB', // Digital Navigation Cobalt Blue
+  navBlueLight: '#EFF6FF',
+  navBlueDark: '#1D4ED8',
+  secondary: '#059669', // GLOSA Emerald Green
+  secondaryLight: '#10B981',
+  tertiary: '#0F172A', // Deep Slate Indigo
   
-  // Feature Accents
-  fastagPurple: '#673AB7',
-  fastagPurpleLight: '#EDE7F6',
-  evCyan: '#0097A7',
-  evCyanLight: '#E0F7FA',
-  emergencyRed: '#D32F2F',
-  emergencyRedLight: '#FFEBEE',
-  digipinOrange: '#EF6C00',
-  glosaGreen: '#2E7D32',
-  glosaGreenBg: '#E8F5E9',
-  warningAmber: '#F57C00',
-  warningAmberBg: '#FFF3E0',
+  // Feature Accents (Modern Vibrant & High Contrast)
+  fastagPurple: '#7C3AED',
+  fastagPurpleLight: '#F5F3FF',
+  evCyan: '#0284C7',
+  evCyanLight: '#F0F9FF',
+  emergencyRed: '#EF4444',
+  emergencyRedLight: '#FEF2F2',
+  digipinOrange: '#EA580C',
+  glosaGreen: '#10B981',
+  glosaGreenBg: '#ECFDF5',
+  warningAmber: '#F59E0B',
+  warningAmberBg: '#FFFBEB',
+  rtaGold: '#D97706',
+  weatherBlue: '#0284C7',
 
-  // Light / Daylight High-Contrast Mode
+  // Indian Transport Mode Accents
+  transport: {
+    twoWheeler: '#7C3AED',    // Purple
+    twoWheelerBg: '#F5F3FF',
+    auto: '#059669',           // Emerald Green (auto-rickshaw)
+    autoBg: '#ECFDF5',
+    cab: '#D97706',            // Amber Gold (cab/taxi)
+    cabBg: '#FFFBEB',
+    metroBus: '#0284C7',       // Sky Blue (metro/transit)
+    metroBusBg: '#F0F9FF',
+    walking: '#64748B',        // Slate (walking)
+    walkingBg: '#F1F5F9',
+  },
+
+  // Offline Status
+  offline: {
+    online: '#10B981',
+    onlineBg: '#ECFDF5',
+    offline: '#F59E0B',
+    offlineBg: '#FFFBEB',
+    offlineText: '#92400E',
+  },
+
+  // Light / Daylight Minimalist Mode
   light: {
-    background: '#F8F9FD',
+    background: '#F8FAFD',
     surface: '#FFFFFF',
-    surfaceVariant: '#F1F4F9',
+    surfaceVariant: '#F1F5F9',
     card: '#FFFFFF',
-    text: '#191C1E',
-    textSecondary: '#44474E',
-    textMuted: '#74777F',
-    border: '#E0E3E8',
-    borderFocus: '#E65100',
-    hudBackground: '#1B2430',
+    text: '#0F172A',
+    textSecondary: '#475569',
+    textMuted: '#94A3B8',
+    border: '#E2E8F0',
+    borderSubtle: '#F1F5F9',
+    borderFocus: '#2563EB',
+    hudBackground: '#0F172A',
     hudText: '#FFFFFF',
-    ripple: 'rgba(230, 81, 0, 0.12)',
+    ripple: 'rgba(37, 99, 235, 0.08)',
     shadow: '#000000',
+    // Solid surface & tab bar
+    glassBackground: '#FFFFFF',
+    glassBorder: '#E2E8F0',
+    tabBarBackground: '#FFFFFF',
+    tabBarBorder: '#E2E8F0',
   },
 
-  // Dark / Night Mode
+  // Dark / OLED Night Minimalist Mode
   dark: {
-    background: '#0B1118',
-    surface: '#121B24',
-    surfaceVariant: '#1B2633',
-    card: '#16222F',
-    text: '#E3E8EC',
-    textSecondary: '#9AA7B4',
-    textMuted: '#687787',
-    border: '#243242',
-    borderFocus: '#FF8A50',
-    hudBackground: '#0B1118',
-    hudText: '#FFFFFF',
-    ripple: 'rgba(255, 138, 80, 0.15)',
+    background: '#090D16',
+    surface: '#111827',
+    surfaceVariant: '#1F2937',
+    card: '#161F30',
+    text: '#F8FAFC',
+    textSecondary: '#94A3B8',
+    textMuted: '#64748B',
+    border: '#273449',
+    borderSubtle: '#1E293B',
+    borderFocus: '#60A5FA',
+    hudBackground: '#090D16',
+    hudText: '#F8FAFC',
+    ripple: 'rgba(96, 165, 250, 0.12)',
     shadow: '#000000',
+    // Solid surface & tab bar
+    glassBackground: '#111827',
+    glassBorder: '#273449',
+    tabBarBackground: '#111827',
+    tabBarBorder: '#273449',
   },
+} as const;
+
+export const BMapSpacing = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  '2xl': 24,
+  '3xl': 32,
+  '4xl': 40,
+  '5xl': 48,
+} as const;
+
+export const BMapRadius = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  xxl: 24,
+  pill: 999,
 } as const;
 
 export const BMapElevation = {
   level1: {
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
     elevation: 2,
   },
   level2: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
     elevation: 4,
   },
   level3: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
     elevation: 8,
   },
   hud: {
@@ -92,16 +154,73 @@ export const BMapElevation = {
 } as const;
 
 export const BMapTypography = {
-  headlineLarge: { fontSize: 28, fontWeight: '700' as const, letterSpacing: -0.5 },
-  headlineMedium: { fontSize: 22, fontWeight: '700' as const, letterSpacing: -0.3 },
-  titleLarge: { fontSize: 18, fontWeight: '600' as const },
-  titleMedium: { fontSize: 16, fontWeight: '600' as const },
+  headlineLarge: { fontSize: 28, fontWeight: '700' as const, letterSpacing: -0.6 },
+  headlineMedium: { fontSize: 22, fontWeight: '700' as const, letterSpacing: -0.4 },
+  titleLarge: { fontSize: 18, fontWeight: '600' as const, letterSpacing: -0.2 },
+  titleMedium: { fontSize: 16, fontWeight: '600' as const, letterSpacing: -0.1 },
   titleSmall: { fontSize: 14, fontWeight: '600' as const },
-  bodyLarge: { fontSize: 16, fontWeight: '400' as const },
-  bodyMedium: { fontSize: 14, fontWeight: '400' as const },
-  bodySmall: { fontSize: 12, fontWeight: '400' as const },
-  labelLarge: { fontSize: 14, fontWeight: '600' as const, letterSpacing: 0.2 },
-  labelMedium: { fontSize: 12, fontWeight: '600' as const, letterSpacing: 0.3 },
-  labelSmall: { fontSize: 10, fontWeight: '700' as const, letterSpacing: 0.5 },
+  bodyLarge: { fontSize: 16, fontWeight: '400' as const, lineHeight: 22 },
+  bodyMedium: { fontSize: 14, fontWeight: '400' as const, lineHeight: 20 },
+  bodySmall: { fontSize: 12, fontWeight: '400' as const, lineHeight: 17 },
+  labelLarge: { fontSize: 14, fontWeight: '600' as const, letterSpacing: 0.1 },
+  labelMedium: { fontSize: 12, fontWeight: '600' as const, letterSpacing: 0.2 },
+  labelSmall: { fontSize: 10, fontWeight: '700' as const, letterSpacing: 0.4 },
   hudNumber: { fontSize: 32, fontWeight: '800' as const, letterSpacing: -1 },
 } as const;
+
+/**
+ * Reanimated animation presets — consistent motion language across the app.
+ */
+export const BMapAnimation = {
+  /** Snappy spring for button press/release */
+  pressSpring: {
+    damping: 15,
+    stiffness: 300,
+    mass: 0.6,
+  },
+  /** Smooth spring for sheet/card transitions */
+  sheetSpring: {
+    damping: 20,
+    stiffness: 200,
+    mass: 0.8,
+  },
+  /** Bouncy spring for icon/element emphasis */
+  bounceSpring: {
+    damping: 8,
+    stiffness: 250,
+    mass: 0.5,
+  },
+  /** Gentle spring for subtle UI shifts */
+  gentleSpring: {
+    damping: 25,
+    stiffness: 150,
+    mass: 1.0,
+  },
+  /** Standard fade/slide timing durations */
+  timing: {
+    fast: 200,
+    normal: 350,
+    slow: 500,
+    entrance: 450,
+  },
+  /** Stagger intervals for list item animations */
+  stagger: {
+    fast: 40,
+    normal: 75,
+    slow: 120,
+  },
+  /** Bottom sheet drag spring — tuned for natural feel */
+  bottomSheetSpring: {
+    damping: 50,
+    stiffness: 500,
+    mass: 0.8,
+  },
+} as const;
+
+/** Glassmorphism blur constants */
+export const BMapBlur = {
+  light: 20,
+  medium: 40,
+  heavy: 60,
+} as const;
+

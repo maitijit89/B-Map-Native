@@ -1,9 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet, useColorScheme } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { BMapColors, BMapTypography } from '@/constants/bmap-theme';
 import { moderateScale, isSmallDevice } from '@/utils/responsive';
+import { FadeInView } from '@/components/ui/fade-in-view';
+import { AnimatedPressableButton } from '@/components/ui/animated-pressable';
 
 interface HeaderBarProps {
   title: string;
@@ -43,44 +45,54 @@ export function HeaderBar({
     <View style={[styles.headerContainer, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
       <View style={styles.leftContainer}>
         {showBack && (
-          <TouchableOpacity activeOpacity={0.7} onPress={handleBack} style={styles.iconButton}>
-            <Ionicons name="arrow-back" size={isSmallDevice ? 20 : 24} color={accentColor || colors.text} />
-          </TouchableOpacity>
-        )}
-        <View style={styles.titleContainer}>
-          <Text
-            style={[
-              styles.title,
-              BMapTypography.titleLarge,
-              {
-                color: colors.text,
-                fontSize: moderateScale(isSmallDevice ? 16 : 18),
-              },
-            ]}
-            numberOfLines={1}
+          <AnimatedPressableButton
+            pressScale={0.85}
+            onPress={handleBack}
+            style={[styles.iconButton, { backgroundColor: colors.surfaceVariant }]}
           >
-            {title}
-          </Text>
-          {subtitle && (
+            <Ionicons name="arrow-back" size={isSmallDevice ? 18 : 20} color={accentColor || colors.text} />
+          </AnimatedPressableButton>
+        )}
+        <FadeInView delay={80} from="left" slideDistance={12}>
+          <View style={styles.titleContainer}>
             <Text
               style={[
-                styles.subtitle,
-                BMapTypography.bodySmall,
+                styles.title,
+                BMapTypography.titleLarge,
                 {
-                  color: colors.textSecondary,
-                  fontSize: moderateScale(isSmallDevice ? 11 : 12),
+                  color: colors.text,
+                  fontSize: moderateScale(isSmallDevice ? 16 : 18),
                 },
               ]}
               numberOfLines={1}
             >
-              {subtitle}
+              {title}
             </Text>
-          )}
-        </View>
+            {subtitle && (
+              <Text
+                style={[
+                  styles.subtitle,
+                  BMapTypography.bodySmall,
+                  {
+                    color: colors.textSecondary,
+                    fontSize: moderateScale(isSmallDevice ? 11 : 12),
+                  },
+                ]}
+                numberOfLines={1}
+              >
+                {subtitle}
+              </Text>
+            )}
+          </View>
+        </FadeInView>
       </View>
 
       {(rightActionIcon || rightActionLabel) && (
-        <TouchableOpacity activeOpacity={0.7} onPress={onRightActionPress} style={styles.rightButton}>
+        <AnimatedPressableButton
+          pressScale={0.9}
+          onPress={onRightActionPress}
+          style={styles.rightButton}
+        >
           {rightActionIcon && (
             <Ionicons name={rightActionIcon} size={isSmallDevice ? 18 : 22} color={accentColor || BMapColors.primary} />
           )}
@@ -97,7 +109,7 @@ export function HeaderBar({
               {rightActionLabel}
             </Text>
           )}
-        </TouchableOpacity>
+        </AnimatedPressableButton>
       )}
     </View>
   );

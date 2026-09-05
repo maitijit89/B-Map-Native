@@ -1,9 +1,11 @@
-import * as SecureStore from 'expo-secure-store';
-import { Platform } from 'react-native';
-
-const JWT_KEY = 'bmap_jwt_token';
-const USER_EMAIL_KEY = 'bmap_user_email';
-const USER_PROFILE_KEY = 'bmap_user_profile';
+import { AuthAPI } from '@/api/api';
+import {
+  saveAuthTokens,
+  clearAuthTokens,
+  getStoredItem,
+  setStoredItem,
+  ACCESS_TOKEN_KEY,
+} from '@/api/client';
 
 export interface UserProfile {
   fullName: string;
@@ -12,132 +14,149 @@ export interface UserProfile {
   avatarUrl?: string;
 }
 
-// In-memory fallback for web storage when SecureStore is not available
-const webStorageFallback: Record<string, string> = {};
+const CACHED_PROFILE_KEY = 'bmap_cached_profile';
+const LAST_EMAIL_KEY = 'bmap_last_email';
 
-async function setSecureItem(key: string, value: string): Promise<void> {
-  if (Platform.OS === 'web') {
-    try {
-      localStorage.setItem(key, value);
-    } catch {
-      webStorageFallback[key] = value;
-    }
-    return;
-  }
-  try {
-    await SecureStore.setItemAsync(key, value);
-  } catch {
-    webStorageFallback[key] = value;
-  }
-}
-
-async function getSecureItem(key: string): Promise<string | null> {
-  if (Platform.OS === 'web') {
-    try {
-      return localStorage.getItem(key) ?? webStorageFallback[key] ?? null;
-    } catch {
-      return webStorageFallback[key] ?? null;
-    }
-  }
-  try {
-    return await SecureStore.getItemAsync(key);
-  } catch {
-    return webStorageFallback[key] ?? null;
-  }
-}
-
-async function deleteSecureItem(key: string): Promise<void> {
-  if (Platform.OS === 'web') {
-    try {
-      localStorage.removeItem(key);
-    } catch {
-      delete webStorageFallback[key];
-    }
-    return;
-  }
-  try {
-    await SecureStore.deleteItemAsync(key);
-  } catch {
-    delete webStorageFallback[key];
-  }
-}
-
-let lastRequestTime = 0;
-let requestCountInWindow = 0;
-
-export async function requestEmailOtp(email: string): Promise<{ success: boolean; error?: string; retryAfterSeconds?: number }> {
-  // Real-time format validation
+export async function requestEmailOtp(
+  email: string
+): Promise<{ success: boolean; error?: string; retryAfterSeconds?: number }> {
+  const trimmed = email.trim();
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!email || !emailRegex.test(email.trim())) {
+  if (!trimmed || !emailRegex.test(trimmed)) {
     return { success: false, error: 'Please enter a valid email address.' };
   }
 
-  const now = Date.now();
-  if (now - lastRequestTime < 10000 && requestCountInWindow >= 3) {
-    // Simulate HTTP 429 Too Many Requests
+  try {
+    const res = await AuthAPI.requestOTP(trimmed);
+    await setStoredItem(LAST_EMAIL_KEY, trimmed);
+    return {
+      success: true,
+      retryAfterSeconds: res.data?.meta?.cooldown_seconds,
+    };
+  } catch (err: any) {
+    const errorMsg =
+      err.response?.data?.error ||
+      err.response?.data?.message ||
+      err.message ||
+      'Failed to request verification code';
+    const retryAfter = err.response?.data?.meta?.cooldown_seconds;
     return {
       success: false,
-      error: 'HTTP 429: Rate limit exceeded. Please wait 90 seconds before requesting another OTP.',
-      retryAfterSeconds: 90,
+      error: errorMsg,
+      retryAfterSeconds: retryAfter,
     };
   }
-
-  if (now - lastRequestTime > 60000) {
-    requestCountInWindow = 0;
-  }
-  requestCountInWindow += 1;
-  lastRequestTime = now;
-
-  await setSecureItem(USER_EMAIL_KEY, email.trim());
-  return { success: true };
 }
 
-export async function verifyOtp(email: string, otp: string): Promise<{ success: boolean; token?: string; error?: string }> {
-  if (!otp || otp.length !== 6) {
+export async function verifyOtp(
+  email: string,
+  otp: string
+): Promise<{ success: boolean; token?: string; error?: string }> {
+  const trimmedEmail = email.trim();
+  const trimmedOtp = otp.trim();
+
+  if (!trimmedOtp || trimmedOtp.length !== 6) {
     return { success: false, error: 'OTP must be 6 digits.' };
   }
 
-  // Accept valid 6 digit OTPs (or standard mock code like 123456)
-  const token = `bmap_jwt_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-  await setSecureItem(JWT_KEY, token);
-  await setSecureItem(USER_EMAIL_KEY, email);
-
-  // Initialize profile if not already present
-  const existingProfile = await getProfile();
-  if (!existingProfile) {
-    await saveProfile({
-      fullName: 'Aarav Sharma',
-      age: '28',
-      email: email,
+  try {
+    const res = await AuthAPI.verifyOTP({
+      email: trimmedEmail,
+      otp: trimmedOtp,
     });
-  }
 
-  return { success: true, token };
+    const data = res.data?.data;
+    if (data?.tokens) {
+      await saveAuthTokens(data.tokens);
+    }
+
+    if (data?.user) {
+      const userProfile: UserProfile = {
+        fullName: data.user.name || trimmedEmail.split('@')[0],
+        age: data.user.age?.toString() || '25',
+        email: data.user.email || trimmedEmail,
+        avatarUrl: data.user.avatar_url,
+      };
+      await setStoredItem(CACHED_PROFILE_KEY, JSON.stringify(userProfile));
+    }
+
+    return {
+      success: true,
+      token: data?.tokens?.access_token,
+    };
+  } catch (err: any) {
+    const errorMsg =
+      err.response?.data?.error ||
+      err.response?.data?.message ||
+      err.message ||
+      'Invalid verification code.';
+    return { success: false, error: errorMsg };
+  }
 }
 
 export async function checkAuth(): Promise<{ isAuthenticated: boolean; email?: string }> {
-  const token = await getSecureItem(JWT_KEY);
-  const email = await getSecureItem(USER_EMAIL_KEY);
+  const token = await getStoredItem(ACCESS_TOKEN_KEY);
+  const email = await getStoredItem(LAST_EMAIL_KEY);
+  if (!token) {
+    return { isAuthenticated: false };
+  }
+
+  // Token exists — optionally verify /auth/me in background
   return {
-    isAuthenticated: !!token,
+    isAuthenticated: true,
     email: email || undefined,
   };
 }
 
 export async function logout(): Promise<void> {
-  await deleteSecureItem(JWT_KEY);
-}
-
-export async function getProfile(): Promise<UserProfile | null> {
-  const data = await getSecureItem(USER_PROFILE_KEY);
-  if (!data) return null;
   try {
-    return JSON.parse(data) as UserProfile;
+    const refreshToken = await getStoredItem('bmap_refresh_token');
+    await AuthAPI.logout(refreshToken || undefined);
   } catch {
-    return null;
+    // Non-blocking logout network error
+  } finally {
+    await clearAuthTokens();
   }
 }
 
+export async function getProfile(): Promise<UserProfile | null> {
+  try {
+    const res = await AuthAPI.getProfile();
+    const user = res.data?.data?.user;
+    if (user) {
+      const profile: UserProfile = {
+        fullName: user.name,
+        age: user.age?.toString() || '',
+        email: user.email,
+        avatarUrl: user.avatar_url,
+      };
+      await setStoredItem(CACHED_PROFILE_KEY, JSON.stringify(profile));
+      return profile;
+    }
+  } catch {
+    // Fallback to locally cached profile
+  }
+
+  const cached = await getStoredItem(CACHED_PROFILE_KEY);
+  if (cached) {
+    try {
+      return JSON.parse(cached) as UserProfile;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 export async function saveProfile(profile: UserProfile): Promise<void> {
-  await setSecureItem(USER_PROFILE_KEY, JSON.stringify(profile));
+  await setStoredItem(CACHED_PROFILE_KEY, JSON.stringify(profile));
+  try {
+    await AuthAPI.updateProfile({
+      name: profile.fullName,
+      age: profile.age ? parseInt(profile.age, 10) : undefined,
+      avatar_url: profile.avatarUrl,
+    });
+  } catch {
+    // Cached locally if offline
+  }
 }

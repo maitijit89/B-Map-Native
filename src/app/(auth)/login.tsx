@@ -1,22 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   TextInput,
-  Pressable,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
   useColorScheme,
-  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { BMapColors, BMapElevation, BMapTypography } from '@/constants/bmap-theme';
+import { Ionicons } from '@expo/vector-icons';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withDelay,
+  withTiming,
+} from 'react-native-reanimated';
+import { BMapColors, BMapElevation, BMapTypography, BMapAnimation } from '@/constants/bmap-theme';
 import { requestEmailOtp } from '@/services/auth';
 import { ToastBanner } from '@/components/ToastBanner';
+import { FadeInView } from '@/components/ui/fade-in-view';
+import { AnimatedPressableButton } from '@/components/ui/animated-pressable';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -32,12 +39,34 @@ export default function LoginScreen() {
 
   const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
+  // Animated logo entrance
+  const logoScale = useSharedValue(0);
+  const logoOpacity = useSharedValue(0);
+  const cardSlide = useSharedValue(40);
+  const cardOpacity = useSharedValue(0);
+
+  useEffect(() => {
+    logoScale.value = withDelay(100, withSpring(1, BMapAnimation.bounceSpring));
+    logoOpacity.value = withDelay(100, withTiming(1, { duration: 400 }));
+    cardSlide.value = withDelay(300, withSpring(0, BMapAnimation.sheetSpring));
+    cardOpacity.value = withDelay(300, withTiming(1, { duration: 450 }));
+  }, [logoScale, logoOpacity, cardSlide, cardOpacity]);
+
+  const logoAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: logoScale.value }],
+    opacity: logoOpacity.value,
+  }));
+
+  const cardAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: cardSlide.value }],
+    opacity: cardOpacity.value,
+  }));
+
   const handleRequestOtp = async () => {
     if (!isValidEmail) {
       setErrorMessage('Please enter a valid email address.');
       return;
     }
-
     setIsLoading(true);
     setErrorMessage(null);
     setRateLimitSeconds(undefined);
@@ -50,47 +79,27 @@ export default function LoginScreen() {
           params: { email: email.trim() },
         });
       } else {
-        setErrorMessage(res.error || 'Failed to request OTP');
-        if (res.retryAfterSeconds) {
-          setRateLimitSeconds(res.retryAfterSeconds);
-        }
+        setErrorMessage(res.error || 'Failed to send OTP');
+        if (res.retryAfterSeconds) setRateLimitSeconds(res.retryAfterSeconds);
       }
     } catch (err: any) {
-      setErrorMessage(err.message || 'Network error occurred');
+      setErrorMessage(err.message || 'Network error. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
+
+  const isButtonDisabled = !isValidEmail || isLoading || (rateLimitSeconds !== undefined && rateLimitSeconds > 0);
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={[styles.container, { backgroundColor: colors.background }]}
     >
-      {/* Map-Themed Vector Background Graphic */}
-      <View style={styles.mapVectorBackground}>
-        <View style={styles.bgGridH1} />
-        <View style={styles.bgGridH2} />
-        <View style={styles.bgGridV1} />
-        <View style={styles.bgGridV2} />
-        <View style={styles.bgHighway} />
-        <View style={styles.bgContourCircle1} />
-        <View style={styles.bgContourCircle2} />
-        
-        {/* Decorative Indian Map Geo Icons */}
-        <View style={[styles.bgGeoPin, { top: '15%', left: '18%' }]}>
-          <MaterialCommunityIcons name="map-marker-radius" size={28} color={BMapColors.primary} />
-        </View>
-        <View style={[styles.bgGeoPin, { top: '22%', right: '20%' }]}>
-          <Ionicons name="navigate-circle" size={32} color={BMapColors.secondary} />
-        </View>
-        <View style={[styles.bgGeoPin, { top: '10%', right: '35%' }]}>
-          <MaterialCommunityIcons name="card-account-details-star" size={24} color={BMapColors.fastagPurple} />
-        </View>
-      </View>
+      {/* Solid top accent strip — no translucency */}
+      <View style={[styles.topAccentStrip, { backgroundColor: BMapColors.primary }]} />
 
       <SafeAreaView style={styles.safeArea}>
-        {/* Toast / HTTP 429 Countdown Banner */}
         <ToastBanner
           visible={!!errorMessage}
           message={errorMessage || ''}
@@ -103,52 +112,55 @@ export default function LoginScreen() {
         />
 
         <View style={styles.contentWrapper}>
-          {/* Brand Logo & Title */}
-          <View style={styles.brandContainer}>
+          {/* Brand Logo Block */}
+          <Animated.View style={[styles.brandBlock, logoAnimatedStyle]}>
             <View style={styles.logoBadge}>
               <Text style={styles.logoLetter}>B</Text>
             </View>
-            <Text style={[styles.brandTitle, BMapTypography.headlineLarge, { color: colors.text }]}>
-              B Map
+            <Text style={[styles.brandTitle, { color: colors.text }]}>B Map</Text>
+            <Text style={[styles.brandTagline, { color: colors.textSecondary }]}>
+              India's Regional Navigation & Spatial Mobility
             </Text>
-            <Text style={[styles.brandTagline, BMapTypography.bodyMedium, { color: colors.textSecondary }]}>
-              India's Regional Spatial Mobility & Navigation Network
-            </Text>
-          </View>
+          </Animated.View>
 
-          {/* Elevated Translucent Overlay Card */}
-          <View
+          {/* Login Card — 100% solid surface */}
+          <Animated.View
             style={[
               styles.card,
               {
-                backgroundColor: isDark ? 'rgba(18, 27, 36, 0.92)' : 'rgba(255, 255, 255, 0.94)',
-                borderColor: isFocused ? colors.borderFocus : colors.border,
+                backgroundColor: colors.surface,
+                borderColor: isFocused ? BMapColors.navBlue : colors.border,
               },
+              cardAnimatedStyle,
             ]}
           >
             <Text style={[styles.cardHeader, BMapTypography.titleMedium, { color: colors.text }]}>
-              Passwordless Login
+              Sign In
             </Text>
             <Text style={[styles.cardSubtext, BMapTypography.bodySmall, { color: colors.textSecondary }]}>
-              Enter your email to receive a secure 6-digit OTP code.
+              Enter your email to receive a 6-digit OTP
             </Text>
 
-            {/* Email Input Field */}
-            <View style={styles.inputWrapper}>
+            {/* Email Input */}
+            <View style={styles.inputGroup}>
               <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>EMAIL ADDRESS</Text>
               <View
                 style={[
                   styles.textInputContainer,
                   {
                     backgroundColor: colors.surfaceVariant,
-                    borderColor: isFocused ? BMapColors.primary : email.length > 0 && !isValidEmail ? '#E53935' : colors.border,
+                    borderColor: isFocused
+                      ? BMapColors.navBlue
+                      : email.length > 0 && !isValidEmail
+                      ? BMapColors.emergencyRed
+                      : colors.border,
                   },
                 ]}
               >
                 <Ionicons
                   name="mail-outline"
-                  size={20}
-                  color={isFocused ? BMapColors.primary : colors.textMuted}
+                  size={18}
+                  color={isFocused ? BMapColors.navBlue : colors.textMuted}
                   style={styles.inputIcon}
                 />
                 <TextInput
@@ -168,25 +180,24 @@ export default function LoginScreen() {
                   autoComplete="email"
                 />
                 {isValidEmail && (
-                  <Ionicons name="checkmark-circle" size={20} color={BMapColors.secondary} />
+                  <FadeInView delay={0} from="none">
+                    <Ionicons name="checkmark-circle" size={18} color={BMapColors.secondary} />
+                  </FadeInView>
                 )}
               </View>
             </View>
 
-            {/* Prominent 'Request OTP' Pressable Button */}
-            <Pressable
+            {/* OTP Request Button */}
+            <AnimatedPressableButton
+              pressScale={0.96}
               onPress={handleRequestOtp}
-              disabled={isLoading || (rateLimitSeconds !== undefined && rateLimitSeconds > 0)}
-              style={({ pressed }) => [
+              disabled={isButtonDisabled}
+              style={[
                 styles.requestButton,
-                {
-                  backgroundColor: !isValidEmail || (rateLimitSeconds !== undefined && rateLimitSeconds > 0)
-                    ? colors.surfaceVariant
-                    : pressed
-                    ? BMapColors.primaryDark
-                    : BMapColors.primary,
-                },
+                { backgroundColor: isButtonDisabled ? colors.surfaceVariant : BMapColors.navBlue },
               ]}
+              accessibilityRole="button"
+              accessibilityLabel="Request OTP"
             >
               {isLoading ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
@@ -195,129 +206,58 @@ export default function LoginScreen() {
                   <Text
                     style={[
                       styles.requestButtonText,
-                      {
-                        color: !isValidEmail || (rateLimitSeconds !== undefined && rateLimitSeconds > 0)
-                          ? colors.textMuted
-                          : '#FFFFFF',
-                      },
+                      { color: isButtonDisabled ? colors.textMuted : '#FFFFFF' },
                     ]}
                   >
-                    Request OTP
+                    Send OTP
                   </Text>
                   <Ionicons
                     name="arrow-forward"
-                    size={18}
-                    color={
-                      !isValidEmail || (rateLimitSeconds !== undefined && rateLimitSeconds > 0)
-                        ? colors.textMuted
-                        : '#FFFFFF'
-                    }
+                    size={17}
+                    color={isButtonDisabled ? colors.textMuted : '#FFFFFF'}
                   />
                 </View>
               )}
-            </Pressable>
+            </AnimatedPressableButton>
 
-            {/* Indian DIGIPIN & FASTag Security Badge */}
+            {/* Security Note */}
             <View style={styles.securityRow}>
-              <MaterialCommunityIcons name="shield-check-outline" size={16} color={BMapColors.secondary} />
+              <Ionicons name="shield-checkmark-outline" size={14} color={BMapColors.secondary} />
               <Text style={[styles.securityText, { color: colors.textMuted }]}>
-                Encrypted with DIGIPIN Spatial Key & Safe Auth
+                Secure OTP · No password required
               </Text>
             </View>
-          </View>
+          </Animated.View>
         </View>
       </SafeAreaView>
     </KeyboardAvoidingView>
   );
 }
 
-const { width, height } = Dimensions.get('window');
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  mapVectorBackground: {
+  topAccentStrip: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    bottom: 0,
-    overflow: 'hidden',
-    opacity: 0.45,
-  },
-  bgGridH1: {
-    position: 'absolute',
-    top: '20%',
-    width: '100%',
-    height: 2,
-    backgroundColor: 'rgba(230, 81, 0, 0.18)',
-  },
-  bgGridH2: {
-    position: 'absolute',
-    top: '65%',
-    width: '100%',
-    height: 2,
-    backgroundColor: 'rgba(0, 135, 90, 0.18)',
-  },
-  bgGridV1: {
-    position: 'absolute',
-    left: '25%',
-    height: '100%',
-    width: 2,
-    backgroundColor: 'rgba(230, 81, 0, 0.18)',
-  },
-  bgGridV2: {
-    position: 'absolute',
-    left: '75%',
-    height: '100%',
-    width: 2,
-    backgroundColor: 'rgba(0, 135, 90, 0.18)',
-  },
-  bgHighway: {
-    position: 'absolute',
-    top: '15%',
-    left: '-20%',
-    width: '140%',
-    height: 16,
-    backgroundColor: 'rgba(255, 179, 0, 0.25)',
-    transform: [{ rotate: '-25deg' }],
-  },
-  bgContourCircle1: {
-    position: 'absolute',
-    top: -80,
-    right: -80,
-    width: 260,
-    height: 260,
-    borderRadius: 130,
-    borderWidth: 1.5,
-    borderColor: 'rgba(230, 81, 0, 0.2)',
-  },
-  bgContourCircle2: {
-    position: 'absolute',
-    top: -120,
-    right: -120,
-    width: 340,
-    height: 340,
-    borderRadius: 170,
-    borderWidth: 1.5,
-    borderColor: 'rgba(230, 81, 0, 0.12)',
-  },
-  bgGeoPin: {
-    position: 'absolute',
+    height: 4,
+    zIndex: 10,
   },
   safeArea: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
   },
   contentWrapper: {
     maxWidth: 420,
     width: '100%',
     alignSelf: 'center',
-    gap: 24,
+    gap: 28,
   },
-  brandContainer: {
+  brandBlock: {
     alignItems: 'center',
     gap: 8,
   },
@@ -325,7 +265,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 20,
-    backgroundColor: BMapColors.primary,
+    backgroundColor: BMapColors.navBlue,
     justifyContent: 'center',
     alignItems: 'center',
     ...BMapElevation.level2,
@@ -334,22 +274,24 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 34,
     fontWeight: '900',
-    fontFamily: Platform.OS === 'ios' ? 'HelveticaNeue-Bold' : 'sans-serif-black',
   },
   brandTitle: {
+    fontSize: 26,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
   brandTagline: {
+    fontSize: 13,
     textAlign: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
+    lineHeight: 18,
   },
   card: {
-    borderRadius: 24,
+    borderRadius: 20,
     padding: 24,
     borderWidth: 1.5,
     gap: 16,
-    ...BMapElevation.level3,
+    ...BMapElevation.level2,
   },
   cardHeader: {
     fontWeight: '700',
@@ -358,21 +300,21 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginTop: -8,
   },
-  inputWrapper: {
+  inputGroup: {
     gap: 6,
   },
   inputLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
   textInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1.5,
     paddingHorizontal: 14,
-    height: 52,
+    height: 50,
   },
   inputIcon: {
     marginRight: 10,
@@ -383,11 +325,11 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   requestButton: {
-    height: 52,
-    borderRadius: 14,
+    height: 50,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    ...BMapElevation.level2,
+    ...BMapElevation.level1,
   },
   buttonInner: {
     flexDirection: 'row',
@@ -395,7 +337,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   requestButtonText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
   },
   securityRow: {
@@ -403,7 +345,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    marginTop: 4,
+    marginTop: -4,
   },
   securityText: {
     fontSize: 11,

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   TextInput,
   ScrollView,
   StyleSheet,
@@ -11,11 +10,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { BMapColors, BMapElevation, BMapTypography } from '@/constants/bmap-theme';
 import { HeaderBar } from '@/components/HeaderBar';
 import { useTelemetry } from '@/services/telemetry';
 import { HazardCategory } from '@/types';
+import { AnimatedPressable } from '@/components/ui/animated-pressable';
+import { FadeInView } from '@/components/ui/fade-in-view';
 
 const HAZARD_CATEGORIES: {
   id: HazardCategory;
@@ -90,133 +91,144 @@ export default function ReportHazardScreen() {
         accentColor={BMapColors.warningAmber}
       />
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {isSubmitted ? (
-          <View style={[styles.successCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <View style={styles.successIconCircle}>
-              <Ionicons name="checkmark-circle" size={64} color="#00875A" />
+          <FadeInView delay={50} direction="up">
+            <View style={[styles.successCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={styles.successIconCircle}>
+                <Ionicons name="checkmark-circle" size={64} color="#00875A" />
+              </View>
+              <Text style={[styles.successTitle, BMapTypography.headlineMedium, { color: colors.text }]}>
+                Hazard Reported!
+              </Text>
+              <Text style={[styles.successSubtitle, { color: colors.textSecondary }]}>
+                Thank you for contributing. Other B Map drivers within 5km have received this alert.
+              </Text>
+              <View style={styles.karmaBadge}>
+                <Ionicons name="star" size={16} color="#FFB300" />
+                <Text style={styles.karmaText}>+25 Community Karma Points Awarded</Text>
+              </View>
             </View>
-            <Text style={[styles.successTitle, BMapTypography.headlineMedium, { color: colors.text }]}>
-              Hazard Reported!
-            </Text>
-            <Text style={[styles.successSubtitle, { color: colors.textSecondary }]}>
-              Thank you for contributing. Other B Map drivers within 5km have received this alert.
-            </Text>
-            <View style={styles.karmaBadge}>
-              <Ionicons name="star" size={16} color="#FFB300" />
-              <Text style={styles.karmaText}>+25 Community Karma Points Awarded</Text>
-            </View>
-          </View>
+          </FadeInView>
         ) : (
           <>
             {/* Header Advice */}
-            <View style={styles.headerNotice}>
-              <Text style={[styles.headerNoticeTitle, BMapTypography.titleMedium, { color: colors.text }]}>
-                Select Hazard Type
-              </Text>
-              <Text style={[styles.headerNoticeSub, { color: colors.textSecondary }]}>
-                Tap the tile that best describes the road obstacle you encountered.
-              </Text>
-            </View>
+            <FadeInView delay={50} direction="down">
+              <View style={styles.headerNotice}>
+                <Text style={[styles.headerNoticeTitle, BMapTypography.titleMedium, { color: colors.text }]}>
+                  Select Hazard Type
+                </Text>
+                <Text style={[styles.headerNoticeSub, { color: colors.textSecondary }]}>
+                  Tap the tile that best describes the road obstacle you encountered.
+                </Text>
+              </View>
+            </FadeInView>
 
             {/* 4 Large Square Touchable Tiles Category Grid */}
             <View style={styles.categoryGrid}>
-              {HAZARD_CATEGORIES.map(cat => {
+              {HAZARD_CATEGORIES.map((cat, index) => {
                 const isSelected = selectedCategory === cat.id;
 
                 return (
-                  <TouchableOpacity
-                    key={cat.id}
-                    activeOpacity={0.8}
-                    onPress={() => setSelectedCategory(cat.id)}
-                    style={[
-                      styles.categoryTile,
-                      {
-                        backgroundColor: isSelected ? (isDark ? '#2D2319' : cat.bg) : colors.surface,
-                        borderColor: isSelected ? cat.color : colors.border,
-                        borderWidth: isSelected ? 2.5 : 1,
-                      },
-                    ]}
-                  >
-                    <View style={[styles.tileIconBox, { backgroundColor: isSelected ? '#FFFFFF' : cat.bg }]}>
-                      <MaterialCommunityIcons name={cat.icon as any} size={28} color={cat.color} />
-                    </View>
-
-                    <Text
+                  <FadeInView key={cat.id} delay={100 + index * 60} direction="up">
+                    <AnimatedPressable
+                      onPress={() => setSelectedCategory(cat.id)}
+                      scaleTo={0.95}
                       style={[
-                        styles.tileLabel,
+                        styles.categoryTile,
                         {
-                          color: isSelected ? (isDark ? '#FFFFFF' : cat.color) : colors.text,
-                          fontWeight: isSelected ? '800' : '600',
+                          backgroundColor: isSelected ? (isDark ? '#2D2319' : cat.bg) : colors.surface,
+                          borderColor: isSelected ? cat.color : colors.border,
+                          borderWidth: isSelected ? 2.5 : 1,
                         },
                       ]}
                     >
-                      {cat.label}
-                    </Text>
-
-                    {isSelected && (
-                      <View style={[styles.selectedCheck, { backgroundColor: cat.color }]}>
-                        <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+                      <View style={[styles.tileIconBox, { backgroundColor: isSelected ? '#FFFFFF' : cat.bg }]}>
+                        <MaterialCommunityIcons name={cat.icon as any} size={28} color={cat.color} />
                       </View>
-                    )}
-                  </TouchableOpacity>
+
+                      <Text
+                        style={[
+                          styles.tileLabel,
+                          {
+                            color: isSelected ? (isDark ? '#FFFFFF' : cat.color) : colors.text,
+                            fontWeight: isSelected ? '800' : '600',
+                          },
+                        ]}
+                      >
+                        {cat.label}
+                      </Text>
+
+                      {isSelected && (
+                        <View style={[styles.selectedCheck, { backgroundColor: cat.color }]}>
+                          <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+                        </View>
+                      )}
+                    </AnimatedPressable>
+                  </FadeInView>
                 );
               })}
             </View>
 
             {/* Auto-Attached GPS Location Card */}
-            <View style={[styles.gpsCard, { backgroundColor: colors.surfaceVariant, borderColor: colors.border }]}>
-              <View style={styles.gpsHeader}>
-                <Ionicons name="location" size={18} color={BMapColors.primary} />
-                <Text style={[styles.gpsHeaderTitle, { color: colors.text }]}>AUTO-ATTACHED GPS TELEMETRY</Text>
+            <FadeInView delay={320} direction="up">
+              <View style={[styles.gpsCard, { backgroundColor: colors.surfaceVariant, borderColor: colors.border }]}>
+                <View style={styles.gpsHeader}>
+                  <Ionicons name="location" size={18} color={BMapColors.primary} />
+                  <Text style={[styles.gpsHeaderTitle, { color: colors.text }]}>AUTO-ATTACHED GPS TELEMETRY</Text>
+                </View>
+                <Text style={[styles.gpsCoords, { color: colors.text }]}>
+                  {telemetry.latitude.toFixed(6)}° N, {telemetry.longitude.toFixed(6)}° E
+                </Text>
+                <Text style={[styles.gpsAddress, { color: colors.textSecondary }]}>
+                  {telemetry.addressString || 'Connaught Place, New Delhi'}
+                </Text>
               </View>
-              <Text style={[styles.gpsCoords, { color: colors.text }]}>
-                {telemetry.latitude.toFixed(6)}° N, {telemetry.longitude.toFixed(6)}° E
-              </Text>
-              <Text style={[styles.gpsAddress, { color: colors.textSecondary }]}>
-                {telemetry.addressString || 'Connaught Place, New Delhi'}
-              </Text>
-            </View>
+            </FadeInView>
 
             {/* Details Form: Expanding multiline TextInput */}
-            <View style={[styles.formBlock, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Text style={[styles.formLabel, { color: colors.text }]}>
-                Optional Hazard Description & Lane Details
-              </Text>
-              <TextInput
-                style={[
-                  styles.commentInput,
-                  {
-                    backgroundColor: colors.surfaceVariant,
-                    borderColor: colors.border,
-                    color: colors.text,
-                  },
-                ]}
-                placeholder="e.g. Left lane blocked due to deep water puddle after metro pillar 80..."
-                placeholderTextColor={colors.textMuted}
-                multiline={true}
-                numberOfLines={3}
-                value={comment}
-                onChangeText={setComment}
-              />
-            </View>
+            <FadeInView delay={380} direction="up">
+              <View style={[styles.formBlock, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <Text style={[styles.formLabel, { color: colors.text }]}>
+                  Optional Hazard Description & Lane Details
+                </Text>
+                <TextInput
+                  style={[
+                    styles.commentInput,
+                    {
+                      backgroundColor: colors.surfaceVariant,
+                      borderColor: colors.border,
+                      color: colors.text,
+                    },
+                  ]}
+                  placeholder="e.g. Left lane blocked due to deep water puddle after metro pillar 80..."
+                  placeholderTextColor={colors.textMuted}
+                  multiline={true}
+                  numberOfLines={3}
+                  value={comment}
+                  onChangeText={setComment}
+                />
+              </View>
+            </FadeInView>
 
             {/* Submit Button */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={handleSubmit}
-              disabled={isSubmitting}
-              style={[styles.submitButton, { backgroundColor: BMapColors.primary }]}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <View style={styles.submitInner}>
-                  <Ionicons name="megaphone-outline" size={20} color="#FFFFFF" />
-                  <Text style={styles.submitButtonText}>Submit Community Hazard Report</Text>
-                </View>
-              )}
-            </TouchableOpacity>
+            <FadeInView delay={440} direction="up">
+              <AnimatedPressable
+                onPress={handleSubmit}
+                disabled={isSubmitting}
+                scaleTo={0.96}
+                style={[styles.submitButton, { backgroundColor: BMapColors.primary }]}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <View style={styles.submitInner}>
+                    <Ionicons name="megaphone-outline" size={20} color="#FFFFFF" />
+                    <Text style={styles.submitButtonText}>Submit Community Hazard Report</Text>
+                  </View>
+                )}
+              </AnimatedPressable>
+            </FadeInView>
           </>
         )}
       </ScrollView>

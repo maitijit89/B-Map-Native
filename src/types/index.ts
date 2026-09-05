@@ -13,10 +13,10 @@ export interface PlacePOI {
   id: string;
   title: string;
   category: PlaceCategory;
-  rating: number;
-  reviewCount: number;
+  rating?: number;
+  reviewCount?: number;
   address: string;
-  digipin: string; // 10-char India Post Code e.g. "DL-982-KP34"
+  digipin?: string; // India Post DigiPin (optional — not all places have one)
   coordinates: LatLng;
   distanceKm?: number;
   details?: {
@@ -144,3 +144,56 @@ export interface UserReview {
   comment: string;
   submittedAt: number;
 }
+
+/** Indian multimodal transport modes */
+export type IndianTransportMode = 'two-wheeler' | 'auto' | 'cab' | 'metro-bus' | 'walking';
+
+/** Transport mode comparison data for RouteComparisonCard */
+export interface TransportComparison {
+  mode: IndianTransportMode;
+  label: string;
+  labelHi?: string; // Hindi label for multilingual
+  etaMinutes: number;
+  fareEstimate: number;
+  fareRange?: { min: number; max: number };
+  distanceKm: number;
+  trafficLevel: 'low' | 'moderate' | 'heavy';
+  isAvailable: boolean;
+  surgeMultiplier?: number;
+}
+
+/** Landmark-based navigation instruction */
+export interface LandmarkInstruction {
+  maneuverType: 'turn-left' | 'turn-right' | 'keep-left' | 'keep-right' | 'u-turn' | 'straight' | 'roundabout' | 'merge';
+  distanceMeters: number;
+  streetName: string;
+  landmarkName?: string;
+  landmarkType?: 'bank' | 'temple' | 'petrol-pump' | 'hospital' | 'school' | 'signal' | 'flyover' | 'metro-station' | 'market' | 'monument';
+  afterOrBefore: 'after' | 'before' | 'at';
+}
+
+/** Quick action category pill */
+export interface QuickActionCategory {
+  id: string;
+  label: string;
+  labelHi?: string;
+  icon: string;
+  color: string;
+  bgColor?: string;
+}
+
+/** Offline map region */
+export interface OfflineMapRegion {
+  id: string;
+  name: string;
+  sizeBytes: number;
+  downloadedAt?: number;
+  isComplete: boolean;
+  boundingBox: {
+    minLat: number;
+    maxLat: number;
+    minLng: number;
+    maxLng: number;
+  };
+}
+

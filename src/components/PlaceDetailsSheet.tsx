@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   Share,
   useColorScheme,
   Modal,
@@ -15,6 +14,8 @@ import { useRouter } from 'expo-router';
 import { PlacePOI } from '@/types';
 import { BMapColors, BMapElevation, BMapTypography } from '@/constants/bmap-theme';
 import { moderateScale, isSmallDevice, SCREEN_HEIGHT } from '@/utils/responsive';
+import { FadeInView } from '@/components/ui/fade-in-view';
+import { AnimatedPressableButton } from '@/components/ui/animated-pressable';
 
 interface PlaceDetailsSheetProps {
   place: PlacePOI | null;
@@ -102,172 +103,186 @@ export function PlaceDetailsSheet({
             contentContainerStyle={styles.scrollContent}
             bounces={false}
           >
-            {/* Header Place Info */}
-            <View style={styles.headerRow}>
-              <View style={styles.titleArea}>
-                <Text
-                  style={[
-                    styles.placeTitle,
-                    BMapTypography.headlineMedium,
-                    { color: colors.text, fontSize: moderateScale(isSmallDevice ? 17 : 20) },
-                  ]}
-                  numberOfLines={2}
-                >
-                  {place.title}
-                </Text>
+            {/* Header Place Info — animated entrance */}
+            <FadeInView delay={50} from="up" slideDistance={12}>
+              <View style={styles.headerRow}>
+                <View style={styles.titleArea}>
+                  <Text
+                    style={[
+                      styles.placeTitle,
+                      BMapTypography.headlineMedium,
+                      { color: colors.text, fontSize: moderateScale(isSmallDevice ? 17 : 20) },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {place.title}
+                  </Text>
 
-                <View style={styles.ratingRow}>
-                  <View style={styles.starCluster}>{renderStars(place.rating)}</View>
-                  <Text style={[styles.ratingScore, { color: colors.text }]}>
-                    {place.rating.toFixed(1)}
-                  </Text>
-                  <Text style={[styles.reviewCount, { color: colors.textSecondary }]}>
-                    ({place.reviewCount} reviews)
-                  </Text>
+                  {place.rating !== undefined && (
+                    <View style={styles.ratingRow}>
+                      <View style={styles.starCluster}>{renderStars(place.rating)}</View>
+                      <Text style={[styles.ratingScore, { color: colors.text }]}>
+                        {place.rating.toFixed(1)}
+                      </Text>
+                      {place.reviewCount !== undefined && (
+                        <Text style={[styles.reviewCount, { color: colors.textSecondary }]}>
+                          ({place.reviewCount} reviews)
+                        </Text>
+                      )}
+                    </View>
+                  )}
                 </View>
-              </View>
 
-              {onClose && (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={onClose}
-                  style={[styles.closeBtn, { backgroundColor: colors.surfaceVariant }]}
-                >
-                  <Ionicons name="close" size={isSmallDevice ? 18 : 20} color={colors.textSecondary} />
-                </TouchableOpacity>
-              )}
-            </View>
+                {onClose && (
+                  <AnimatedPressableButton
+                    pressScale={0.85}
+                    onPress={onClose}
+                    style={[styles.closeBtn, { backgroundColor: colors.surfaceVariant }]}
+                  >
+                    <Ionicons name="close" size={isSmallDevice ? 18 : 20} color={colors.textSecondary} />
+                  </AnimatedPressableButton>
+                )}
+              </View>
+            </FadeInView>
 
             {/* Address Row */}
-            <View style={styles.addressRow}>
-              <Ionicons
-                name="location-outline"
-                size={isSmallDevice ? 15 : 17}
-                color={BMapColors.primary}
-                style={styles.addrIcon}
-              />
-              <Text
-                style={[
-                  styles.addressText,
-                  { color: colors.textSecondary, fontSize: moderateScale(isSmallDevice ? 12 : 13) },
-                ]}
-              >
-                {place.address}
-              </Text>
-            </View>
+            <FadeInView delay={120} from="up" slideDistance={10}>
+              <View style={styles.addressRow}>
+                <Ionicons
+                  name="location-outline"
+                  size={isSmallDevice ? 15 : 17}
+                  color={BMapColors.primary}
+                  style={styles.addrIcon}
+                />
+                <Text
+                  style={[
+                    styles.addressText,
+                    { color: colors.textSecondary, fontSize: moderateScale(isSmallDevice ? 12 : 13) },
+                  ]}
+                >
+                  {place.address}
+                </Text>
+              </View>
+            </FadeInView>
 
             {/* Primary Action Buttons: [Navigate, Share, Save] */}
-            <View style={styles.actionRow}>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={handleNavigate}
-                style={[styles.actionButton, styles.primaryActionButton, { backgroundColor: BMapColors.primary }]}
-              >
-                <Ionicons name="navigate" size={isSmallDevice ? 15 : 17} color="#FFFFFF" />
-                <Text style={styles.primaryActionText} numberOfLines={1}>
-                  Navigate
-                </Text>
-              </TouchableOpacity>
+            <FadeInView delay={200} from="up" slideDistance={10}>
+              <View style={styles.actionRow}>
+                <AnimatedPressableButton
+                  pressScale={0.94}
+                  onPress={handleNavigate}
+                  style={[styles.actionButton, styles.primaryActionButton, { backgroundColor: BMapColors.primary }]}
+                >
+                  <Ionicons name="navigate" size={isSmallDevice ? 15 : 17} color="#FFFFFF" />
+                  <Text style={styles.primaryActionText} numberOfLines={1}>
+                    Navigate
+                  </Text>
+                </AnimatedPressableButton>
 
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={handleShare}
-                style={[styles.actionButton, { backgroundColor: colors.surfaceVariant, borderColor: colors.border }]}
-              >
-                <Ionicons name="share-social-outline" size={isSmallDevice ? 15 : 17} color={colors.text} />
-                <Text style={[styles.actionButtonText, { color: colors.text }]} numberOfLines={1}>
-                  Share
-                </Text>
-              </TouchableOpacity>
+                <AnimatedPressableButton
+                  pressScale={0.94}
+                  onPress={handleShare}
+                  style={[styles.actionButton, { backgroundColor: colors.surfaceVariant, borderColor: colors.border }]}
+                >
+                  <Ionicons name="share-social-outline" size={isSmallDevice ? 15 : 17} color={colors.text} />
+                  <Text style={[styles.actionButtonText, { color: colors.text }]} numberOfLines={1}>
+                    Share
+                  </Text>
+                </AnimatedPressableButton>
 
-              <TouchableOpacity
-                activeOpacity={0.8}
-                style={[styles.actionButton, { backgroundColor: colors.surfaceVariant, borderColor: colors.border }]}
-              >
-                <Ionicons name="bookmark-outline" size={isSmallDevice ? 15 : 17} color={colors.text} />
-                <Text style={[styles.actionButtonText, { color: colors.text }]} numberOfLines={1}>
-                  Save
-                </Text>
-              </TouchableOpacity>
-            </View>
+                <AnimatedPressableButton
+                  pressScale={0.94}
+                  style={[styles.actionButton, { backgroundColor: colors.surfaceVariant, borderColor: colors.border }]}
+                >
+                  <Ionicons name="bookmark-outline" size={isSmallDevice ? 15 : 17} color={colors.text} />
+                  <Text style={[styles.actionButtonText, { color: colors.text }]} numberOfLines={1}>
+                    Save
+                  </Text>
+                </AnimatedPressableButton>
+              </View>
+            </FadeInView>
 
             {/* Spatial Metadata Box */}
-            <View
-              style={[
-                styles.spatialBox,
-                { backgroundColor: isDark ? '#16222F' : '#F1F5F9', borderColor: colors.border },
-              ]}
-            >
-              <View style={styles.spatialHeader}>
-                <MaterialCommunityIcons name="crosshairs-gps" size={17} color={BMapColors.primary} />
-                <Text style={[styles.spatialHeaderTitle, { color: colors.text }]}>
-                  Spatial Telemetry & DIGIPIN
-                </Text>
-              </View>
-
-              <View style={styles.spatialGrid}>
-                <View style={styles.spatialItem}>
-                  <Text style={[styles.spatialLabel, { color: colors.textMuted }]}>GPS COORDINATES</Text>
-                  <Text style={[styles.spatialValue, { color: colors.text }]}>
-                    {place.coordinates.latitude.toFixed(5)}° N, {place.coordinates.longitude.toFixed(5)}° E
+            <FadeInView delay={300} from="up" slideDistance={10}>
+              <View
+                style={[
+                  styles.spatialBox,
+                  { backgroundColor: isDark ? '#16222F' : '#F1F5F9', borderColor: colors.border },
+                ]}
+              >
+                <View style={styles.spatialHeader}>
+                  <MaterialCommunityIcons name="crosshairs-gps" size={17} color={BMapColors.primary} />
+                  <Text style={[styles.spatialHeaderTitle, { color: colors.text }]}>
+                    Spatial Telemetry & DIGIPIN
                   </Text>
                 </View>
 
-                <View style={styles.spatialItem}>
-                  <Text style={[styles.spatialLabel, { color: colors.textMuted }]}>INDIA POST DIGIPIN</Text>
-                  <View style={styles.digipinPill}>
-                    <Text style={styles.digipinText}>{place.digipin}</Text>
+                <View style={styles.spatialGrid}>
+                  <View style={styles.spatialItem}>
+                    <Text style={[styles.spatialLabel, { color: colors.textMuted }]}>GPS COORDINATES</Text>
+                    <Text style={[styles.spatialValue, { color: colors.text }]}>
+                      {place.coordinates.latitude.toFixed(5)}° N, {place.coordinates.longitude.toFixed(5)}° E
+                    </Text>
+                  </View>
+
+                  <View style={styles.spatialItem}>
+                    <Text style={[styles.spatialLabel, { color: colors.textMuted }]}>INDIA POST DIGIPIN</Text>
+                    <View style={styles.digipinPill}>
+                      <Text style={styles.digipinText}>{place.digipin}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.spatialItem}>
+                    <Text style={[styles.spatialLabel, { color: colors.textMuted }]}>DISTANCE</Text>
+                    <Text style={[styles.spatialValue, { color: BMapColors.secondary }]}>
+                      {place.distanceKm ?? userDistanceKm} km from current location
+                    </Text>
                   </View>
                 </View>
-
-                <View style={styles.spatialItem}>
-                  <Text style={[styles.spatialLabel, { color: colors.textMuted }]}>DISTANCE</Text>
-                  <Text style={[styles.spatialValue, { color: BMapColors.secondary }]}>
-                    {place.distanceKm ?? userDistanceKm} km from current location
-                  </Text>
-                </View>
               </View>
-            </View>
+            </FadeInView>
 
             {/* Extra Venue Details (if available) */}
             {place.details && (
-              <View style={[styles.detailsSection, { borderColor: colors.border }]}>
-                {place.details.fastagLane && (
-                  <View style={styles.detailRow}>
-                    <MaterialCommunityIcons name="card-bulleted" size={17} color={BMapColors.fastagPurple} />
-                    <Text style={[styles.detailText, { color: colors.text }]}>
-                      FASTag 100% ETC Dedicated Lane Active
-                    </Text>
-                  </View>
-                )}
+              <FadeInView delay={400} from="up" slideDistance={10}>
+                <View style={[styles.detailsSection, { borderColor: colors.border }]}>
+                  {place.details.fastagLane && (
+                    <View style={styles.detailRow}>
+                      <MaterialCommunityIcons name="card-bulleted" size={17} color={BMapColors.fastagPurple} />
+                      <Text style={[styles.detailText, { color: colors.text }]}>
+                        FASTag 100% ETC Dedicated Lane Active
+                      </Text>
+                    </View>
+                  )}
 
-                {place.details.connectors && (
-                  <View style={styles.detailRow}>
-                    <Ionicons name="flash-outline" size={17} color={BMapColors.evCyan} />
-                    <Text style={[styles.detailText, { color: colors.text }]}>
-                      Connectors: {place.details.connectors.join(', ')}
-                    </Text>
-                  </View>
-                )}
+                  {place.details.connectors && (
+                    <View style={styles.detailRow}>
+                      <Ionicons name="flash-outline" size={17} color={BMapColors.evCyan} />
+                      <Text style={[styles.detailText, { color: colors.text }]}>
+                        Connectors: {place.details.connectors.join(', ')}
+                      </Text>
+                    </View>
+                  )}
 
-                {place.details.pricing && (
-                  <View style={styles.detailRow}>
-                    <MaterialCommunityIcons name="currency-inr" size={17} color={BMapColors.primary} />
-                    <Text style={[styles.detailText, { color: colors.text }]}>
-                      Pricing: {place.details.pricing}
-                    </Text>
-                  </View>
-                )}
+                  {place.details.pricing && (
+                    <View style={styles.detailRow}>
+                      <MaterialCommunityIcons name="currency-inr" size={17} color={BMapColors.primary} />
+                      <Text style={[styles.detailText, { color: colors.text }]}>
+                        Pricing: {place.details.pricing}
+                      </Text>
+                    </View>
+                  )}
 
-                {place.details.timings && (
-                  <View style={styles.detailRow}>
-                    <Ionicons name="time-outline" size={17} color={colors.textSecondary} />
-                    <Text style={[styles.detailText, { color: colors.text }]}>
-                      Hours: {place.details.timings}
-                    </Text>
-                  </View>
-                )}
-              </View>
+                  {place.details.timings && (
+                    <View style={styles.detailRow}>
+                      <Ionicons name="time-outline" size={17} color={colors.textSecondary} />
+                      <Text style={[styles.detailText, { color: colors.text }]}>
+                        Hours: {place.details.timings}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </FadeInView>
             )}
           </ScrollView>
         </View>

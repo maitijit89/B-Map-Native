@@ -1,20 +1,32 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
   useColorScheme,
-  Dimensions,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  withDelay,
+  Easing,
+  interpolate,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { BMapColors, BMapElevation, BMapTypography } from '@/constants/bmap-theme';
 import { HeaderBar } from '@/components/HeaderBar';
 import { BMapView, BMapMarkerItem } from '@/components/BMapView';
 import { RatingModal } from '@/components/RatingModal';
+import { AnimatedPressable } from '@/components/ui/animated-pressable';
+import { FadeInView } from '@/components/ui/fade-in-view';
+
+import { FleetAPI } from '@/api/api';
+import { NearbyDriver } from '@/api/types';
+import { useFleetWebSocket } from '@/hooks/useFleetWebSocket';
+import { getLatestTelemetry } from '@/services/telemetry';
 
 type VehicleTier = 'Auto' | 'Economy Sedan' | 'Premium SUV';
 
@@ -62,35 +74,53 @@ const VEHICLE_TIERS: TierOption[] = [
   },
 ];
 
-const NEARBY_CABS: BMapMarkerItem[] = [
-  {
-    id: 'cab-1',
-    coordinate: { latitude: 28.6189, longitude: 77.2140 },
-    title: 'B Auto (DL 1R 8892)',
-    category: 'taxi',
-  },
-  {
-    id: 'cab-2',
-    coordinate: { latitude: 28.6089, longitude: 77.2030 },
-    title: 'B Sedan (DL 2C 4310)',
-    category: 'taxi',
-  },
-  {
-    id: 'cab-3',
-    coordinate: { latitude: 28.6210, longitude: 77.2210 },
-    title: 'B Prime SUV (HR 26 DQ 1009)',
-    category: 'taxi',
-  },
-];
+function RadarPulseRing({ delay = 0, size = 100 }: { delay?: number; size?: number }) {
+  const pulse = useSharedValue(0);
+
+  useEffect(() => {
+    pulse.value = withDelay(
+      delay,
+      withRepeat(
+        withTiming(1, { duration: 2000, easing: Easing.out(Easing.ease) }),
+        -1,
+        false
+      )
+    );
+  }, [delay, pulse]);
+
+  const ringStyle = useAnimatedStyle(() => {
+    const scale = interpolate(pulse.value, [0, 1], [0.4, 1.8]);
+    const opacity = interpolate(pulse.value, [0, 0.4, 1], [0.8, 0.4, 0]);
+
+    return {
+      transform: [{ scale }],
+      opacity,
+    };
+  });
+
+  return (
+    <Animated.View
+      style={[
+        styles.radarRing,
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+        },
+        ringStyle,
+      ]}
+    />
+  );
+}
 
 export default function RideRequestScreen() {
-  const router = useRouter();
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
   const colors = isDark ? BMapColors.dark : BMapColors.light;
 
   const [selectedTier, setSelectedTier] = useState<VehicleTier>('Economy Sedan');
   const [isSearchingDriver, setIsSearchingDriver] = useState(false);
+  const [drivers, setDrivers] = useState<NearbyDriver[]>([]);
   const [matchedDriver, setMatchedDriver] = useState<{
     name: string;
     vehicle: string;
@@ -101,21 +131,91 @@ export default function RideRequestScreen() {
 
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
 
-  const handleConfirmBooking = () => {
+  // Subscribe to live WebSocket fleet telemetry
+  const { drivers: wsDrivers } = useFleetWebSocket('bmap-user-app');
+
+  // Fetch nearby drivers from backend
+  useEffect(() => {
+    let isMounted = true;
+    const loadDrivers = async () => {
+      try {
+        const loc = getLatestTelemetry();
+        const res = await FleetAPI.getNearbyDrivers(loc.latitude, loc.longitude, 10000, 10);
+        if (isMounted && res.data?.drivers) {
+          setDrivers(res.data.drivers);
+        }
+      } catch (err) {
+        console.warn('Failed to load nearby drivers from backend:', err);
+      }
+    };
+
+    loadDrivers();
+    const interval = setInterval(loadDrivers, 8000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Map real backend drivers + live WebSocket telemetry to map markers
+  const mapMarkers: BMapMarkerItem[] = useMemo(() => {
+    if (wsDrivers && wsDrivers.length > 0) {
+      return wsDrivers.map((loc) => ({
+        id: loc.driver_id,
+        coordinate: {
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+        },
+        title: `Fleet Driver (${loc.driver_id.slice(0, 6)})`,
+        category: 'taxi',
+      }));
+    }
+
+    return drivers.map((d) => ({
+      id: d.driver_id,
+      coordinate: {
+        latitude: d.latitude || d.location?.latitude || 28.6139,
+        longitude: d.longitude || d.location?.longitude || 77.2090,
+      },
+      title: `B-Map Cab (${d.driver_id.slice(0, 6)})`,
+      category: 'taxi',
+    }));
+  }, [drivers, wsDrivers]);
+
+  const handleConfirmBooking = async () => {
     setIsSearchingDriver(true);
     setMatchedDriver(null);
 
-    // Simulate driver matching radar
-    setTimeout(() => {
+    try {
+      const loc = getLatestTelemetry();
+      const res = await FleetAPI.requestTrip({
+        pickup_lat: loc.latitude,
+        pickup_lng: loc.longitude,
+        dropoff_lat: 28.4907,
+        dropoff_lng: 77.0911,
+        pickup_address: loc.addressString || 'Current Location',
+        dropoff_address: 'Selected Destination',
+      });
+
+      const trip = res.data?.trip;
       setIsSearchingDriver(false);
       setMatchedDriver({
-        name: 'Vikram Singh',
-        vehicle: selectedTier === 'Auto' ? 'Bajaj RE Auto' : 'Maruti Suzuki Dzire AC',
-        plate: 'DL 1R AY 9421',
-        rating: 4.89,
-        otp: '4821',
+        name: trip?.driver_id ? `Captain ${trip.driver_id.slice(0, 6)}` : 'Driver',
+        vehicle: selectedTier === 'Auto' ? 'Bajaj RE Auto' : selectedTier === 'Premium SUV' ? 'Toyota Innova Crysta' : 'Maruti Suzuki Dzire AC',
+        plate: '—— —— ————',
+        rating: 4.8,
+        otp: '----',
       });
-    }, 2800);
+    } catch {
+      setIsSearchingDriver(false);
+      setMatchedDriver({
+        name: 'Driver',
+        vehicle: selectedTier === 'Auto' ? 'Bajaj RE Auto' : 'Maruti Suzuki Dzire AC',
+        plate: 'Awaiting Assignment',
+        rating: 4.8,
+        otp: '----',
+      });
+    }
   };
 
   return (
@@ -132,16 +232,19 @@ export default function RideRequestScreen() {
       <View style={styles.mapSection}>
         <BMapView
           mapStyleType={isDark ? 'dark' : 'daylight'}
-          markers={NEARBY_CABS}
+          markers={mapMarkers}
         />
 
         {/* Pickup Location Bubble */}
-        <View style={[styles.pickupPill, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <View style={styles.greenDot} />
-          <Text style={[styles.pickupText, { color: colors.text }]} numberOfLines={1}>
-            Pickup: Connaught Place, Inner Circle
-          </Text>
-        </View>
+        <FadeInView delay={100} direction="down" style={styles.pickupPillOuter}>
+          <View style={[styles.pickupPill, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.greenDot} />
+            <Text style={[styles.pickupText, { color: colors.text }]} numberOfLines={1}>
+              {getLatestTelemetry().addressString || 'Current Location'}
+            </Text>
+            <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
+          </View>
+        </FadeInView>
       </View>
 
       {/* Bottom Sheet / Ride Booking Controls */}
@@ -149,25 +252,34 @@ export default function RideRequestScreen() {
         {isSearchingDriver ? (
           /* Active Driver Searching Radar State */
           <View style={styles.searchingStateContainer}>
-            <View style={styles.radarCircle}>
-              <ActivityIndicator size="large" color={BMapColors.primary} />
+            <View style={styles.radarWrapper}>
+              <RadarPulseRing delay={0} size={110} />
+              <RadarPulseRing delay={650} size={110} />
+              <RadarPulseRing delay={1300} size={110} />
+              <View style={[styles.radarCenterCircle, { backgroundColor: BMapColors.primary }]}>
+                <Ionicons name="radio" size={32} color="#FFFFFF" />
+              </View>
             </View>
-            <Text style={[styles.searchingTitle, BMapTypography.headlineMedium, { color: colors.text }]}>
-              Connecting to Nearby Drivers...
-            </Text>
-            <Text style={[styles.searchingSubtitle, { color: colors.textSecondary }]}>
-              Broadcasting dispatch request to {selectedTier} drivers within 3 km.
-            </Text>
-            <TouchableOpacity
+
+            <FadeInView delay={200} direction="up" style={styles.searchingTextCluster}>
+              <Text style={[styles.searchingTitle, BMapTypography.headlineMedium, { color: colors.text }]}>
+                Connecting to Nearby Drivers...
+              </Text>
+              <Text style={[styles.searchingSubtitle, { color: colors.textSecondary }]}>
+                Broadcasting dispatch request to {selectedTier} drivers within 3 km radius.
+              </Text>
+            </FadeInView>
+
+            <AnimatedPressable
               onPress={() => setIsSearchingDriver(false)}
               style={[styles.cancelSearchBtn, { backgroundColor: colors.surfaceVariant }]}
             >
               <Text style={[styles.cancelSearchText, { color: colors.textSecondary }]}>Cancel Request</Text>
-            </TouchableOpacity>
+            </AnimatedPressable>
           </View>
         ) : matchedDriver ? (
           /* Driver Matched & En Route State */
-          <View style={styles.matchedContainer}>
+          <FadeInView delay={50} direction="up" style={styles.matchedContainer}>
             <View style={styles.matchedTopRow}>
               <View style={styles.driverInfoLeft}>
                 <View style={styles.driverAvatar}>
@@ -193,29 +305,33 @@ export default function RideRequestScreen() {
             </View>
 
             <View style={[styles.plateRow, { backgroundColor: colors.surfaceVariant }]}>
-              <Text style={[styles.plateText, { color: colors.text }]}>{matchedDriver.plate}</Text>
-              <Text style={styles.arrivingText}>Arriving in 3 mins</Text>
+              <View>
+                <Text style={[styles.plateLabel, { color: colors.textSecondary }]}>VEHICLE NO.</Text>
+                <Text style={[styles.plateText, { color: colors.text }]}>{matchedDriver.plate}</Text>
+              </View>
+              <View style={styles.arrivingBadge}>
+                <Ionicons name="time" size={14} color="#00875A" />
+                <Text style={styles.arrivingText}>Arriving in 3 mins</Text>
+              </View>
             </View>
 
             <View style={styles.driverActionButtons}>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                style={[styles.callDriverBtn, { backgroundColor: '#E8F5E9' }]}
+              <AnimatedPressable
+                style={[styles.callDriverBtn, { backgroundColor: isDark ? '#143820' : '#E8F5E9' }]}
               >
                 <Ionicons name="call" size={18} color="#2E7D32" />
                 <Text style={styles.callDriverText}>Call Driver</Text>
-              </TouchableOpacity>
+              </AnimatedPressable>
 
-              <TouchableOpacity
-                activeOpacity={0.8}
+              <AnimatedPressable
                 onPress={() => setIsRatingModalOpen(true)}
                 style={[styles.rateTripBtn, { backgroundColor: BMapColors.primary }]}
               >
                 <Ionicons name="star" size={18} color="#FFFFFF" />
-                <Text style={styles.rateTripText}>Rate Experience</Text>
-              </TouchableOpacity>
+                <Text style={styles.rateTripText}>Rate Trip</Text>
+              </AnimatedPressable>
             </View>
-          </View>
+          </FadeInView>
         ) : (
           /* Selectable Vehicle Tier List */
           <View style={styles.tierSelectionContainer}>
@@ -224,68 +340,80 @@ export default function RideRequestScreen() {
             </Text>
 
             <View style={styles.tiersList}>
-              {VEHICLE_TIERS.map(tier => {
+              {VEHICLE_TIERS.map((tier, index) => {
                 const isSelected = selectedTier === tier.id;
 
                 return (
-                  <TouchableOpacity
-                    key={tier.id}
-                    activeOpacity={0.85}
-                    onPress={() => setSelectedTier(tier.id)}
-                    style={[
-                      styles.tierCard,
-                      {
-                        backgroundColor: isSelected ? (isDark ? '#231B15' : '#FFF7ED') : colors.surfaceVariant,
-                        borderColor: isSelected ? BMapColors.primary : colors.border,
-                        borderWidth: isSelected ? 2 : 1,
-                      },
-                    ]}
-                  >
-                    <View style={styles.tierIconContainer}>
-                      {tier.iconSet === 'MaterialCommunityIcons' ? (
-                        <MaterialCommunityIcons
-                          name={tier.icon as any}
-                          size={28}
-                          color={isSelected ? BMapColors.primary : colors.text}
-                        />
-                      ) : (
-                        <FontAwesome5
-                          name={tier.icon}
-                          size={24}
-                          color={isSelected ? BMapColors.primary : colors.text}
-                        />
-                      )}
-                    </View>
-
-                    <View style={styles.tierTextCluster}>
-                      <View style={styles.tierTitleRow}>
-                        <Text style={[styles.tierName, { color: colors.text }]}>{tier.name}</Text>
-                        <View style={styles.seatsPill}>
-                          <Ionicons name="person" size={11} color={colors.textSecondary} />
-                          <Text style={[styles.seatsText, { color: colors.textSecondary }]}>{tier.seats}</Text>
-                        </View>
+                  <FadeInView key={tier.id} delay={index * 80} direction="up">
+                    <AnimatedPressable
+                      onPress={() => setSelectedTier(tier.id)}
+                      scaleTo={0.97}
+                      style={[
+                        styles.tierCard,
+                        {
+                          backgroundColor: isSelected
+                            ? (isDark ? '#261C13' : '#FFF7ED')
+                            : colors.surfaceVariant,
+                          borderColor: isSelected ? BMapColors.primary : colors.border,
+                          borderWidth: isSelected ? 2 : 1,
+                        },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.tierIconContainer,
+                          {
+                            backgroundColor: isSelected
+                              ? (isDark ? '#3D2513' : '#FFEDD5')
+                              : (isDark ? '#1F2937' : '#E5E7EB'),
+                          },
+                        ]}
+                      >
+                        {tier.iconSet === 'MaterialCommunityIcons' ? (
+                          <MaterialCommunityIcons
+                            name={tier.icon as any}
+                            size={26}
+                            color={isSelected ? BMapColors.primary : colors.text}
+                          />
+                        ) : (
+                          <FontAwesome5
+                            name={tier.icon}
+                            size={22}
+                            color={isSelected ? BMapColors.primary : colors.text}
+                          />
+                        )}
                       </View>
-                      <Text style={[styles.tierDesc, { color: colors.textSecondary }]}>{tier.desc}</Text>
-                    </View>
 
-                    <View style={styles.tierPricingCluster}>
-                      <Text style={[styles.tierPrice, { color: colors.text }]}>₹{tier.price}</Text>
-                      <Text style={styles.tierEta}>{tier.etaMins} mins away</Text>
-                    </View>
-                  </TouchableOpacity>
+                      <View style={styles.tierTextCluster}>
+                        <View style={styles.tierTitleRow}>
+                          <Text style={[styles.tierName, { color: colors.text }]}>{tier.name}</Text>
+                          <View style={styles.seatsPill}>
+                            <Ionicons name="person" size={11} color={colors.textSecondary} />
+                            <Text style={[styles.seatsText, { color: colors.textSecondary }]}>{tier.seats}</Text>
+                          </View>
+                        </View>
+                        <Text style={[styles.tierDesc, { color: colors.textSecondary }]}>{tier.desc}</Text>
+                      </View>
+
+                      <View style={styles.tierPricingCluster}>
+                        <Text style={[styles.tierPrice, { color: colors.text }]}>₹{tier.price}</Text>
+                        <Text style={styles.tierEta}>{tier.etaMins} mins away</Text>
+                      </View>
+                    </AnimatedPressable>
+                  </FadeInView>
                 );
               })}
             </View>
 
             {/* Confirm Booking Action Button */}
-            <TouchableOpacity
-              activeOpacity={0.85}
+            <AnimatedPressable
               onPress={handleConfirmBooking}
+              scaleTo={0.96}
               style={[styles.confirmBtn, { backgroundColor: BMapColors.primary }]}
             >
               <Text style={styles.confirmBtnText}>Confirm {selectedTier} Ride</Text>
               <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
-            </TouchableOpacity>
+            </AnimatedPressable>
           </View>
         )}
       </View>
@@ -307,11 +435,13 @@ const styles = StyleSheet.create({
     flex: 5,
     position: 'relative',
   },
-  pickupPill: {
+  pickupPillOuter: {
     position: 'absolute',
     top: 14,
     left: 16,
     right: 16,
+  },
+  pickupPill: {
     padding: 12,
     borderRadius: 16,
     borderWidth: 1,
@@ -335,7 +465,9 @@ const styles = StyleSheet.create({
     flex: 5,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    padding: 18,
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    paddingBottom: 72,
     justifyContent: 'space-between',
     ...BMapElevation.level3,
   },
@@ -363,6 +495,7 @@ const styles = StyleSheet.create({
   tierIconContainer: {
     width: 44,
     height: 44,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -422,16 +555,33 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 20,
+    gap: 14,
+    paddingVertical: 14,
   },
-  radarCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#FFF3E0',
+  radarWrapper: {
+    width: 140,
+    height: 140,
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
+  },
+  radarRing: {
+    position: 'absolute',
+    borderWidth: 2,
+    borderColor: BMapColors.primary,
+    backgroundColor: 'rgba(234, 88, 12, 0.12)',
+  },
+  radarCenterCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...BMapElevation.level3,
+  },
+  searchingTextCluster: {
+    alignItems: 'center',
+    gap: 6,
   },
   searchingTitle: {
     fontWeight: '800',
@@ -441,12 +591,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 13,
     paddingHorizontal: 20,
+    lineHeight: 18,
   },
   cancelSearchBtn: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingVertical: 10,
     borderRadius: 20,
-    marginTop: 8,
+    marginTop: 4,
   },
   cancelSearchText: {
     fontSize: 13,
@@ -506,15 +657,26 @@ const styles = StyleSheet.create({
   },
   plateRow: {
     padding: 12,
-    borderRadius: 12,
+    borderRadius: 14,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  plateLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   plateText: {
     fontSize: 15,
     fontWeight: '800',
     letterSpacing: 1,
+    marginTop: 2,
+  },
+  arrivingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   arrivingText: {
     color: '#00875A',

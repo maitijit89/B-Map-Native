@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,10 @@ import { BMapView, BMapMarkerItem, BMapPolylineItem } from '@/components/BMapVie
 import { ToastBanner } from '@/components/ToastBanner';
 import { VehicleClass, TollPlaza } from '@/types';
 import { isSmallDevice, moderateScale } from '@/utils/responsive';
+import { AnimatedPressable } from '@/components/ui/animated-pressable';
+import { FadeInView } from '@/components/ui/fade-in-view';
+import { IndianEcosystemAPI } from '@/api/api';
+import { getLatestTelemetry } from '@/services/telemetry';
 import {
   NATIONAL_TOLL_PLAZAS,
   getTollRateForVehicle,
@@ -67,6 +71,9 @@ export default function FastagScreen() {
   const [selectedPlazaId, setSelectedPlazaId] = useState<string | null>(null);
   const [isMapVisible, setIsMapVisible] = useState(true);
 
+  // Live Toll Plazas from Backend
+  const [tollPlazas, setTollPlazas] = useState<TollPlaza[]>(NATIONAL_TOLL_PLAZAS);
+
   // Virtual FASTag Wallet State
   const [fastagBalance, setFastagBalance] = useState(650.0);
   const [isRechargeModalOpen, setIsRechargeModalOpen] = useState(false);
@@ -75,17 +82,54 @@ export default function FastagScreen() {
 
   const flatListRef = useRef<FlatList>(null);
 
+  // Fetch live toll plazas from backend
+  useEffect(() => {
+    let isMounted = true;
+    const fetchTolls = async () => {
+      try {
+        const loc = getLatestTelemetry();
+        const res = await IndianEcosystemAPI.getNearbyTolls(loc.latitude, loc.longitude, 100);
+        const remotePlazas = res.data?.data?.plazas;
+        if (isMounted && remotePlazas && remotePlazas.length > 0) {
+          const mapped = remotePlazas.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            highway: p.highway || 'NH-48',
+            chainageKm: 'KM 42.0',
+            carRate: p.single_trip_inr || 80,
+            lcvRate: Math.round((p.single_trip_inr || 80) * 1.6),
+            busTruckRate: Math.round((p.single_trip_inr || 80) * 3.3),
+            multiAxleRate: Math.round((p.single_trip_inr || 80) * 5.2),
+            hasDedicatedFastagLanes: p.is_fastag_active ?? true,
+            coordinates: {
+              latitude: p.location?.lat || p.location?.latitude || 28.4067,
+              longitude: p.location?.lng || p.location?.longitude || 76.9854,
+            },
+          }));
+          setTollPlazas(mapped);
+        }
+      } catch (err) {
+        console.warn('Failed to load toll plazas from backend:', err);
+      }
+    };
+
+    fetchTolls();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const activeModeMultiplier = useMemo(() => {
     return JOURNEY_MODES.find(m => m.id === journeyMode)?.multiplier || 1.0;
   }, [journeyMode]);
 
   // Total calculated toll across the corridor
   const totalBaseToll = useMemo(() => {
-    return NATIONAL_TOLL_PLAZAS.reduce(
+    return tollPlazas.reduce(
       (sum, plaza) => sum + getTollRateForVehicle(plaza, selectedVehicle),
       0
     );
-  }, [selectedVehicle]);
+  }, [tollPlazas, selectedVehicle]);
 
   const totalEffectiveToll = useMemo(() => {
     return Math.round(totalBaseToll * activeModeMultiplier);
@@ -104,7 +148,7 @@ export default function FastagScreen() {
 
   // Map markers for toll plazas
   const mapMarkers: BMapMarkerItem[] = useMemo(() => {
-    return NATIONAL_TOLL_PLAZAS.map(plaza => {
+    return tollPlazas.map(plaza => {
       const rate = Math.round(getTollRateForVehicle(plaza, selectedVehicle) * activeModeMultiplier);
       return {
         id: plaza.id,
@@ -114,17 +158,17 @@ export default function FastagScreen() {
         data: plaza,
       };
     });
-  }, [selectedVehicle, activeModeMultiplier]);
+  }, [tollPlazas, selectedVehicle, activeModeMultiplier]);
 
   const handleMarkerPress = useCallback((marker: BMapMarkerItem) => {
     if (marker.id) {
       setSelectedPlazaId(marker.id);
-      const index = NATIONAL_TOLL_PLAZAS.findIndex(p => p.id === marker.id);
+      const index = tollPlazas.findIndex(p => p.id === marker.id);
       if (index >= 0) {
         flatListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.3 });
       }
     }
-  }, []);
+  }, [tollPlazas]);
 
   const handleExecuteRecharge = (amountToAdd: number) => {
     if (amountToAdd <= 0) return;
@@ -168,7 +212,7 @@ export default function FastagScreen() {
       {/* Main Content Area */}
       <FlatList
         ref={flatListRef}
-        data={NATIONAL_TOLL_PLAZAS}
+        data={tollPlazas}
         keyExtractor={item => item.id}
         contentContainerStyle={styles.scrollListContent}
         initialNumToRender={5}
@@ -213,10 +257,10 @@ export default function FastagScreen() {
               {VEHICLE_CLASSES.map(veh => {
                 const isSelected = selectedVehicle === veh.id;
                 return (
-                  <TouchableOpacity
+                  <AnimatedPressable
                     key={veh.id}
-                    activeOpacity={0.8}
                     onPress={() => setSelectedVehicle(veh.id)}
+                    scaleTo={0.95}
                     style={[
                       styles.vehiclePill,
                       {
@@ -267,7 +311,7 @@ export default function FastagScreen() {
                         Class {veh.id === 'car' ? '4' : veh.id === 'lcv' ? '5' : veh.id === 'bus_truck' ? '6' : '7+'}
                       </Text>
                     </View>
-                  </TouchableOpacity>
+                  </AnimatedPressable>
                 );
               })}
             </ScrollView>
@@ -277,10 +321,10 @@ export default function FastagScreen() {
               {JOURNEY_MODES.map(mode => {
                 const isSelected = journeyMode === mode.id;
                 return (
-                  <TouchableOpacity
+                  <AnimatedPressable
                     key={mode.id}
-                    activeOpacity={0.8}
                     onPress={() => setJourneyMode(mode.id)}
+                    scaleTo={0.95}
                     style={[
                       styles.journeyModeTab,
                       {
@@ -312,7 +356,7 @@ export default function FastagScreen() {
                     >
                       {mode.sub}
                     </Text>
-                  </TouchableOpacity>
+                  </AnimatedPressable>
                 );
               })}
             </View>
@@ -368,7 +412,7 @@ export default function FastagScreen() {
                     ₹{totalEffectiveToll}
                   </Text>
                   <Text style={[styles.metricSub, { color: colors.textSecondary }]}>
-                    {NATIONAL_TOLL_PLAZAS.length} Plazas
+                    {tollPlazas.length} Plazas
                   </Text>
                 </View>
 
@@ -425,9 +469,9 @@ export default function FastagScreen() {
                   </Text>
                 </View>
 
-                <TouchableOpacity
-                  activeOpacity={0.8}
+                <AnimatedPressable
                   onPress={() => setIsRechargeModalOpen(true)}
+                  scaleTo={0.93}
                   style={[
                     styles.rechargeActionBtn,
                     { backgroundColor: BMapColors.fastagPurple },
@@ -435,7 +479,7 @@ export default function FastagScreen() {
                 >
                   <Ionicons name="card-outline" size={14} color="#FFFFFF" />
                   <Text style={styles.rechargeBtnText}>Recharge</Text>
-                </TouchableOpacity>
+                </AnimatedPressable>
               </View>
             </View>
 
@@ -455,92 +499,94 @@ export default function FastagScreen() {
         renderItem={({ item, index }) => {
           const baseRate = getTollRateForVehicle(item, selectedVehicle);
           const effectiveRate = Math.round(baseRate * activeModeMultiplier);
-          const isLast = index === NATIONAL_TOLL_PLAZAS.length - 1;
+          const isLast = index === tollPlazas.length - 1;
           const isSelected = selectedPlazaId === item.id;
 
           return (
-            <TouchableOpacity
-              activeOpacity={0.9}
-              onPress={() => setSelectedPlazaId(item.id)}
-              style={styles.timelineItemContainer}
-            >
-              {/* Left Chronological Timeline Indicator */}
-              <View style={styles.timelineLeftColumn}>
+            <FadeInView delay={index * 40} direction="up">
+              <AnimatedPressable
+                onPress={() => setSelectedPlazaId(item.id)}
+                scaleTo={0.98}
+                style={styles.timelineItemContainer}
+              >
+                {/* Left Chronological Timeline Indicator */}
+                <View style={styles.timelineLeftColumn}>
+                  <View
+                    style={[
+                      styles.timelineDot,
+                      {
+                        backgroundColor: isSelected ? BMapColors.primary : BMapColors.fastagPurple,
+                        transform: [{ scale: isSelected ? 1.15 : 1 }],
+                      },
+                    ]}
+                  >
+                    <Text style={styles.timelineNumberText}>{index + 1}</Text>
+                  </View>
+                  {!isLast && (
+                    <View
+                      style={[
+                        styles.timelineConnectingLine,
+                        { backgroundColor: isDark ? '#374151' : '#E5E7EB' },
+                      ]}
+                    />
+                  )}
+                </View>
+
+                {/* Plaza Detail Card */}
                 <View
                   style={[
-                    styles.timelineDot,
+                    styles.plazaCard,
                     {
-                      backgroundColor: isSelected ? BMapColors.primary : BMapColors.fastagPurple,
-                      transform: [{ scale: isSelected ? 1.15 : 1 }],
+                      backgroundColor: isSelected
+                        ? (isDark ? '#231B33' : '#FAF5FF')
+                        : colors.surface,
+                      borderColor: isSelected ? BMapColors.fastagPurple : colors.border,
+                      borderWidth: isSelected ? 1.5 : 1,
                     },
                   ]}
                 >
-                  <Text style={styles.timelineNumberText}>{index + 1}</Text>
-                </View>
-                {!isLast && (
-                  <View
-                    style={[
-                      styles.timelineConnectingLine,
-                      { backgroundColor: isDark ? '#374151' : '#E5E7EB' },
-                    ]}
-                  />
-                )}
-              </View>
+                  <View style={styles.plazaCardTop}>
+                    <View style={styles.plazaTitleCluster}>
+                      <Text
+                        style={[
+                          styles.plazaTitleText,
+                          BMapTypography.titleMedium,
+                          { color: colors.text },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {item.name}
+                      </Text>
+                      <Text style={[styles.highwayChainageText, { color: colors.textSecondary }]}>
+                        {item.highway} • {item.chainageKm}
+                      </Text>
+                    </View>
 
-              {/* Plaza Detail Card */}
-              <View
-                style={[
-                  styles.plazaCard,
-                  {
-                    backgroundColor: isSelected
-                      ? (isDark ? '#231B33' : '#FAF5FF')
-                      : colors.surface,
-                    borderColor: isSelected ? BMapColors.fastagPurple : colors.border,
-                    borderWidth: isSelected ? 1.5 : 1,
-                  },
-                ]}
-              >
-                <View style={styles.plazaCardTop}>
-                  <View style={styles.plazaTitleCluster}>
-                    <Text
-                      style={[
-                        styles.plazaTitleText,
-                        BMapTypography.titleMedium,
-                        { color: colors.text },
-                      ]}
-                      numberOfLines={1}
+                    {/* Fee Amount Badge */}
+                    <View style={styles.plazaFeeBadge}>
+                      <Text style={styles.plazaFeeAmount}>₹{effectiveRate}</Text>
+                    </View>
+                  </View>
+
+                  {/* Card Badges: ETC Lane & Coordinates */}
+                  <View style={styles.plazaMetaRow}>
+                    <View style={styles.etcLanePill}>
+                      <Ionicons name="flash" size={12} color="#00875A" />
+                      <Text style={styles.etcLaneText}>100% FASTag Dedicated</Text>
+                    </View>
+
+                    <AnimatedPressable
+                      onPress={() => handleNavigateToPlaza(item)}
+                      scaleTo={0.92}
+                      style={styles.directNavBtn}
                     >
-                      {item.name}
-                    </Text>
-                    <Text style={[styles.highwayChainageText, { color: colors.textSecondary }]}>
-                      {item.highway} • {item.chainageKm}
-                    </Text>
-                  </View>
-
-                  {/* Fee Amount Badge */}
-                  <View style={styles.plazaFeeBadge}>
-                    <Text style={styles.plazaFeeAmount}>₹{effectiveRate}</Text>
+                      <Ionicons name="navigate" size={12} color={BMapColors.primary} />
+                      <Text style={styles.directNavText}>Directions</Text>
+                    </AnimatedPressable>
                   </View>
                 </View>
-
-                {/* Card Badges: ETC Lane & Coordinates */}
-                <View style={styles.plazaMetaRow}>
-                  <View style={styles.etcLanePill}>
-                    <Ionicons name="flash" size={12} color="#00875A" />
-                    <Text style={styles.etcLaneText}>100% FASTag Dedicated</Text>
-                  </View>
-
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                    onPress={() => handleNavigateToPlaza(item)}
-                    style={styles.directNavBtn}
-                  >
-                    <Ionicons name="navigate" size={12} color={BMapColors.primary} />
-                    <Text style={styles.directNavText}>Directions</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </TouchableOpacity>
+              </AnimatedPressable>
+            </FadeInView>
           );
         }}
       />
@@ -590,10 +636,10 @@ export default function FastagScreen() {
               {['200', '500', '1000', '2000'].map(amt => {
                 const isSelected = customAmount === amt;
                 return (
-                  <TouchableOpacity
+                  <AnimatedPressable
                     key={amt}
-                    activeOpacity={0.8}
                     onPress={() => setCustomAmount(amt)}
+                    scaleTo={0.93}
                     style={[
                       styles.presetAmountBtn,
                       {
@@ -614,7 +660,7 @@ export default function FastagScreen() {
                     >
                       +₹{amt}
                     </Text>
-                  </TouchableOpacity>
+                  </AnimatedPressable>
                 );
               })}
             </View>
@@ -645,9 +691,9 @@ export default function FastagScreen() {
             </View>
 
             {/* Pay Button */}
-            <TouchableOpacity
-              activeOpacity={0.85}
+            <AnimatedPressable
               onPress={() => handleExecuteRecharge(parseInt(customAmount || '0', 10))}
+              scaleTo={0.95}
               style={[
                 styles.paySubmitBtn,
                 { backgroundColor: BMapColors.fastagPurple },
@@ -657,7 +703,7 @@ export default function FastagScreen() {
               <Text style={styles.paySubmitBtnText}>
                 Pay ₹{customAmount || '0'} via UPI
               </Text>
-            </TouchableOpacity>
+            </AnimatedPressable>
           </View>
         </View>
       </Modal>

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,13 +15,18 @@ import Animated, {
   useAnimatedStyle,
   withRepeat,
   withTiming,
+  withDelay,
   Easing,
   cancelAnimation,
+  interpolate,
 } from 'react-native-reanimated';
-import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { BMapColors, BMapElevation, BMapTypography } from '@/constants/bmap-theme';
 import { HeaderBar } from '@/components/HeaderBar';
 import { useTelemetry } from '@/services/telemetry';
+import { AnimatedPressable } from '@/components/ui/animated-pressable';
+import { FadeInView } from '@/components/ui/fade-in-view';
+import { IndianEcosystemAPI } from '@/api/api';
 
 const EMERGENCY_DIRECTORY = [
   {
@@ -59,6 +63,45 @@ const EMERGENCY_DIRECTORY = [
   },
 ];
 
+function ConcentricPulseRing({ delay = 0, size = 180 }: { delay?: number; size?: number }) {
+  const pulse = useSharedValue(0);
+
+  useEffect(() => {
+    pulse.value = withDelay(
+      delay,
+      withRepeat(
+        withTiming(1, { duration: 1600, easing: Easing.out(Easing.ease) }),
+        -1,
+        false
+      )
+    );
+    return () => cancelAnimation(pulse);
+  }, [delay, pulse]);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    const scale = interpolate(pulse.value, [0, 1], [0.85, 1.45]);
+    const opacity = interpolate(pulse.value, [0, 0.4, 1], [0.6, 0.3, 0]);
+    return {
+      transform: [{ scale }],
+      opacity,
+    };
+  });
+
+  return (
+    <Animated.View
+      style={[
+        styles.pulseRing,
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+        },
+        animatedStyle,
+      ]}
+    />
+  );
+}
+
 export default function NationalSOSScreen() {
   const scheme = useColorScheme();
   const isDark = scheme === 'dark';
@@ -68,35 +111,6 @@ export default function NationalSOSScreen() {
   const [isSosActive, setIsSosActive] = useState(false);
   const [countdown, setCountdown] = useState(5);
 
-  // Pulsing scale animation via Reanimated
-  const pulseScale = useSharedValue(1);
-  const pulseOpacity = useSharedValue(0.6);
-
-  useEffect(() => {
-    pulseScale.value = withRepeat(
-      withTiming(1.3, { duration: 1200, easing: Easing.out(Easing.ease) }),
-      -1,
-      false
-    );
-    pulseOpacity.value = withRepeat(
-      withTiming(0, { duration: 1200, easing: Easing.out(Easing.ease) }),
-      -1,
-      false
-    );
-
-    return () => {
-      cancelAnimation(pulseScale);
-      cancelAnimation(pulseOpacity);
-    };
-  }, [pulseScale, pulseOpacity]);
-
-  const animatedRingStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: pulseScale.value }],
-      opacity: pulseOpacity.value,
-    };
-  });
-
   const handleTriggerSOS = () => {
     setIsSosActive(true);
     let count = 5;
@@ -105,6 +119,11 @@ export default function NationalSOSScreen() {
       setCountdown(count);
       if (count <= 0) {
         clearInterval(timer);
+        IndianEcosystemAPI.triggerEmergencySOS({
+          type: 'ACCIDENT_CRITICAL',
+          current_location: { latitude: telemetry.latitude, longitude: telemetry.longitude },
+          message: 'Highway emergency dispatch requested from B-Map Mobile Client',
+        }).catch(() => {});
         Linking.openURL('tel:112');
       }
     }, 1000);
@@ -138,25 +157,30 @@ export default function NationalSOSScreen() {
         accentColor={BMapColors.emergencyRed}
       />
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* High-Contrast Alert Header */}
-        <View style={styles.alertHeader}>
-          <Text style={[styles.alertTitle, BMapTypography.headlineMedium, { color: '#D32F2F' }]}>
-            Emergency SOS Dispatch
-          </Text>
-          <Text style={[styles.alertSubtitle, { color: colors.textSecondary }]}>
-            Press the button below to broadcast your live GPS telemetry to 112 ERSS responders.
-          </Text>
-        </View>
+        <FadeInView delay={50} direction="down">
+          <View style={styles.alertHeader}>
+            <Text style={[styles.alertTitle, BMapTypography.headlineMedium, { color: '#D32F2F' }]}>
+              Emergency SOS Dispatch
+            </Text>
+            <Text style={[styles.alertSubtitle, { color: colors.textSecondary }]}>
+              Press the button below to broadcast your live GPS telemetry to 112 ERSS responders.
+            </Text>
+          </View>
+        </FadeInView>
 
-        {/* Center Massive Pulsing Red SOS Trigger Button */}
+        {/* Center Concentric Pulsing Red SOS Trigger Button */}
         <View style={styles.sosButtonContainer}>
-          <Animated.View style={[styles.pulseRing, animatedRingStyle]} />
+          <ConcentricPulseRing delay={0} size={180} />
+          <ConcentricPulseRing delay={500} size={180} />
+          <ConcentricPulseRing delay={1000} size={180} />
+
           <Pressable
             onPress={isSosActive ? handleCancelSOS : handleTriggerSOS}
             style={({ pressed }) => [
               styles.sosCircle,
-              { transform: [{ scale: pressed ? 0.95 : 1 }] },
+              { transform: [{ scale: pressed ? 0.94 : 1 }] },
             ]}
           >
             {isSosActive ? (
@@ -175,29 +199,31 @@ export default function NationalSOSScreen() {
         </View>
 
         {/* Location Broadcast Card for Dispatch Readout */}
-        <View style={[styles.locationCard, { backgroundColor: isDark ? '#2B1212' : '#FFEBEE', borderColor: '#EF5350' }]}>
-          <View style={styles.locationHeaderRow}>
-            <Ionicons name="radio" size={20} color="#D32F2F" />
-            <Text style={styles.locationCardTitle}>LIVE DISPATCH TELEMETRY READOUT</Text>
-          </View>
+        <FadeInView delay={180} direction="up">
+          <View style={[styles.locationCard, { backgroundColor: isDark ? '#2B1212' : '#FFEBEE', borderColor: '#EF5350' }]}>
+            <View style={styles.locationHeaderRow}>
+              <Ionicons name="radio" size={20} color="#D32F2F" />
+              <Text style={styles.locationCardTitle}>LIVE DISPATCH TELEMETRY READOUT</Text>
+            </View>
 
-          <Text style={[styles.dispatchHint, { color: colors.textSecondary }]}>
-            Read these coordinates to the emergency phone operator:
-          </Text>
-
-          <View style={[styles.coordsPill, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <Text style={[styles.coordsText, { color: colors.text }]}>
-              {telemetry.latitude.toFixed(6)}° N, {telemetry.longitude.toFixed(6)}° E
+            <Text style={[styles.dispatchHint, { color: colors.textSecondary }]}>
+              Read these coordinates to the emergency phone operator:
             </Text>
-          </View>
 
-          <View style={styles.addressRow}>
-            <Ionicons name="location" size={16} color="#D32F2F" />
-            <Text style={[styles.addressString, { color: colors.text }]}>
-              {telemetry.addressString || 'Connaught Place, New Delhi, Delhi 110001'}
-            </Text>
+            <View style={[styles.coordsPill, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Text style={[styles.coordsText, { color: colors.text }]}>
+                {telemetry.latitude.toFixed(6)}° N, {telemetry.longitude.toFixed(6)}° E
+              </Text>
+            </View>
+
+            <View style={styles.addressRow}>
+              <Ionicons name="location" size={16} color="#D32F2F" />
+              <Text style={[styles.addressString, { color: colors.text }]}>
+                {telemetry.addressString || 'Connaught Place, New Delhi, Delhi 110001'}
+              </Text>
+            </View>
           </View>
-        </View>
+        </FadeInView>
 
         {/* Emergency Directory Quick-Access List */}
         <View style={styles.directorySection}>
@@ -206,27 +232,28 @@ export default function NationalSOSScreen() {
           </Text>
 
           <View style={styles.directoryList}>
-            {EMERGENCY_DIRECTORY.map(item => (
-              <TouchableOpacity
-                key={item.id}
-                activeOpacity={0.8}
-                onPress={() => handleCall(item.phone, item.name)}
-                style={[styles.directoryItem, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              >
-                <View style={[styles.itemIconCircle, { backgroundColor: `${item.color}15` }]}>
-                  <MaterialCommunityIcons name={item.icon} size={22} color={item.color} />
-                </View>
+            {EMERGENCY_DIRECTORY.map((item, index) => (
+              <FadeInView key={item.id} delay={250 + index * 70} direction="up">
+                <AnimatedPressable
+                  onPress={() => handleCall(item.phone, item.name)}
+                  scaleTo={0.96}
+                  style={[styles.directoryItem, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                >
+                  <View style={[styles.itemIconCircle, { backgroundColor: `${item.color}15` }]}>
+                    <MaterialCommunityIcons name={item.icon} size={22} color={item.color} />
+                  </View>
 
-                <View style={styles.itemTextCluster}>
-                  <Text style={[styles.itemName, { color: colors.text }]}>{item.name}</Text>
-                  <Text style={[styles.itemSubtext, { color: colors.textSecondary }]}>{item.subtext}</Text>
-                </View>
+                  <View style={styles.itemTextCluster}>
+                    <Text style={[styles.itemName, { color: colors.text }]}>{item.name}</Text>
+                    <Text style={[styles.itemSubtext, { color: colors.textSecondary }]}>{item.subtext}</Text>
+                  </View>
 
-                <View style={[styles.callBtn, { backgroundColor: item.color }]}>
-                  <Ionicons name="call" size={16} color="#FFFFFF" />
-                  <Text style={styles.callBtnText}>Call {item.phone}</Text>
-                </View>
-              </TouchableOpacity>
+                  <View style={[styles.callBtn, { backgroundColor: item.color }]}>
+                    <Ionicons name="call" size={16} color="#FFFFFF" />
+                    <Text style={styles.callBtnText}>Call {item.phone}</Text>
+                  </View>
+                </AnimatedPressable>
+              </FadeInView>
             ))}
           </View>
         </View>
@@ -247,11 +274,11 @@ const styles = StyleSheet.create({
   alertHeader: {
     alignItems: 'center',
     gap: 4,
-    textAlign: 'center',
   },
   alertTitle: {
     fontWeight: '900',
     letterSpacing: -0.5,
+    textAlign: 'center',
   },
   alertSubtitle: {
     textAlign: 'center',
@@ -260,17 +287,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   sosButtonContainer: {
-    height: 180,
+    height: 190,
     justifyContent: 'center',
     alignItems: 'center',
-    marginVertical: 8,
+    marginVertical: 6,
+    position: 'relative',
   },
   pulseRing: {
     position: 'absolute',
-    width: 170,
-    height: 170,
-    borderRadius: 85,
-    backgroundColor: 'rgba(211, 47, 47, 0.4)',
+    backgroundColor: 'rgba(211, 47, 47, 0.35)',
   },
   sosCircle: {
     width: 140,
@@ -300,24 +325,24 @@ const styles = StyleSheet.create({
   },
   activeSosCluster: {
     alignItems: 'center',
+    gap: 4,
   },
   countdownNumber: {
     color: '#FFFFFF',
-    fontSize: 44,
+    fontSize: 48,
     fontWeight: '900',
   },
   cancellingText: {
-    color: '#FFFFFF',
-    fontSize: 9,
+    color: '#FFCDD2',
+    fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 0.5,
   },
   locationCard: {
-    borderRadius: 20,
+    borderRadius: 18,
     padding: 16,
     borderWidth: 1.5,
     gap: 10,
-    ...BMapElevation.level1,
+    ...BMapElevation.level2,
   },
   locationHeaderRow: {
     flexDirection: 'row',
@@ -325,35 +350,34 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   locationCardTitle: {
-    fontSize: 11,
-    fontWeight: '900',
-    color: '#C62828',
+    color: '#D32F2F',
+    fontSize: 12,
+    fontWeight: '800',
     letterSpacing: 0.5,
   },
   dispatchHint: {
     fontSize: 12,
   },
   coordsPill: {
-    padding: 12,
-    borderRadius: 12,
+    padding: 10,
+    borderRadius: 10,
     borderWidth: 1,
     alignItems: 'center',
   },
   coordsText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
   addressRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
+    alignItems: 'center',
+    gap: 6,
   },
   addressString: {
-    flex: 1,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
-    lineHeight: 18,
+    flex: 1,
   },
   directorySection: {
     gap: 12,
@@ -385,23 +409,23 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   itemName: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
   },
   itemSubtext: {
     fontSize: 11,
   },
   callBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
   },
   callBtnText: {
     color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '700',
   },
 });
