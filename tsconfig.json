@@ -4,7 +4,22 @@
     "strict": true,
     "paths": {
       "@/*": [
-        "./*"
+        "./src/*"
+      ],
+      "@/features": [
+        "./src/features/index.ts"
+      ],
+      "@/features/*": [
+        "./src/features/*"
+      ],
+      "@/shared": [
+        "./src/shared/index.ts"
+      ],
+      "@/shared/*": [
+        "./src/shared/*"
+      ],
+      "@/app/*": [
+        "./src/app/*"
       ]
     }
   },
@@ -12,6 +27,7 @@
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
-    "expo-env.d.ts"
+    "expo-env.d.ts",
+    "nativewind-env.d.ts"
   ]
 }
