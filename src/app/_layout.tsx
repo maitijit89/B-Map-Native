@@ -1,11 +1,12 @@
 import '../../global.css';
 import { useFonts } from 'expo-font';
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider as NavThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
 
-import { useColorScheme } from '@/shared/hooks';
+import { useColorScheme, ThemeProvider } from '@/shared/hooks';
+import { ErrorBoundary as GlobalErrorBoundary } from '@/shared/components';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -40,29 +41,43 @@ export default function RootLayout() {
     return null;
   }
 
-  return <RootLayoutNav />;
+  return (
+    <GlobalErrorBoundary>
+      <RootLayoutNav />
+    </GlobalErrorBoundary>
+  );
 }
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'fullScreenModal', headerShown: false }} />
-        <Stack.Screen name="ai-copilot" options={{ presentation: 'modal', headerShown: false }} />
-        <Stack.Screen name="tsp-optimizer" options={{ presentation: 'modal', headerShown: false }} />
-        <Stack.Screen name="hazard-report" options={{ presentation: 'modal', headerShown: false }} />
-        <Stack.Screen name="indoor-parking" options={{ presentation: 'modal', headerShown: false }} />
-        <Stack.Screen name="digipin-explorer" options={{ presentation: 'modal', headerShown: false }} />
-        <Stack.Screen name="search" options={{ presentation: 'modal', headerShown: false }} />
-        <Stack.Screen name="sos-distress" options={{ presentation: 'fullScreenModal', headerShown: false }} />
-        <Stack.Screen name="auth" options={{ presentation: 'modal', headerShown: false }} />
-        <Stack.Screen name="transit-planner" options={{ presentation: 'modal', headerShown: false }} />
-        <Stack.Screen name="ev-station" options={{ presentation: 'modal', headerShown: false }} />
-        <Stack.Screen name="vehicle-fleet" options={{ presentation: 'modal', headerShown: false }} />
-      </Stack>
+    <ThemeProvider>
+      <NavThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            animation: 'slide_from_right',
+            animationDuration: 250,
+            gestureEnabled: true,
+          }}>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="modal" options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom', headerShown: false }} />
+          <Stack.Screen name="ai-copilot" options={{ presentation: 'modal', animation: 'slide_from_bottom', headerShown: false }} />
+          <Stack.Screen name="tsp-optimizer" options={{ presentation: 'modal', animation: 'slide_from_bottom', headerShown: false }} />
+          <Stack.Screen name="hazard-report" options={{ presentation: 'modal', animation: 'slide_from_bottom', headerShown: false }} />
+          <Stack.Screen name="indoor-parking" options={{ presentation: 'modal', animation: 'slide_from_bottom', headerShown: false }} />
+          <Stack.Screen name="digipin-explorer" options={{ presentation: 'modal', animation: 'slide_from_bottom', headerShown: false }} />
+          <Stack.Screen name="search" options={{ presentation: 'modal', animation: 'fade_from_bottom', headerShown: false }} />
+          <Stack.Screen name="sos-distress" options={{ presentation: 'fullScreenModal', animation: 'fade', headerShown: false }} />
+          <Stack.Screen name="auth" options={{ presentation: 'modal', animation: 'slide_from_bottom', headerShown: false }} />
+          <Stack.Screen name="transit-planner" options={{ presentation: 'modal', animation: 'slide_from_bottom', headerShown: false }} />
+          <Stack.Screen name="ev-station" options={{ presentation: 'modal', animation: 'slide_from_bottom', headerShown: false }} />
+          <Stack.Screen name="vehicle-fleet" options={{ presentation: 'modal', animation: 'slide_from_bottom', headerShown: false }} />
+          <Stack.Screen name="compass-hud" options={{ presentation: 'fullScreenModal', animation: 'fade', headerShown: false }} />
+        </Stack>
+      </NavThemeProvider>
     </ThemeProvider>
   );
 }
+

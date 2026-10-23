@@ -4,21 +4,29 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
-  TextInput,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import {
-  X,
   Copy,
   Navigation,
   Sparkles,
   MapPin,
-  CheckCircle2,
-  Grid,
 } from 'lucide-react-native';
+import { useThemeColors } from '@/shared/hooks';
+import { encodeDigiPin } from '@/shared/utils';
+import { Spacing, Typography } from '@/shared/constants/tokens';
+import {
+  Header,
+  Card,
+  Badge,
+  Button,
+  Input,
+  SectionHeader,
+} from '@/shared/components/ui';
 
 const PRESET_PLACES = [
   { name: 'Connaught Place, Delhi', lat: '28.6315', lon: '77.2167', digiPin: '28J4-C2M1-4K' },
@@ -36,12 +44,24 @@ const HIERARCHICAL_TIERS = [
 ];
 
 export default function DigiPinExplorerModal() {
+  const colors = useThemeColors();
   const [latInput, setLatInput] = useState('28.4986');
   const [lonInput, setLonInput] = useState('77.0878');
   const [activeDigiPin, setActiveDigiPin] = useState('28J4-K8M2-9P');
   const [activePlaceName, setActivePlaceName] = useState('Cyber Hub, Gurugram');
 
+  const triggerHaptic = () => {
+    if (Platform.OS === 'ios' || Platform.OS === 'android') {
+      try {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch {
+        // Haptics unavailable
+      }
+    }
+  };
+
   const handleSelectPreset = (p: typeof PRESET_PLACES[0]) => {
+    triggerHaptic();
     setLatInput(p.lat);
     setLonInput(p.lon);
     setActiveDigiPin(p.digiPin);
@@ -49,94 +69,138 @@ export default function DigiPinExplorerModal() {
   };
 
   const handleEncode = () => {
-    // Generate deterministic 10-char DigiPIN based on coordinates
-    const pin = `28J4-${Math.floor(Math.random() * 899 + 100)}M-${Math.floor(Math.random() * 89 + 10)}P`;
+    triggerHaptic();
+    const lat = parseFloat(latInput);
+    const lon = parseFloat(lonInput);
+    if (isNaN(lat) || isNaN(lon)) {
+      Alert.alert('Invalid Coordinates', 'Please enter valid latitude and longitude numbers.');
+      return;
+    }
+    const pin = encodeDigiPin(lat, lon);
     setActiveDigiPin(pin);
-    setActivePlaceName(`Custom Coordinates (${latInput}°N, ${lonInput}°E)`);
-    Alert.alert('DigiPIN Encoded', `Generated ${pin} with 4m × 4m doorstep resolution.`);
+    setActivePlaceName(`Location (${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E)`);
+    Alert.alert('DigiPIN Encoded', `Generated DigiPIN: ${pin}\n4m × 4m doorstep resolution.`);
   };
 
   const handleCopy = () => {
+    triggerHaptic();
     Alert.alert('Copied to Clipboard', `DigiPIN ${activeDigiPin} copied. Share with courier or emergency dispatch.`);
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       {/* Top Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <View style={styles.headerIcon}>
-            <Grid size={18} color="#ffffff" />
-          </View>
-          <View>
-            <Text style={styles.headerTitle}>National DigiPIN Explorer</Text>
-            <Text style={styles.headerSub}>Govt of India / Dept of Posts 4m × 4m Grid</Text>
-          </View>
-        </View>
-        <TouchableOpacity style={styles.closeBtn} onPress={() => router.back()} activeOpacity={0.8}>
-          <X size={20} color="#111C2D" />
-        </TouchableOpacity>
-      </View>
+      <Header
+        title="National DigiPIN Explorer"
+        subtitle="Govt of India / Dept of Posts 4m × 4m Grid"
+        onBackPress={() => {
+          triggerHaptic();
+          router.back();
+        }}
+      />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Giant Active DigiPIN Display Card */}
-        <View style={styles.digiCard}>
+        <Card variant="elevated" padding="lg" style={styles.digiCard}>
           <View style={styles.digiCardTop}>
-            <View style={styles.digiGovTag}>
-              <CheckCircle2 size={12} color="#0096FF" />
-              <Text style={styles.digiGovTagText}>SOVEREIGN POSTAL STANDARD</Text>
-            </View>
-            <Text style={styles.gridPrecisionText}>4m × 4m Centroid</Text>
+            <Badge label="SOVEREIGN POSTAL STANDARD" variant="primary" size="sm" showDot />
+            <Text style={[styles.gridPrecisionText, { color: colors.secondary }]}>
+              4m × 4m Centroid
+            </Text>
           </View>
 
-          <Text style={styles.digiCodeBig}>{activeDigiPin}</Text>
-          <Text style={styles.digiPlaceName}>{activePlaceName}</Text>
+          <Text style={[styles.digiCodeBig, { color: colors.primary }]}>{activeDigiPin}</Text>
+          <Text style={[styles.digiPlaceName, { color: colors.onSurface }]}>{activePlaceName}</Text>
 
           <View style={styles.digiActionRow}>
-            <TouchableOpacity style={styles.copyBtn} onPress={handleCopy} activeOpacity={0.8}>
-              <Copy size={14} color="#0096FF" />
-              <Text style={styles.copyBtnText}>Copy DigiPIN</Text>
-            </TouchableOpacity>
+            <Button
+              title="Copy DigiPIN"
+              variant="outline"
+              size="md"
+              leftIcon={<Copy size={16} color={colors.primary} />}
+              onPress={handleCopy}
+              style={styles.actionBtnFlex}
+            />
 
-            <TouchableOpacity
-              style={styles.navBtn}
+            <Button
+              title="Route to DigiPIN"
+              variant="primary"
+              size="md"
+              leftIcon={<Navigation size={16} color="#fff" />}
               onPress={() => {
+                triggerHaptic();
                 router.back();
                 router.push('/modal');
               }}
-              activeOpacity={0.85}>
-              <Navigation size={14} color="#fff" />
-              <Text style={styles.navBtnText}>Route to DigiPIN</Text>
-            </TouchableOpacity>
+              style={styles.actionBtnFlex}
+            />
           </View>
-        </View>
+        </Card>
 
         {/* Preset Popular Locations Carousel */}
-        <Text style={styles.sectionTitle}>Preset Sovereign Hubs</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.presetsTrack}>
-          {PRESET_PLACES.map((p, idx) => (
-            <TouchableOpacity
-              key={idx}
-              style={[styles.presetCard, activeDigiPin === p.digiPin && styles.presetCardActive]}
-              onPress={() => handleSelectPreset(p)}
-              activeOpacity={0.8}>
-              <MapPin size={14} color={activeDigiPin === p.digiPin ? '#0096FF' : '#707884'} />
-              <Text style={[styles.presetName, activeDigiPin === p.digiPin && styles.presetNameActive]}>
-                {p.name}
-              </Text>
-              <Text style={styles.presetPin}>{p.digiPin}</Text>
-            </TouchableOpacity>
-          ))}
+        <SectionHeader
+          title="Preset Sovereign Hubs"
+          subtitle="Top destinations with certified postal centroid"
+        />
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.presetsTrack}>
+          {PRESET_PLACES.map((p, idx) => {
+            const isSelected = activeDigiPin === p.digiPin;
+            return (
+              <Card
+                key={idx}
+                variant={isSelected ? 'elevated' : 'outlined'}
+                padding="sm"
+                onPress={() => handleSelectPreset(p)}
+                accessibilityLabel={`Preset location ${p.name}`}
+                style={[
+                  styles.presetCard,
+                  isSelected && {
+                    backgroundColor: colors.primaryContainer,
+                    borderColor: colors.primary,
+                  },
+                ]}>
+                <View style={styles.presetContent}>
+                  <MapPin
+                    size={14}
+                    color={isSelected ? colors.primary : colors.onSurfaceVariant}
+                  />
+                  <Text
+                    style={[
+                      styles.presetName,
+                      {
+                        color: isSelected ? colors.primary : colors.onSurface,
+                        fontWeight: isSelected ? '700' : '600',
+                      },
+                    ]}>
+                    {p.name}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.presetPin,
+                      {
+                        color: isSelected ? colors.primary : colors.onSurfaceVariant,
+                      },
+                    ]}>
+                    {p.digiPin}
+                  </Text>
+                </View>
+              </Card>
+            );
+          })}
         </ScrollView>
 
         {/* Custom Lat / Lon Geocoding Inputs */}
-        <View style={styles.geocoderCard}>
-          <Text style={styles.geocoderTitle}>Custom Coordinate Geocoder</Text>
+        <Card variant="elevated" padding="md" style={styles.geocoderCard}>
+          <Text style={[styles.geocoderTitle, { color: colors.onSurface }]}>
+            Custom Coordinate Geocoder
+          </Text>
           <View style={styles.coordInputsRow}>
             <View style={styles.coordInputBox}>
-              <Text style={styles.coordLabel}>LATITUDE (°N)</Text>
-              <TextInput
-                style={styles.coordInput}
+              <Input
+                label="Latitude (°N)"
                 value={latInput}
                 onChangeText={setLatInput}
                 keyboardType="numeric"
@@ -144,9 +208,8 @@ export default function DigiPinExplorerModal() {
             </View>
 
             <View style={styles.coordInputBox}>
-              <Text style={styles.coordLabel}>LONGITUDE (°E)</Text>
-              <TextInput
-                style={styles.coordInput}
+              <Input
+                label="Longitude (°E)"
                 value={lonInput}
                 onChangeText={setLonInput}
                 keyboardType="numeric"
@@ -154,172 +217,153 @@ export default function DigiPinExplorerModal() {
             </View>
           </View>
 
-          <TouchableOpacity style={styles.encodeBtn} onPress={handleEncode} activeOpacity={0.85}>
-            <Sparkles size={16} color="#ffffff" />
-            <Text style={styles.encodeBtnText}>Encode to 10-Char DigiPIN</Text>
-          </TouchableOpacity>
-        </View>
+          <Button
+            title="Encode to 10-Char DigiPIN"
+            variant="primary"
+            size="md"
+            fullWidth
+            leftIcon={<Sparkles size={16} color="#fff" />}
+            onPress={handleEncode}
+          />
+        </Card>
 
         {/* 10-Tier Hierarchy Breakdown Table */}
-        <View style={styles.hierarchyCard}>
-          <Text style={styles.hierarchyTitle}>Recursive Hierarchical 32-Grid Tiers</Text>
-          <Text style={styles.hierarchySub}>
+        <Card variant="outlined" padding="md" style={styles.hierarchyCard}>
+          <Text style={[styles.hierarchyTitle, { color: colors.onSurface }]}>
+            Recursive Hierarchical 32-Grid Tiers
+          </Text>
+          <Text style={[styles.hierarchySub, { color: colors.onSurfaceVariant }]}>
             Uses 32 alphanumeric symbols (excluding 0, 1, O, I to prevent human transcription error)
           </Text>
 
           {HIERARCHICAL_TIERS.map((tier, idx) => (
-            <View key={idx} style={styles.tierRow}>
-              <View style={styles.tierBadge}>
-                <Text style={styles.tierBadgeText}>{tier.tier}</Text>
-              </View>
+            <View
+              key={idx}
+              style={[
+                styles.tierRow,
+                { borderBottomColor: colors.surfaceContainerHigh },
+              ]}>
+              <Badge label={tier.tier} variant="neutral" size="sm" />
               <View style={styles.tierContent}>
-                <Text style={styles.tierRes}>{tier.resolution}</Text>
-                <Text style={styles.tierDesc}>{tier.desc}</Text>
+                <Text style={[styles.tierRes, { color: colors.onSurface }]}>{tier.resolution}</Text>
+                <Text style={[styles.tierDesc, { color: colors.onSurfaceVariant }]}>{tier.desc}</Text>
               </View>
             </View>
           ))}
-        </View>
+        </Card>
 
-        <View style={{ height: 24 }} />
+        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFF' },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E8EEFF',
+  container: {
+    flex: 1,
   },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  headerIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#0096FF',
-    alignItems: 'center',
-    justifyContent: 'center',
+  scroll: {
+    padding: Spacing.md,
+    gap: 14,
   },
-  headerTitle: { fontSize: 16, fontWeight: '800', color: '#111C2D' },
-  headerSub: { fontSize: 10, color: '#707884', marginTop: 1 },
-  closeBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#F0F4FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  scroll: { padding: 16, gap: 14 },
-
   digiCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    padding: 18,
-    borderWidth: 2,
-    borderColor: '#0096FF',
-    shadowColor: '#0096FF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 4,
+    gap: 10,
+    alignItems: 'center',
+    textAlign: 'center',
   },
-  digiCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  digiGovTag: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#E8F4FF', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
-  digiGovTagText: { fontSize: 9, fontWeight: '800', color: '#0096FF', letterSpacing: 0.5 },
-  gridPrecisionText: { fontSize: 11, fontWeight: '700', color: '#00C06D' },
+  digiCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  gridPrecisionText: {
+    ...Typography.labelSmall,
+    fontWeight: '700',
+  },
   digiCodeBig: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: '#111C2D',
-    fontFamily: 'monospace',
+    ...Typography.headline,
+    fontSize: 26,
+    fontWeight: '800',
     letterSpacing: 2,
-    marginTop: 12,
+    marginVertical: 4,
   },
-  digiPlaceName: { fontSize: 13, color: '#707884', marginTop: 4 },
-  digiActionRow: { flexDirection: 'row', gap: 10, marginTop: 16 },
-  copyBtn: {
-    flex: 1,
+  digiPlaceName: {
+    ...Typography.bodyMedium,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  digiActionRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#E8F4FF',
-    paddingVertical: 12,
-    borderRadius: 12,
+    gap: 10,
+    width: '100%',
+    marginTop: 8,
   },
-  copyBtnText: { fontSize: 12, fontWeight: '700', color: '#0096FF' },
-  navBtn: {
+  actionBtnFlex: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#0096FF',
-    paddingVertical: 12,
-    borderRadius: 12,
   },
-  navBtnText: { fontSize: 12, fontWeight: '700', color: '#ffffff' },
-
-  sectionTitle: { fontSize: 14, fontWeight: '700', color: '#111C2D', marginTop: 4 },
-
-  presetsTrack: { gap: 10 },
+  presetsTrack: {
+    gap: 8,
+    paddingVertical: 2,
+  },
   presetCard: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1.5,
-    borderColor: '#E8EEFF',
-    width: 170,
+    minWidth: 160,
   },
-  presetCardActive: { borderColor: '#0096FF', backgroundColor: '#F0F8FF' },
-  presetName: { fontSize: 12, fontWeight: '700', color: '#111C2D', marginTop: 6 },
-  presetNameActive: { color: '#0096FF' },
-  presetPin: { fontSize: 11, color: '#707884', fontFamily: 'monospace', marginTop: 2 },
-
-  geocoderCard: { backgroundColor: '#fff', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#E8EEFF' },
-  geocoderTitle: { fontSize: 13, fontWeight: '700', color: '#111C2D', marginBottom: 10 },
-  coordInputsRow: { flexDirection: 'row', gap: 10 },
-  coordInputBox: { flex: 1 },
-  coordLabel: { fontSize: 9, fontWeight: '700', color: '#707884', letterSpacing: 0.5 },
-  coordInput: {
-    backgroundColor: '#F8FAFF',
-    borderWidth: 1,
-    borderColor: '#E8EEFF',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 13,
-    color: '#111C2D',
-    marginTop: 4,
+  presetContent: {
+    gap: 4,
   },
-  encodeBtn: {
+  presetName: {
+    ...Typography.bodySmall,
+    fontWeight: '700',
+  },
+  presetPin: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  geocoderCard: {
+    gap: 12,
+  },
+  geocoderTitle: {
+    ...Typography.titleSmall,
+    fontWeight: '700',
+  },
+  coordInputsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  coordInputBox: {
+    flex: 1,
+  },
+  hierarchyCard: {
+    gap: 8,
+  },
+  hierarchyTitle: {
+    ...Typography.titleSmall,
+    fontWeight: '700',
+  },
+  hierarchySub: {
+    ...Typography.bodySmall,
+    fontSize: 11,
+    lineHeight: 15,
+    marginBottom: 6,
+  },
+  tierRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#0096FF',
-    borderRadius: 12,
-    paddingVertical: 12,
-    marginTop: 12,
+    gap: 10,
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  encodeBtnText: { fontSize: 13, fontWeight: '800', color: '#fff' },
-
-  hierarchyCard: { backgroundColor: '#fff', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#E8EEFF' },
-  hierarchyTitle: { fontSize: 13, fontWeight: '700', color: '#111C2D' },
-  hierarchySub: { fontSize: 10, color: '#707884', marginTop: 2, marginBottom: 12 },
-  tierRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#F0F3FF', gap: 10 },
-  tierBadge: { backgroundColor: '#E8F4FF', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, width: 72, alignItems: 'center' },
-  tierBadgeText: { fontSize: 10, fontWeight: '700', color: '#0061A7' },
-  tierContent: { flex: 1 },
-  tierRes: { fontSize: 12, fontWeight: '700', color: '#111C2D' },
-  tierDesc: { fontSize: 10, color: '#707884', marginTop: 1 },
+  tierContent: {
+    flex: 1,
+    gap: 1,
+  },
+  tierRes: {
+    ...Typography.bodySmall,
+    fontWeight: '700',
+  },
+  tierDesc: {
+    ...Typography.bodySmall,
+    fontSize: 10,
+  },
 });

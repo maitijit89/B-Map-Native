@@ -1,3 +1,5 @@
+export * from './digipin';
+
 /**
  * Formats a distance given in meters or kilometers to human readable text
  */

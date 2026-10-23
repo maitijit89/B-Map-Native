@@ -12,7 +12,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { X } from 'lucide-react-native';
-import { BMapColors } from '../../constants/BMapTheme';
+import { useThemeColors } from '../../hooks';
 import { Radius, Shadows, Spacing, Typography } from '../../constants/tokens';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -38,6 +38,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   showCloseButton = true,
   contentStyle,
 }) => {
+  const colors = useThemeColors();
   const [slideAnim] = useState(() => new Animated.Value(SCREEN_HEIGHT));
   const [fadeAnim] = useState(() => new Animated.Value(0));
 
@@ -87,24 +88,25 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
           style={[
             styles.sheetContainer,
             {
+              backgroundColor: colors.surfaceContainerLowest,
               maxHeight: maxHeight as any,
               transform: [{ translateY: slideAnim }],
             },
           ]}>
-          <View style={styles.handleBar} />
+          <View style={[styles.handleBar, { backgroundColor: colors.outlineVariant }]} />
 
           {(title || showCloseButton) && (
-            <View style={styles.header}>
+            <View style={[styles.header, { borderBottomColor: colors.surfaceContainerHigh }]}>
               <View style={styles.headerTitleContainer}>
-                {title && <Text style={styles.title}>{title}</Text>}
-                {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+                {title && <Text style={[styles.title, { color: colors.onBackground }]}>{title}</Text>}
+                {subtitle && <Text style={[styles.subtitle, { color: colors.onSurfaceVariant }]}>{subtitle}</Text>}
               </View>
               {showCloseButton && (
                 <TouchableOpacity
                   activeOpacity={0.7}
                   onPress={onClose}
-                  style={styles.closeButton}>
-                  <X size={20} color={BMapColors.onSurfaceVariant} />
+                  style={[styles.closeButton, { backgroundColor: colors.surfaceContainerLow }]}>
+                  <X size={20} color={colors.onSurfaceVariant} />
                 </TouchableOpacity>
               )}
             </View>
@@ -127,7 +129,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(17, 28, 45, 0.45)',
   },
   sheetContainer: {
-    backgroundColor: BMapColors.surfaceContainerLowest,
     borderTopLeftRadius: Radius.xxl,
     borderTopRightRadius: Radius.xxl,
     paddingBottom: Spacing.xl,
@@ -137,7 +138,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 5,
     borderRadius: Radius.full,
-    backgroundColor: BMapColors.outlineVariant,
     alignSelf: 'center',
     marginTop: Spacing.sm,
     marginBottom: Spacing.xs,
@@ -149,25 +149,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: BMapColors.surfaceContainerHigh,
   },
   headerTitleContainer: {
     flex: 1,
   },
   title: {
     ...Typography.titleMedium,
-    color: BMapColors.onBackground,
   },
   subtitle: {
     ...Typography.bodySmall,
-    color: BMapColors.onSurfaceVariant,
     marginTop: 2,
   },
   closeButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: BMapColors.surfaceContainerLow,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: Spacing.md,

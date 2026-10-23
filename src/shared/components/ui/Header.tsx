@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
-import { BMapColors } from '../../constants/BMapTheme';
+import { useThemeColors } from '../../hooks';
 import { Spacing, Typography } from '../../constants/tokens';
 
 export interface HeaderProps {
@@ -36,6 +36,8 @@ export const Header: React.FC<HeaderProps> = ({
   style,
   titleStyle,
 }) => {
+  const colors = useThemeColors();
+
   const handleBack = () => {
     if (onBackPress) {
       onBackPress();
@@ -48,7 +50,11 @@ export const Header: React.FC<HeaderProps> = ({
     <View
       style={[
         styles.container,
-        !transparent && styles.solidBackground,
+        !transparent && {
+          backgroundColor: colors.surfaceContainerLowest,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: colors.surfaceContainerHigh,
+        },
         style,
       ]}>
       <View style={styles.contentRow}>
@@ -56,10 +62,10 @@ export const Header: React.FC<HeaderProps> = ({
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={handleBack}
-            style={styles.backButton}
+            style={[styles.backButton, { backgroundColor: colors.surfaceContainerLow }]}
             accessibilityLabel="Go back"
             accessibilityRole="button">
-            <ArrowLeft size={22} color={BMapColors.onBackground} />
+            <ArrowLeft size={22} color={colors.onBackground} />
           </TouchableOpacity>
         ) : (
           <View style={styles.placeholder} />
@@ -72,11 +78,13 @@ export const Header: React.FC<HeaderProps> = ({
           ]}>
           <Text
             numberOfLines={1}
-            style={[styles.title, titleStyle]}>
+            style={[styles.title, { color: colors.onBackground }, titleStyle]}>
             {title}
           </Text>
           {subtitle ? (
-            <Text numberOfLines={1} style={styles.subtitle}>
+            <Text
+              numberOfLines={1}
+              style={[styles.subtitle, { color: colors.onSurfaceVariant }]}>
               {subtitle}
             </Text>
           ) : null}
@@ -97,11 +105,6 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.sm,
     zIndex: 10,
   },
-  solidBackground: {
-    backgroundColor: BMapColors.surfaceContainerLowest,
-    borderBottomWidth: 1,
-    borderBottomColor: BMapColors.surfaceContainerHigh,
-  },
   contentRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -114,7 +117,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: BMapColors.surfaceContainerLow,
   },
   placeholder: {
     width: 40,
@@ -128,11 +130,10 @@ const styles = StyleSheet.create({
   },
   title: {
     ...Typography.titleMedium,
-    color: BMapColors.onBackground,
+    fontWeight: '700',
   },
   subtitle: {
     ...Typography.bodySmall,
-    color: BMapColors.onSurfaceVariant,
     marginTop: 1,
   },
   rightActionContainer: {

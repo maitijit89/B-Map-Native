@@ -6,7 +6,7 @@ import {
   ViewStyle,
   StyleProp,
 } from 'react-native';
-import { BMapColors } from '../../constants/BMapTheme';
+import { useThemeColors } from '../../hooks';
 import { Radius, Shadows } from '../../constants/tokens';
 
 export type IconButtonVariant =
@@ -37,6 +37,7 @@ export const IconButton: React.FC<IconButtonProps> = ({
   accessibilityLabel,
   style,
 }) => {
+  const colors = useThemeColors();
   const [scaleAnim] = useState(() => new Animated.Value(1));
 
   const handlePressIn = () => {
@@ -58,6 +59,39 @@ export const IconButton: React.FC<IconButtonProps> = ({
     }).start();
   };
 
+  const getVariantStyle = (): ViewStyle => {
+    switch (variant) {
+      case 'filled':
+        return {
+          backgroundColor: colors.primaryContainer,
+          ...Shadows.sm,
+        };
+      case 'tinted':
+        return {
+          backgroundColor: colors.surfaceContainerHigh,
+        };
+      case 'glass':
+        return {
+          backgroundColor: colors.surfaceContainerLowest,
+          borderWidth: 1,
+          borderColor: colors.outlineVariant,
+          ...Shadows.md,
+        };
+      case 'danger':
+        return {
+          backgroundColor: colors.errorContainer,
+        };
+      case 'default':
+      default:
+        return {
+          backgroundColor: colors.surfaceContainerLowest,
+          borderWidth: 1,
+          borderColor: colors.outlineVariant,
+          ...Shadows.xs,
+        };
+    }
+  };
+
   return (
     <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
       <TouchableOpacity
@@ -71,7 +105,7 @@ export const IconButton: React.FC<IconButtonProps> = ({
         style={[
           styles.base,
           sizeStyles[size],
-          variantStyles[variant],
+          getVariantStyle(),
           disabled && styles.disabled,
           style,
         ]}>
@@ -104,31 +138,6 @@ const sizeStyles: Record<IconButtonSize, ViewStyle> = {
   lg: {
     width: 54,
     height: 54,
-  },
-};
-
-const variantStyles: Record<IconButtonVariant, ViewStyle> = {
-  default: {
-    backgroundColor: BMapColors.surfaceContainerLowest,
-    borderWidth: 1,
-    borderColor: BMapColors.outlineVariant,
-    ...Shadows.xs,
-  },
-  filled: {
-    backgroundColor: BMapColors.primaryContainer,
-    ...Shadows.sm,
-  },
-  tinted: {
-    backgroundColor: BMapColors.surfaceContainerHigh,
-  },
-  glass: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.5)',
-    ...Shadows.md,
-  },
-  danger: {
-    backgroundColor: BMapColors.errorContainer,
   },
 };
 

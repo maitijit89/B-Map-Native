@@ -11,3 +11,4 @@ export * from './parking';
 export * from './safety';
 export * from './transit';
 export * from './fleet';
+export * from './compass';

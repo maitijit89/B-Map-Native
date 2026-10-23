@@ -10,7 +10,7 @@ import {
   TextStyle,
   StyleProp,
 } from 'react-native';
-import { BMapColors } from '../../constants/BMapTheme';
+import { useThemeColors } from '../../hooks';
 import { Radius, Shadows } from '../../constants/tokens';
 
 export type ButtonVariant =
@@ -35,6 +35,7 @@ export interface ButtonProps {
   fullWidth?: boolean;
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
+  accessibilityLabel?: string;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -49,7 +50,9 @@ export const Button: React.FC<ButtonProps> = ({
   fullWidth = false,
   style,
   textStyle,
+  accessibilityLabel,
 }) => {
+  const colors = useThemeColors();
   const [scaleAnim] = useState(() => new Animated.Value(1));
 
   const handlePressIn = () => {
@@ -71,6 +74,58 @@ export const Button: React.FC<ButtonProps> = ({
     }).start();
   };
 
+  const getVariantStyle = (): ViewStyle => {
+    switch (variant) {
+      case 'primary':
+        return {
+          backgroundColor: colors.primaryContainer,
+          ...Shadows.sm,
+        };
+      case 'secondary':
+        return {
+          backgroundColor: colors.surfaceContainerHigh,
+        };
+      case 'outline':
+        return {
+          backgroundColor: 'transparent',
+          borderWidth: 1.5,
+          borderColor: colors.outlineVariant,
+        };
+      case 'ghost':
+        return {
+          backgroundColor: 'transparent',
+        };
+      case 'danger':
+        return {
+          backgroundColor: colors.error,
+          ...Shadows.sm,
+        };
+      case 'glass':
+        return {
+          backgroundColor: colors.surfaceContainerLowest,
+          borderWidth: 1,
+          borderColor: colors.outlineVariant,
+          ...Shadows.sm,
+        };
+    }
+  };
+
+  const getTextStyle = (): TextStyle => {
+    switch (variant) {
+      case 'primary':
+        return { color: colors.onPrimary };
+      case 'secondary':
+        return { color: colors.onSurface };
+      case 'outline':
+      case 'ghost':
+        return { color: colors.primary };
+      case 'danger':
+        return { color: colors.onError };
+      case 'glass':
+        return { color: colors.onSurface };
+    }
+  };
+
   const isDisabled = disabled || loading;
 
   return (
@@ -85,17 +140,20 @@ export const Button: React.FC<ButtonProps> = ({
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         disabled={isDisabled}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel || title}
+        accessibilityState={{ disabled: isDisabled }}
         style={[
           styles.base,
           sizeStyles[size],
-          variantStyles[variant],
+          getVariantStyle(),
           isDisabled && styles.disabled,
           style,
         ]}>
         {loading ? (
           <ActivityIndicator
             size="small"
-            color={variant === 'primary' || variant === 'danger' ? '#FFFFFF' : BMapColors.primaryContainer}
+            color={variant === 'primary' || variant === 'danger' ? colors.onPrimary : colors.primary}
           />
         ) : (
           <View style={styles.content}>
@@ -104,8 +162,8 @@ export const Button: React.FC<ButtonProps> = ({
               style={[
                 styles.textBase,
                 textSizeStyles[size],
-                textVariantStyles[variant],
-                isDisabled && styles.disabledText,
+                getTextStyle(),
+                isDisabled && { color: colors.outline },
                 textStyle,
               ]}>
               {title}
@@ -146,9 +204,6 @@ const styles = StyleSheet.create({
   disabled: {
     opacity: 0.5,
   },
-  disabledText: {
-    color: '#8E9AAF',
-  },
 });
 
 const sizeStyles: Record<ButtonSize, ViewStyle> = {
@@ -178,55 +233,6 @@ const textSizeStyles: Record<ButtonSize, TextStyle> = {
   },
   lg: {
     fontSize: 17,
-  },
-};
-
-const variantStyles: Record<ButtonVariant, ViewStyle> = {
-  primary: {
-    backgroundColor: BMapColors.primaryContainer,
-    ...Shadows.sm,
-  },
-  secondary: {
-    backgroundColor: BMapColors.surfaceContainerHigh,
-  },
-  outline: {
-    backgroundColor: 'transparent',
-    borderWidth: 1.5,
-    borderColor: BMapColors.outlineVariant,
-  },
-  ghost: {
-    backgroundColor: 'transparent',
-  },
-  danger: {
-    backgroundColor: BMapColors.error,
-    ...Shadows.sm,
-  },
-  glass: {
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
-    ...Shadows.md,
-  },
-};
-
-const textVariantStyles: Record<ButtonVariant, TextStyle> = {
-  primary: {
-    color: '#FFFFFF',
-  },
-  secondary: {
-    color: BMapColors.onSurface,
-  },
-  outline: {
-    color: BMapColors.primaryContainer,
-  },
-  ghost: {
-    color: BMapColors.primaryContainer,
-  },
-  danger: {
-    color: '#FFFFFF',
-  },
-  glass: {
-    color: BMapColors.onBackground,
   },
 };
 

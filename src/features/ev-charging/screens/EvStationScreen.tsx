@@ -25,6 +25,7 @@ import {
   Coffee,
   Wifi,
 } from 'lucide-react-native';
+import { storageService } from '@/shared/services';
 
 interface ConnectorBay {
   id: string;
@@ -79,10 +80,15 @@ export default function EvStationScreen() {
   const chargingTimeMinutes = Math.round((energyNeededKwh / activeBay.powerKw) * 60 + 4);
   const totalCost = Math.round(energyNeededKwh * activeBay.pricePerKwh);
 
-  const handleReserveSlot = () => {
+  const handleReserveSlot = async () => {
+    const reservationId = `EZ-${Math.floor(1000 + Math.random() * 9000)}`;
+    await storageService.savePreferences({
+      evConnectorTypes: [activeBay.type],
+    });
+
     Alert.alert(
       'Charging Gun Reserved! ⚡',
-      `Gun #1 (${activeBay.type}) held for your vehicle for 15 minutes. Session pass token: #EZ-8924.`,
+      `Gun #1 (${activeBay.type}) held for your vehicle for 15 minutes. Session token: #${reservationId}.\nEst. Cost: ₹${totalCost}`,
       [
         {
           text: 'Route to Station',

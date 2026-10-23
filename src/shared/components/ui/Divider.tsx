@@ -6,7 +6,7 @@ import {
   ViewStyle,
   StyleProp,
 } from 'react-native';
-import { BMapColors } from '../../constants/BMapTheme';
+import { useThemeColors } from '../../hooks';
 import { Spacing, Typography } from '../../constants/tokens';
 
 export interface DividerProps {
@@ -20,33 +20,33 @@ export const Divider: React.FC<DividerProps> = ({
   orientation = 'horizontal',
   style,
 }) => {
+  const colors = useThemeColors();
+
   if (orientation === 'vertical') {
-    return <View style={[styles.verticalLine, style]} />;
+    return <View style={[styles.verticalLine, { backgroundColor: colors.outlineVariant }, style]} />;
   }
 
   if (label) {
     return (
       <View style={[styles.labelContainer, style]}>
-        <View style={styles.line} />
-        <Text style={styles.labelText}>{label}</Text>
-        <View style={styles.line} />
+        <View style={[styles.line, { backgroundColor: colors.outlineVariant }]} />
+        <Text style={[styles.labelText, { color: colors.onSurfaceVariant }]}>{label}</Text>
+        <View style={[styles.line, { backgroundColor: colors.outlineVariant }]} />
       </View>
     );
   }
 
-  return <View style={[styles.line, style]} />;
+  return <View style={[styles.line, { backgroundColor: colors.outlineVariant }, style]} />;
 };
 
 const styles = StyleSheet.create({
   line: {
     flex: 1,
     height: 1,
-    backgroundColor: BMapColors.outlineVariant,
   },
   verticalLine: {
     width: 1,
     height: '100%',
-    backgroundColor: BMapColors.outlineVariant,
   },
   labelContainer: {
     flexDirection: 'row',
@@ -55,7 +55,6 @@ const styles = StyleSheet.create({
   },
   labelText: {
     ...Typography.labelSmall,
-    color: BMapColors.onSurfaceVariant,
     paddingHorizontal: Spacing.md,
     textTransform: 'uppercase',
   },

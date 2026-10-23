@@ -6,9 +6,11 @@ import {
   TouchableOpacity,
   Alert,
   StatusBar,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import {
   CornerUpRight,
   Volume2,
@@ -33,25 +35,49 @@ import Svg, {
   Circle,
   Polygon,
 } from 'react-native-svg';
+import { Button } from '@/shared/components/ui';
+import { speechService } from '@/shared/services';
 
 export default function ActiveNavigationModal() {
   const [isMuted, setIsMuted] = useState(false);
   const [currentSpeed, setCurrentSpeed] = useState(74);
   const [xtdMeters] = useState(2.3);
 
-  // Simulate slight speed fluctuations for realism
+  // Speak initial turn prompt on route start & fluctuate live speed
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentSpeed((prev) => {
-        const delta = Math.floor(Math.random() * 5) - 2;
-        const next = prev + delta;
-        return Math.min(Math.max(next, 68), 82);
-      });
-    }, 2000);
-    return () => clearInterval(interval);
+    speechService.speak('Starting route to Company. In 350 meters, turn right onto Outer Ring Road Expressway.');
+    const speedInterval = setInterval(() => {
+      setCurrentSpeed((prev) => Math.min(Math.max(prev + Math.floor(Math.random() * 5) - 2, 68), 82));
+    }, 2500);
+
+    return () => {
+      speechService.stop();
+      clearInterval(speedInterval);
+    };
   }, []);
 
+  const toggleMute = () => {
+    triggerHaptic();
+    const nextMuted = !isMuted;
+    setIsMuted(nextMuted);
+    speechService.setMuted(nextMuted);
+    if (!nextMuted) {
+      speechService.speak('Voice guidance unmuted.');
+    }
+  };
+
+  const triggerHaptic = () => {
+    if (Platform.OS === 'ios' || Platform.OS === 'android') {
+      try {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch {
+        // Haptics unavailable
+      }
+    }
+  };
+
   const handleEndNavigation = () => {
+    triggerHaptic();
     Alert.alert(
       'End Navigation?',
       'Are you sure you want to stop active turn-by-turn route guidance?',
@@ -67,6 +93,7 @@ export default function ActiveNavigationModal() {
   };
 
   const handleReportHazard = () => {
+    triggerHaptic();
     router.push('/hazard-report');
   };
 
@@ -183,7 +210,7 @@ export default function ActiveNavigationModal() {
 
           <TouchableOpacity
             style={styles.muteBtn}
-            onPress={() => setIsMuted(!isMuted)}
+            onPress={toggleMute}
             activeOpacity={0.8}>
             {isMuted ? <VolumeX size={18} color="#FF9800" /> : <Volume2 size={18} color="#fff" />}
           </TouchableOpacity>
@@ -329,21 +356,22 @@ export default function ActiveNavigationModal() {
 
         {/* Bottom Action Buttons */}
         <View style={styles.bottomActions}>
-          <TouchableOpacity
-            style={styles.sosEmergencyBtn}
+          <Button
+            title="SOS 112"
+            variant="danger"
+            size="md"
+            leftIcon={<Phone size={16} color="#fff" />}
             onPress={() => router.push('/sos-distress')}
-            activeOpacity={0.8}>
-            <Phone size={18} color="#fff" />
-            <Text style={styles.sosEmergencyBtnText}>SOS 112</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.endNavBtn}
+            style={styles.bottomActionFlex}
+          />
+          <Button
+            title="End Navigation"
+            variant="primary"
+            size="md"
+            leftIcon={<Flag size={16} color="#fff" />}
             onPress={handleEndNavigation}
-            activeOpacity={0.8}>
-            <Flag size={18} color="#fff" />
-            <Text style={styles.endNavBtnText}>End Navigation</Text>
-          </TouchableOpacity>
+            style={styles.bottomActionFlex}
+          />
         </View>
       </View>
     </View>
@@ -750,34 +778,7 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 4,
   },
-  sosEmergencyBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#F44336',
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
-  sosEmergencyBtnText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#fff',
-  },
-  endNavBtn: {
+  bottomActionFlex: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#111C2D',
-    borderRadius: 14,
-    paddingVertical: 12,
-  },
-  endNavBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#fff',
   },
 });

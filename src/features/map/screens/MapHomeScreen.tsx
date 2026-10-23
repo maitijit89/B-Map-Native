@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,17 +6,16 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
-  Animated,
   Alert,
-  Modal,
   Switch,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import {
   Bell,
   User,
-  Mic,
   Camera,
   Car,
   TrainFront,
@@ -37,12 +36,22 @@ import {
   SquareParking,
   Utensils,
   Megaphone,
-  X,
   CheckCircle2,
   Satellite,
 } from 'lucide-react-native';
 import VectorMapCanvas from '../components/VectorMapCanvas';
-import { BMapColors } from '@/shared';
+import { useThemeColors, useLocation } from '@/shared/hooks';
+import { Radius, Shadows, Spacing, Typography } from '@/shared/constants/tokens';
+import {
+  Chip,
+  Card,
+  Button,
+  StatusBadge,
+  BottomSheet,
+  SearchBar,
+  DynamicCompassIcon,
+} from '@/shared/components/ui';
+import { AppLaunchGyroIntro } from '@/features/compass';
 
 const LOGO_URI =
   'https://lh3.googleusercontent.com/aida/AEtjO1VN3H4tzgmXs2ZRa0LcSjl67XdRLkUoaSPeH_CWrj-KjJJn-jxm5Ry5BCuQEgauBA2ThJbop3aKeUWeQ6SIdguokZoxbQ03I2vdvAUunO_QvAU8m1DCVcEXQYq8TxLTr2sWs2k07ep1c3xBFVp7H3inSTj60j6IHieJAYPLhMEQKWUapTBKMbNFv4M-1wMcH_cGS00_NluNZE-s9nOPbjxB6lGgQyLc1ATdoWESAGL1bzNPnljLN2abiRf-';
@@ -51,6 +60,8 @@ type TransitMode = 'drive' | 'transit' | 'ride' | 'bike' | 'walk';
 type MapLayerType = 'standard' | 'satellite' | 'night' | 'navic';
 
 export default function HomeScreen() {
+  const colors = useThemeColors();
+
   const [activeMode, setActiveMode] = useState<TransitMode>('drive');
   const [showTraffic, setShowTraffic] = useState(true);
   const [isHomeStarred, setIsHomeStarred] = useState(false);
@@ -58,121 +69,105 @@ export default function HomeScreen() {
   const [selectedLayer, setSelectedLayer] = useState<MapLayerType>('standard');
   const [showCameras, setShowCameras] = useState(true);
   const [showHazards, setShowHazards] = useState(true);
+  const [showGyroIntro, setShowGyroIntro] = useState(true);
 
-  // Animations using state initializers for React 19 compatibility
-  const [cursorOpacity] = useState(() => new Animated.Value(1));
-  const [micPulseAnim] = useState(() => new Animated.Value(1));
-  const [compassRotate] = useState(() => new Animated.Value(0));
-
-  useEffect(() => {
-    // Blinking search cursor
-    const cursorInterval = Animated.loop(
-      Animated.sequence([
-        Animated.timing(cursorOpacity, {
-          toValue: 0,
-          duration: 500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(cursorOpacity, {
-          toValue: 1,
-          duration: 500,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-
-    // Mic halo ping
-    const micInterval = Animated.loop(
-      Animated.sequence([
-        Animated.timing(micPulseAnim, {
-          toValue: 1.4,
-          duration: 900,
-          useNativeDriver: true,
-        }),
-        Animated.timing(micPulseAnim, {
-          toValue: 1,
-          duration: 900,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-
-    cursorInterval.start();
-    micInterval.start();
-
-    return () => {
-      cursorInterval.stop();
-      micInterval.stop();
-    };
-  }, [cursorOpacity, micPulseAnim]);
+  const triggerHaptic = () => {
+    if (Platform.OS === 'ios' || Platform.OS === 'android') {
+      try {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch {
+        // Haptics unavailable
+      }
+    }
+  };
 
   const handleCompassPress = () => {
-    Animated.sequence([
-      Animated.timing(compassRotate, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }),
-      Animated.timing(compassRotate, {
-        toValue: 0,
-        duration: 0,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  const handleLocateMe = () => {
-    Alert.alert('GPS Location', 'Centered to current coordinate (31.2304° N, 121.4737° E)');
-  };
-
-  const handleVoiceAssistant = () => {
-    router.push('/ai-copilot');
+    triggerHaptic();
+    router.push('/compass-hud' as any);
   };
 
   const handleStartNav = () => {
+    triggerHaptic();
     router.push('/modal');
   };
 
   const handlePoiSelect = (poiName: string) => {
-    Alert.alert('Waypoint Selected', `${poiName} highlighted on map. Tap "Go" to route.`);
+    triggerHaptic();
+    Alert.alert('Waypoint Selected', `${poiName}\nReady for turn-by-turn guidance.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Start Route', onPress: handleStartNav },
+    ]);
   };
 
-  const compassInterpolation = useMemo(
-    () =>
-      compassRotate.interpolate({
-        inputRange: [0, 1],
-        outputRange: ['0deg', '360deg'],
-      }),
-    [compassRotate]
-  );
+  const { location, refreshLocation } = useLocation(true);
+
+  const handleLocateMe = async () => {
+    triggerHaptic();
+    await refreshLocation();
+    const lat = location.latitude.toFixed(4);
+    const lon = location.longitude.toFixed(4);
+    const acc = location.accuracy ? `${location.accuracy.toFixed(1)}m` : '±0.8m';
+    Alert.alert('GPS Location Lock Established', `Latitude: ${lat}\nLongitude: ${lon}\nAccuracy Fix: ${acc}`);
+  };
+
+  const handleVoiceAssistant = () => {
+    triggerHaptic();
+    router.push('/ai-copilot');
+  };
+
+  const handleModeChange = (mode: TransitMode) => {
+    triggerHaptic();
+    setActiveMode(mode);
+    if (mode === 'transit') {
+      router.push('/transit-planner');
+    }
+  };
 
   return (
-    <View style={styles.screenContainer}>
+    <View style={[styles.screenContainer, { backgroundColor: colors.background }]}>
       {/* 1. FIXED TOP HEADER */}
-      <SafeAreaView edges={['top']} style={styles.headerSafeArea}>
+      <SafeAreaView
+        edges={['top']}
+        style={[
+          styles.headerSafeArea,
+          {
+            backgroundColor: colors.surfaceContainerLowest,
+            borderBottomColor: colors.surfaceContainerHigh,
+          },
+        ]}>
         <View style={styles.header}>
           <View style={styles.brandCluster}>
             <Image source={{ uri: LOGO_URI }} style={styles.logoImage} resizeMode="contain" />
             <View style={styles.titleColumn}>
-              <Text style={styles.logoTag}>B MAP</Text>
-              <Text style={styles.headerTitle}>Map Explore</Text>
+              <Text style={[styles.logoTag, { color: colors.primaryContainer }]}>B MAP</Text>
+              <Text style={[styles.headerTitle, { color: colors.onSurface }]}>Map Explore</Text>
             </View>
           </View>
 
           <View style={styles.headerActions}>
             <TouchableOpacity
-              style={styles.headerIconButton}
+              style={[styles.headerIconButton, { backgroundColor: colors.surfaceContainerLow }]}
               activeOpacity={0.7}
-              onPress={() => Alert.alert('Notifications', 'No new alerts. Real-time traffic monitoring active.')}>
-              <Bell size={20} color={BMapColors.onSurfaceVariant} />
-              <View style={styles.notifDot} />
+              accessibilityRole="button"
+              accessibilityLabel="Notifications"
+              onPress={() => {
+                triggerHaptic();
+                Alert.alert('Notifications', 'No new alerts. Real-time traffic monitoring active.');
+              }}>
+              <Bell size={19} color={colors.onSurfaceVariant} />
+              <View style={[styles.notifDot, { backgroundColor: colors.error }]} />
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.profileAvatar}
+              style={[styles.profileAvatar, { backgroundColor: colors.primary }]}
               activeOpacity={0.7}
-              onPress={() => router.push('/auth')}>
-              <User size={18} color="#ffffff" />
+              accessibilityRole="button"
+              accessibilityLabel="User profile"
+              onPress={() => {
+                triggerHaptic();
+                router.push('/auth');
+              }}>
+              <User size={18} color={colors.onPrimary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -189,194 +184,114 @@ export default function HomeScreen() {
 
           {/* FLOATING TOP SEARCH BAR & TRANSIT CAROUSEL */}
           <View style={styles.floatingTopContainer}>
-            {/* Search Card */}
-            <View style={styles.searchCard}>
-              <View style={styles.searchLeftGroup}>
-                <Image source={{ uri: LOGO_URI }} style={styles.searchLogoThumb} resizeMode="contain" />
-                <View style={styles.searchAvatarMini}>
-                  <User size={15} color={BMapColors.primary} />
+            {/* Search Bar Component */}
+            <SearchBar
+              placeholder="Search destination, DigiPIN, fuel..."
+              editable={false}
+              onPress={() => {
+                triggerHaptic();
+                router.push('/search');
+              }}
+              onMicPress={handleVoiceAssistant}
+              leadingIcon={
+                <View style={styles.searchLeftGroup}>
+                  <Image source={{ uri: LOGO_URI }} style={styles.searchLogoThumb} resizeMode="contain" />
                 </View>
-              </View>
-
-              <TouchableOpacity
-                style={styles.searchCenterPrompt}
-                activeOpacity={0.8}
-                onPress={() => router.push('/search')}>
-                <Text style={styles.searchPlaceholder} numberOfLines={1}>
-                  Search destination, gas, food...
-                </Text>
-                <Animated.View style={[styles.cursorBeam, { opacity: cursorOpacity }]} />
-              </TouchableOpacity>
-
-              <View style={styles.searchRightGroup}>
-                <View style={styles.dividerV} />
-
-                {/* B-Assistant Voice with Glow Halo */}
+              }
+              trailingAction={
                 <TouchableOpacity
-                  style={styles.micButtonWrapper}
-                  onPress={handleVoiceAssistant}
-                  activeOpacity={0.8}>
-                  <Animated.View
-                    style={[
-                      styles.micHalo,
-                      {
-                        transform: [{ scale: micPulseAnim }],
-                        opacity: 0.25,
-                      },
-                    ]}
-                  />
-                  <View style={styles.micButton}>
-                    <Mic size={18} color={BMapColors.primaryContainer} fill={BMapColors.primaryContainer} />
-                  </View>
-                </TouchableOpacity>
-
-                {/* AR Visual Search */}
-                <TouchableOpacity
-                  style={styles.cameraButton}
-                  onPress={() => Alert.alert('AR Navigation', 'Opening AR Camera mode...')}
+                  style={[styles.cameraButton, { backgroundColor: colors.surfaceContainerLow }]}
+                  onPress={() => {
+                    triggerHaptic();
+                    Alert.alert('AR Navigation', 'Opening AR Camera mode with sovereign spatial anchors...');
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Visual AR Camera"
                   activeOpacity={0.7}>
-                  <Camera size={19} color={BMapColors.onSurfaceVariant} />
+                  <Camera size={18} color={colors.onSurfaceVariant} />
                 </TouchableOpacity>
-              </View>
-            </View>
+              }
+              variant="floating"
+            />
 
             {/* Quick Transit Mode Switcher Chips */}
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.transitChipsTrack}>
-              {/* Drive (Active) */}
-              <TouchableOpacity
-                style={[
-                  styles.transitChip,
-                  activeMode === 'drive' ? styles.transitChipActive : styles.transitChipInactive,
-                ]}
-                onPress={() => setActiveMode('drive')}
-                activeOpacity={0.8}>
-                <Car
-                  size={16}
-                  color={activeMode === 'drive' ? '#ffffff' : BMapColors.onSurfaceVariant}
-                />
-                <Text
-                  style={[
-                    styles.transitChipLabel,
-                    activeMode === 'drive' ? styles.chipTextActive : styles.chipTextInactive,
-                  ]}>
-                  Drive
-                </Text>
-              </TouchableOpacity>
-
-              {/* Transit / Metro */}
-              <TouchableOpacity
-                style={[
-                  styles.transitChip,
-                  activeMode === 'transit' ? styles.transitChipActive : styles.transitChipInactive,
-                ]}
-                onPress={() => {
-                  setActiveMode('transit');
-                  router.push('/transit-planner');
-                }}
-                activeOpacity={0.8}>
-                <TrainFront
-                  size={16}
-                  color={activeMode === 'transit' ? '#ffffff' : BMapColors.onSurfaceVariant}
-                />
-                <Text
-                  style={[
-                    styles.transitChipLabel,
-                    activeMode === 'transit' ? styles.chipTextActive : styles.chipTextInactive,
-                  ]}>
-                  Transit
-                </Text>
-                <View style={styles.metroBadge}>
-                  <Text style={styles.metroBadgeText}>Line 2</Text>
-                </View>
-              </TouchableOpacity>
-
-              {/* Ride / Taxi */}
-              <TouchableOpacity
-                style={[
-                  styles.transitChip,
-                  activeMode === 'ride' ? styles.transitChipActive : styles.transitChipInactive,
-                ]}
-                onPress={() => setActiveMode('ride')}
-                activeOpacity={0.8}>
-                <CarTaxiFront
-                  size={16}
-                  color={activeMode === 'ride' ? '#ffffff' : BMapColors.onSurfaceVariant}
-                />
-                <Text
-                  style={[
-                    styles.transitChipLabel,
-                    activeMode === 'ride' ? styles.chipTextActive : styles.chipTextInactive,
-                  ]}>
-                  Ride
-                </Text>
-                <Text style={styles.ridePriceBadge}>₹120~</Text>
-              </TouchableOpacity>
-
-              {/* Bike / E-Scooter */}
-              <TouchableOpacity
-                style={[
-                  styles.transitChip,
-                  activeMode === 'bike' ? styles.transitChipActive : styles.transitChipInactive,
-                ]}
-                onPress={() => setActiveMode('bike')}
-                activeOpacity={0.8}>
-                <Bike
-                  size={16}
-                  color={activeMode === 'bike' ? '#ffffff' : BMapColors.onSurfaceVariant}
-                />
-                <Text
-                  style={[
-                    styles.transitChipLabel,
-                    activeMode === 'bike' ? styles.chipTextActive : styles.chipTextInactive,
-                  ]}>
-                  Bike
-                </Text>
-              </TouchableOpacity>
-
-              {/* Walk */}
-              <TouchableOpacity
-                style={[
-                  styles.transitChip,
-                  activeMode === 'walk' ? styles.transitChipActive : styles.transitChipInactive,
-                ]}
-                onPress={() => setActiveMode('walk')}
-                activeOpacity={0.8}>
-                <Footprints
-                  size={16}
-                  color={activeMode === 'walk' ? '#ffffff' : BMapColors.onSurfaceVariant}
-                />
-                <Text
-                  style={[
-                    styles.transitChipLabel,
-                    activeMode === 'walk' ? styles.chipTextActive : styles.chipTextInactive,
-                  ]}>
-                  Walk
-                </Text>
-              </TouchableOpacity>
+              <Chip
+                label="Drive"
+                size="sm"
+                selected={activeMode === 'drive'}
+                onPress={() => handleModeChange('drive')}
+                icon={<Car size={15} color={activeMode === 'drive' ? colors.onPrimaryContainer : colors.onSurfaceVariant} />}
+              />
+              <Chip
+                label="Transit"
+                size="sm"
+                selected={activeMode === 'transit'}
+                onPress={() => handleModeChange('transit')}
+                icon={<TrainFront size={15} color={activeMode === 'transit' ? colors.onPrimaryContainer : colors.onSurfaceVariant} />}
+                badgeCount={2}
+              />
+              <Chip
+                label="Ride · ₹120"
+                size="sm"
+                selected={activeMode === 'ride'}
+                onPress={() => handleModeChange('ride')}
+                icon={<CarTaxiFront size={15} color={activeMode === 'ride' ? colors.onPrimaryContainer : colors.onSurfaceVariant} />}
+              />
+              <Chip
+                label="Bike"
+                size="sm"
+                selected={activeMode === 'bike'}
+                onPress={() => handleModeChange('bike')}
+                icon={<Bike size={15} color={activeMode === 'bike' ? colors.onPrimaryContainer : colors.onSurfaceVariant} />}
+              />
+              <Chip
+                label="Walk"
+                size="sm"
+                selected={activeMode === 'walk'}
+                onPress={() => handleModeChange('walk')}
+                icon={<Footprints size={15} color={activeMode === 'walk' ? colors.onPrimaryContainer : colors.onSurfaceVariant} />}
+              />
             </ScrollView>
           </View>
 
           {/* FLOATING LEFT ENVIRONMENTAL & ROAD SAFETY WIDGETS */}
           <View style={styles.floatingLeftWidgets}>
             {/* Weather & Air Quality Pill */}
-            <View style={styles.weatherPill}>
-              <Sun size={18} color="#FF9800" fill="#FF9800" />
+            <View
+              style={[
+                styles.weatherPill,
+                {
+                  backgroundColor: colors.surfaceContainerLowest,
+                  borderColor: colors.surfaceContainerHigh,
+                },
+              ]}>
+              <Sun size={18} color="#FF9800" />
               <View>
-                <Text style={styles.weatherTemp}>24°C Sunny</Text>
+                <Text style={[styles.weatherTemp, { color: colors.onSurface }]}>24°C Sunny</Text>
                 <View style={styles.aqiRow}>
-                  <View style={styles.aqiDot} />
-                  <Text style={styles.aqiText}>AQI 28 · Good</Text>
+                  <View style={[styles.aqiDot, { backgroundColor: colors.secondary }]} />
+                  <Text style={[styles.aqiText, { color: colors.secondary }]}>AQI 28 · Good</Text>
                 </View>
               </View>
             </View>
 
             {/* Speed Camera Alert Badge */}
-            <View style={styles.speedCameraBadge}>
-              <Video size={14} color={BMapColors.error} />
-              <Text style={styles.speedCameraText}>Camera 450m ahead (60 km/h)</Text>
+            <View
+              style={[
+                styles.speedCameraBadge,
+                {
+                  backgroundColor: colors.surfaceContainerLowest,
+                  borderColor: colors.surfaceContainerHigh,
+                },
+              ]}>
+              <Video size={14} color={colors.error} />
+              <Text style={[styles.speedCameraText, { color: colors.onSurface }]}>
+                Camera 450m ahead (60 km/h)
+              </Text>
             </View>
           </View>
 
@@ -384,295 +299,459 @@ export default function HomeScreen() {
           <View style={styles.floatingRightControls}>
             {/* Map Layers */}
             <TouchableOpacity
-              style={styles.fabBtn}
-              onPress={() => setShowLayerModal(true)}
+              style={[
+                styles.fabBtn,
+                {
+                  backgroundColor: colors.surfaceContainerLowest,
+                  borderColor: colors.surfaceContainerHigh,
+                },
+              ]}
+              onPress={() => {
+                triggerHaptic();
+                setShowLayerModal(true);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Map layers"
               activeOpacity={0.8}>
-              <Layers size={19} color={BMapColors.onSurfaceVariant} />
+              <Layers size={19} color={colors.onSurfaceVariant} />
             </TouchableOpacity>
 
             {/* Traffic Toggle */}
             <TouchableOpacity
-              style={styles.fabBtn}
-              onPress={() => setShowTraffic(!showTraffic)}
+              style={[
+                styles.fabBtn,
+                {
+                  backgroundColor: colors.surfaceContainerLowest,
+                  borderColor: colors.surfaceContainerHigh,
+                },
+              ]}
+              onPress={() => {
+                triggerHaptic();
+                setShowTraffic(!showTraffic);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Toggle live traffic"
               activeOpacity={0.8}>
               <View style={styles.trafficIconWrapper}>
                 <View
                   style={[
                     styles.trafficIndicatorDot,
-                    { backgroundColor: showTraffic ? BMapColors.primaryContainer : BMapColors.outlineVariant },
+                    {
+                      backgroundColor: showTraffic
+                        ? colors.primaryContainer
+                        : colors.outlineVariant,
+                    },
                   ]}
                 />
                 <View style={styles.trafficBars}>
-                  <View style={[styles.miniBar, { backgroundColor: '#00C06D' }]} />
-                  <View style={[styles.miniBar, { backgroundColor: '#FF9800' }]} />
-                  <View style={[styles.miniBar, { backgroundColor: '#F44336' }]} />
+                  <View style={[styles.miniBar, { backgroundColor: colors.trafficGreen }]} />
+                  <View style={[styles.miniBar, { backgroundColor: colors.trafficOrange }]} />
+                  <View style={[styles.miniBar, { backgroundColor: colors.trafficRed }]} />
                 </View>
               </View>
             </TouchableOpacity>
 
             {/* Route Planner Shortcut */}
             <TouchableOpacity
-              style={styles.fabBtn}
-              onPress={() => router.push('/(tabs)/routes')}
+              style={[
+                styles.fabBtn,
+                {
+                  backgroundColor: colors.surfaceContainerLowest,
+                  borderColor: colors.surfaceContainerHigh,
+                },
+              ]}
+              onPress={() => {
+                triggerHaptic();
+                router.push('/(tabs)/routes');
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Route planner"
               activeOpacity={0.8}>
-              <Route size={17} color={BMapColors.primaryContainer} />
-              <Text style={styles.routeFabText}>Route</Text>
+              <Route size={17} color={colors.primaryContainer} />
+              <Text style={[styles.routeFabText, { color: colors.primaryContainer }]}>Route</Text>
             </TouchableOpacity>
 
             {/* North Compass */}
-            <TouchableOpacity style={styles.compassBtn} onPress={handleCompassPress} activeOpacity={0.8}>
-              <Animated.View style={{ transform: [{ rotate: compassInterpolation }], alignItems: 'center' }}>
-                <Text style={styles.compassN}>N</Text>
-                <View style={styles.compassNeedle} />
-              </Animated.View>
+            <TouchableOpacity
+              onPress={handleCompassPress}
+              accessibilityRole="button"
+              accessibilityLabel="Compass reset north"
+              activeOpacity={0.8}>
+              <DynamicCompassIcon size={44} dynamic={true} tilt3D={true} borderRadius={12} />
             </TouchableOpacity>
 
             {/* Recenter / Locate Me FAB */}
-            <TouchableOpacity style={styles.locateMeFab} onPress={handleLocateMe} activeOpacity={0.85}>
-              <LocateFixed size={24} color={BMapColors.primaryContainer} />
+            <TouchableOpacity
+              style={[
+                styles.locateMeFab,
+                {
+                  backgroundColor: colors.surfaceContainerLowest,
+                  borderColor: colors.surfaceContainerHigh,
+                },
+              ]}
+              onPress={handleLocateMe}
+              accessibilityRole="button"
+              accessibilityLabel="Re-center map"
+              activeOpacity={0.85}>
+              <LocateFixed size={24} color={colors.primaryContainer} />
             </TouchableOpacity>
           </View>
 
           {/* 3. BOTTOM SHEET COMMUTE & DISCOVERY HUD */}
-          <View style={styles.bottomSheetHUD}>
+          <View
+            style={[
+              styles.bottomSheetHUD,
+              {
+                backgroundColor: colors.surfaceContainerLowest,
+                borderColor: colors.surfaceContainerHigh,
+              },
+            ]}>
             {/* Drag Handle Bar */}
             <View style={styles.sheetHandleContainer}>
-              <View style={styles.sheetHandle} />
+              <View style={[styles.sheetHandle, { backgroundColor: colors.outlineVariant }]} />
             </View>
 
             {/* Commute Target 1: Company / Work */}
-            <View style={styles.commuteWorkCard}>
+            <Card
+              variant="flat"
+              padding="md"
+              style={styles.commuteWorkCard}
+              onPress={handleStartNav}>
               <View style={styles.commuteLeft}>
-                <View style={styles.workIconBox}>
-                  <Building size={22} color={BMapColors.primary} />
+                <View
+                  style={[
+                    styles.workIconBox,
+                    { backgroundColor: colors.surfaceContainerHighest },
+                  ]}>
+                  <Building size={20} color={colors.primary} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={styles.commuteTitleRow}>
-                    <Text style={styles.commuteTitle}>Company</Text>
-                    <View style={styles.fastestBadge}>
-                      <View style={styles.greenPulseDot} />
-                      <Text style={styles.fastestBadgeText}>Fastest Route</Text>
-                    </View>
+                    <Text style={[styles.commuteTitle, { color: colors.onSurface }]}>Company</Text>
+                    <StatusBadge status="success" label="Fastest Route" size="sm" pulsing />
                   </View>
                   <View style={styles.commuteMetaRow}>
-                    <Text style={styles.commuteTimeText}>28 min</Text>
-                    <Text style={styles.dotSeparator}>·</Text>
-                    <Text style={styles.commuteDistText}>14.2 km</Text>
-                    <Text style={styles.dotSeparator}>·</Text>
-                    <Text style={styles.commuteRoadText} numberOfLines={1}>
+                    <Text style={[styles.commuteTimeText, { color: colors.onSurface }]}>28 min</Text>
+                    <Text style={[styles.dotSeparator, { color: colors.onSurfaceVariant }]}>·</Text>
+                    <Text style={[styles.commuteDistText, { color: colors.onSurfaceVariant }]}>14.2 km</Text>
+                    <Text style={[styles.dotSeparator, { color: colors.onSurfaceVariant }]}>·</Text>
+                    <Text
+                      style={[styles.commuteRoadText, { color: colors.onSurfaceVariant }]}
+                      numberOfLines={1}>
                       via Highway 4
                     </Text>
                   </View>
                 </View>
               </View>
 
-              <TouchableOpacity style={styles.goButton} onPress={handleStartNav} activeOpacity={0.85}>
-                <Navigation size={17} color="#ffffff" />
-                <Text style={styles.goButtonText}>Go</Text>
-              </TouchableOpacity>
-            </View>
+              <Button
+                variant="primary"
+                size="sm"
+                title="Go"
+                leftIcon={<Navigation size={15} color={colors.onPrimary} />}
+                onPress={handleStartNav}
+              />
+            </Card>
 
             {/* Commute Target 2: Home */}
-            <TouchableOpacity
+            <Card
+              variant="flat"
+              padding="md"
               style={styles.commuteHomeCard}
-              onPress={() => Alert.alert('Configure Home', 'Enter home address to set automatic commute alerts')}
-              activeOpacity={0.7}>
+              onPress={() => {
+                triggerHaptic();
+                Alert.alert('Configure Home', 'Enter home address to set automatic commute alerts');
+              }}>
               <View style={styles.homeLeft}>
-                <View style={styles.homeIconBox}>
-                  <House size={18} color={BMapColors.onSurfaceVariant} />
+                <View
+                  style={[
+                    styles.homeIconBox,
+                    { backgroundColor: colors.surfaceContainerHighest },
+                  ]}>
+                  <House size={18} color={colors.onSurfaceVariant} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.homeTitle}>Home</Text>
-                  <Text style={styles.homeSubtitle}>Tap to configure commute route</Text>
+                  <Text style={[styles.homeTitle, { color: colors.onSurface }]}>Home</Text>
+                  <Text style={[styles.homeSubtitle, { color: colors.onSurfaceVariant }]}>
+                    Tap to configure commute route
+                  </Text>
                 </View>
               </View>
               <TouchableOpacity
                 style={styles.starButton}
-                onPress={() => setIsHomeStarred(!isHomeStarred)}
+                accessibilityRole="button"
+                accessibilityLabel="Star home address"
+                onPress={() => {
+                  triggerHaptic();
+                  setIsHomeStarred(!isHomeStarred);
+                }}
                 activeOpacity={0.7}>
                 <Star
                   size={19}
-                  color={isHomeStarred ? '#FF9800' : BMapColors.tertiaryContainer}
+                  color={isHomeStarred ? '#FF9800' : colors.outline}
                   fill={isHomeStarred ? '#FF9800' : 'none'}
                 />
               </TouchableOpacity>
-            </TouchableOpacity>
+            </Card>
 
             {/* Quick Services 4-Column Grid */}
             <View style={styles.servicesGrid}>
               {/* EV Charging */}
-              <TouchableOpacity
+              <Card
+                variant="flat"
+                padding="sm"
                 style={styles.serviceCol}
-                onPress={() => router.push('/ev-station')}
-                activeOpacity={0.7}>
-                <View style={[styles.serviceCircle, { backgroundColor: BMapColors.primaryFixed }]}>
-                  <Zap size={20} color={BMapColors.primary} />
+                onPress={() => {
+                  triggerHaptic();
+                  router.push('/ev-station');
+                }}>
+                <View style={[styles.serviceCircle, { backgroundColor: colors.primaryFixed }]}>
+                  <Zap size={20} color={colors.primary} />
                 </View>
-                <Text style={styles.serviceLabel}>EV Charge</Text>
-                <Text style={[styles.serviceSubLabel, { color: BMapColors.primaryContainer }]}>
+                <Text style={[styles.serviceLabel, { color: colors.onSurface }]}>EV Charge</Text>
+                <Text style={[styles.serviceSubLabel, { color: colors.primaryContainer }]}>
                   42 nearby
                 </Text>
-              </TouchableOpacity>
+              </Card>
 
               {/* Gas Station */}
-              <TouchableOpacity
+              <Card
+                variant="flat"
+                padding="sm"
                 style={styles.serviceCol}
-                onPress={() => router.push('/(tabs)/nearby')}
-                activeOpacity={0.7}>
-                <View style={[styles.serviceCircle, { backgroundColor: BMapColors.tertiaryFixed }]}>
-                  <Fuel size={20} color={BMapColors.tertiary} />
+                onPress={() => {
+                  triggerHaptic();
+                  router.push('/(tabs)/nearby');
+                }}>
+                <View style={[styles.serviceCircle, { backgroundColor: colors.tertiaryFixed }]}>
+                  <Fuel size={20} color={colors.tertiary} />
                 </View>
-                <Text style={styles.serviceLabel}>Gas Station</Text>
-                <Text style={[styles.serviceSubLabel, { color: '#00C06D' }]}>-₹3.50/L</Text>
-              </TouchableOpacity>
+                <Text style={[styles.serviceLabel, { color: colors.onSurface }]}>Gas Station</Text>
+                <Text style={[styles.serviceSubLabel, { color: colors.trafficGreen }]}>-₹3.50/L</Text>
+              </Card>
 
               {/* Parking */}
-              <TouchableOpacity
+              <Card
+                variant="flat"
+                padding="sm"
                 style={styles.serviceCol}
-                onPress={() => router.push('/indoor-parking')}
-                activeOpacity={0.7}>
-                <View style={[styles.serviceCircle, { backgroundColor: BMapColors.secondaryContainer }]}>
-                  <SquareParking size={20} color={BMapColors.onSecondaryContainer} />
+                onPress={() => {
+                  triggerHaptic();
+                  router.push('/indoor-parking');
+                }}>
+                <View style={[styles.serviceCircle, { backgroundColor: colors.secondaryContainer }]}>
+                  <SquareParking size={20} color={colors.onSecondaryContainer} />
                 </View>
-                <Text style={styles.serviceLabel}>Parking</Text>
-                <Text style={styles.serviceSubLabel}>Live spots</Text>
-              </TouchableOpacity>
+                <Text style={[styles.serviceLabel, { color: colors.onSurface }]}>Parking</Text>
+                <Text style={[styles.serviceSubLabel, { color: colors.onSurfaceVariant }]}>Live spots</Text>
+              </Card>
 
               {/* Dining */}
-              <TouchableOpacity
+              <Card
+                variant="flat"
+                padding="sm"
                 style={styles.serviceCol}
-                onPress={() => router.push('/(tabs)/nearby')}
-                activeOpacity={0.7}>
-                <View style={[styles.serviceCircle, { backgroundColor: BMapColors.surfaceContainerHighest }]}>
-                  <Utensils size={20} color={BMapColors.onSurface} />
+                onPress={() => {
+                  triggerHaptic();
+                  router.push('/(tabs)/nearby');
+                }}>
+                <View style={[styles.serviceCircle, { backgroundColor: colors.surfaceContainerHighest }]}>
+                  <Utensils size={20} color={colors.onSurface} />
                 </View>
-                <Text style={styles.serviceLabel}>Dining</Text>
-                <Text style={[styles.serviceSubLabel, { color: '#FF9800' }]}>Top Rated</Text>
-              </TouchableOpacity>
+                <Text style={[styles.serviceLabel, { color: colors.onSurface }]}>Dining</Text>
+                <Text style={[styles.serviceSubLabel, { color: colors.trafficOrange }]}>Top Rated</Text>
+              </Card>
             </View>
 
             {/* Traffic Alert Banner */}
-            <View style={styles.alertBanner}>
+            <Card variant="flat" padding="sm" style={styles.alertBanner}>
               <View style={styles.alertLeft}>
-                <Megaphone size={18} color={BMapColors.primaryContainer} />
-                <Text style={styles.alertText} numberOfLines={1}>
+                <Megaphone size={18} color={colors.primaryContainer} />
+                <Text style={[styles.alertText, { color: colors.onSurface }]} numberOfLines={1}>
                   <Text style={{ fontWeight: '700' }}>Expressway East:</Text> Roadwork cleared, normal
                   flow resumed.
                 </Text>
               </View>
               <TouchableOpacity
-                onPress={() => Alert.alert('Traffic Details', 'Expressway East flow normalized at 75 km/h.')}
+                onPress={() => {
+                  triggerHaptic();
+                  Alert.alert('Traffic Details', 'Expressway East flow normalized at 75 km/h.');
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="View traffic alert details"
                 activeOpacity={0.7}>
-                <Text style={styles.alertDetailsBtn}>Details</Text>
+                <Text style={[styles.alertDetailsBtn, { color: colors.primary }]}>Details</Text>
               </TouchableOpacity>
-            </View>
+            </Card>
           </View>
         </View>
       </ScrollView>
 
-      {/* Map Layers & Overlays Modal */}
-      <Modal
+      {/* Map Layers & Overlays BottomSheet */}
+      <BottomSheet
         visible={showLayerModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowLayerModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.layerModalCard}>
-            <View style={styles.layerModalHeader}>
-              <View>
-                <Text style={styles.layerModalTitle}>Sovereign Map Layers</Text>
-                <Text style={styles.layerModalSub}>ISRO NavIC Dual-Band & Real-Time GIS</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.layerModalClose}
-                onPress={() => setShowLayerModal(false)}>
-                <X size={18} color="#111C2D" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Base Layer Switcher */}
-            <Text style={styles.layerSectionLabel}>Base Map Type</Text>
-            <View style={styles.layerOptionsRow}>
-              {[
-                { key: 'standard' as const, label: 'Sovereign Vector', icon: Layers },
-                { key: 'satellite' as const, label: '3D Satellite', icon: Building },
-                { key: 'night' as const, label: 'Night HUD', icon: Navigation },
-                { key: 'navic' as const, label: 'NavIC L5/S', icon: Satellite },
-              ].map((opt) => {
-                const IconComp = opt.icon;
-                const isSelected = selectedLayer === opt.key;
-                return (
-                  <TouchableOpacity
-                    key={opt.key}
-                    style={[styles.layerOptionChip, isSelected && styles.layerOptionChipSelected]}
-                    onPress={() => setSelectedLayer(opt.key)}
-                    activeOpacity={0.8}>
-                    <IconComp size={18} color={isSelected ? '#ffffff' : '#0096FF'} />
-                    <Text
-                      style={[
-                        styles.layerOptionText,
-                        isSelected && styles.layerOptionTextSelected,
-                      ]}>
-                      {opt.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Live Overlays */}
-            <Text style={styles.layerSectionLabel}>Real-Time Telematics Overlays</Text>
-            <View style={styles.overlayToggles}>
-              <View style={styles.overlayToggleRow}>
-                <View>
-                  <Text style={styles.overlayTitle}>Live 1Hz Traffic Heatmap</Text>
-                  <Text style={styles.overlayDesc}>Congestion coloring & flow re-weighting</Text>
-                </View>
-                <Switch
-                  value={showTraffic}
-                  onValueChange={setShowTraffic}
-                  trackColor={{ false: '#D8E3FB', true: '#0096FF' }}
-                  thumbColor="#ffffff"
-                />
-              </View>
-
-              <View style={styles.overlayToggleRow}>
-                <View>
-                  <Text style={styles.overlayTitle}>ADAS Speed Radar & Red Light Cameras</Text>
-                  <Text style={styles.overlayDesc}>Fixed radar alerts and corridor speed limits</Text>
-                </View>
-                <Switch
-                  value={showCameras}
-                  onValueChange={setShowCameras}
-                  trackColor={{ false: '#D8E3FB', true: '#0096FF' }}
-                  thumbColor="#ffffff"
-                />
-              </View>
-
-              <View style={[styles.overlayToggleRow, { borderBottomWidth: 0 }]}>
-                <View>
-                  <Text style={styles.overlayTitle}>Crowdsourced Road Hazard Icons</Text>
-                  <Text style={styles.overlayDesc}>Potholes, waterlogging & accident pins</Text>
-                </View>
-                <Switch
-                  value={showHazards}
-                  onValueChange={setShowHazards}
-                  trackColor={{ false: '#D8E3FB', true: '#0096FF' }}
-                  thumbColor="#ffffff"
-                />
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={styles.applyLayersBtn}
-              onPress={() => setShowLayerModal(false)}
-              activeOpacity={0.85}>
-              <CheckCircle2 size={16} color="#ffffff" />
-              <Text style={styles.applyLayersText}>Apply Layer Settings</Text>
-            </TouchableOpacity>
+        onClose={() => setShowLayerModal(false)}
+        title="Sovereign Map Layers"
+        subtitle="ISRO NavIC Dual-Band & Real-Time GIS">
+        <View style={{ gap: Spacing.md }}>
+          {/* Base Layer Switcher */}
+          <Text style={[styles.layerSectionLabel, { color: colors.onSurface }]}>Base Map Type</Text>
+          <View style={styles.layerOptionsRow}>
+            {[
+              { key: 'standard' as const, label: 'Sovereign Vector', icon: Layers },
+              { key: 'satellite' as const, label: '3D Satellite', icon: Building },
+              { key: 'night' as const, label: 'Night HUD', icon: Navigation },
+              { key: 'navic' as const, label: 'NavIC L5/S', icon: Satellite },
+            ].map((opt) => {
+              const IconComp = opt.icon;
+              const isSelected = selectedLayer === opt.key;
+              return (
+                <TouchableOpacity
+                  key={opt.key}
+                  style={[
+                    styles.layerOptionChip,
+                    {
+                      backgroundColor: isSelected
+                        ? colors.primaryContainer
+                        : colors.surfaceContainerLow,
+                      borderColor: isSelected
+                        ? colors.primary
+                        : colors.outlineVariant,
+                    },
+                  ]}
+                  onPress={() => {
+                    triggerHaptic();
+                    setSelectedLayer(opt.key);
+                  }}
+                  activeOpacity={0.8}>
+                  <IconComp
+                    size={18}
+                    color={isSelected ? colors.onPrimary : colors.primaryContainer}
+                  />
+                  <Text
+                    style={[
+                      styles.layerOptionText,
+                      {
+                        color: isSelected
+                          ? colors.onPrimary
+                          : colors.onSurface,
+                      },
+                    ]}>
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
+
+          {/* Live Overlays */}
+          <Text style={[styles.layerSectionLabel, { color: colors.onSurface }]}>
+            Real-Time Telematics Overlays
+          </Text>
+          <View
+            style={[
+              styles.overlayToggles,
+              {
+                backgroundColor: colors.surfaceContainerLow,
+                borderColor: colors.surfaceContainerHigh,
+              },
+            ]}>
+            <View
+              style={[
+                styles.overlayToggleRow,
+                { borderBottomColor: colors.surfaceContainerHigh },
+              ]}>
+              <View style={{ flex: 1, paddingRight: 8 }}>
+                <Text style={[styles.overlayTitle, { color: colors.onSurface }]}>
+                  Live 1Hz Traffic Heatmap
+                </Text>
+                <Text style={[styles.overlayDesc, { color: colors.onSurfaceVariant }]}>
+                  Congestion coloring & flow re-weighting
+                </Text>
+              </View>
+              <Switch
+                value={showTraffic}
+                onValueChange={(val) => {
+                  triggerHaptic();
+                  setShowTraffic(val);
+                }}
+                trackColor={{
+                  false: colors.surfaceContainerHighest,
+                  true: colors.primaryContainer,
+                }}
+                thumbColor="#ffffff"
+              />
+            </View>
+
+            <View
+              style={[
+                styles.overlayToggleRow,
+                { borderBottomColor: colors.surfaceContainerHigh },
+              ]}>
+              <View style={{ flex: 1, paddingRight: 8 }}>
+                <Text style={[styles.overlayTitle, { color: colors.onSurface }]}>
+                  ADAS Speed Radar & Red Light Cameras
+                </Text>
+                <Text style={[styles.overlayDesc, { color: colors.onSurfaceVariant }]}>
+                  Fixed radar alerts and corridor speed limits
+                </Text>
+              </View>
+              <Switch
+                value={showCameras}
+                onValueChange={(val) => {
+                  triggerHaptic();
+                  setShowCameras(val);
+                }}
+                trackColor={{
+                  false: colors.surfaceContainerHighest,
+                  true: colors.primaryContainer,
+                }}
+                thumbColor="#ffffff"
+              />
+            </View>
+
+            <View style={[styles.overlayToggleRow, { borderBottomWidth: 0 }]}>
+              <View style={{ flex: 1, paddingRight: 8 }}>
+                <Text style={[styles.overlayTitle, { color: colors.onSurface }]}>
+                  Crowdsourced Road Hazard Icons
+                </Text>
+                <Text style={[styles.overlayDesc, { color: colors.onSurfaceVariant }]}>
+                  Potholes, waterlogging & accident pins
+                </Text>
+              </View>
+              <Switch
+                value={showHazards}
+                onValueChange={(val) => {
+                  triggerHaptic();
+                  setShowHazards(val);
+                }}
+                trackColor={{
+                  false: colors.surfaceContainerHighest,
+                  true: colors.primaryContainer,
+                }}
+                thumbColor="#ffffff"
+              />
+            </View>
+          </View>
+
+          <Button
+            variant="primary"
+            size="md"
+            title="Apply Layer Settings"
+            leftIcon={<CheckCircle2 size={16} color={colors.onPrimary} />}
+            onPress={() => {
+              triggerHaptic();
+              setShowLayerModal(false);
+            }}
+            style={{ marginTop: Spacing.xs }}
+          />
         </View>
-      </Modal>
+      </BottomSheet>
+
+      {/* 4. INSTANT 3D GYRO LAUNCH EXPERIENCE */}
+      {showGyroIntro && (
+        <AppLaunchGyroIntro onDismiss={() => setShowGyroIntro(false)} />
+      )}
     </View>
   );
 }
@@ -680,20 +759,15 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   screenContainer: {
     flex: 1,
-    backgroundColor: BMapColors.surface,
   },
   headerSafeArea: {
-    backgroundColor: '#ffffff',
     zIndex: 50,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    ...Shadows.sm,
   },
   header: {
     height: 56,
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -711,15 +785,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logoTag: {
+    ...Typography.labelSmall,
     fontSize: 10,
     fontWeight: '800',
-    color: BMapColors.primaryContainer,
     letterSpacing: 1.2,
   },
   headerTitle: {
-    fontSize: 18,
+    ...Typography.titleMedium,
     fontWeight: '700',
-    color: BMapColors.onSurface,
     lineHeight: 22,
   },
   headerActions: {
@@ -730,7 +803,7 @@ const styles = StyleSheet.create({
   headerIconButton: {
     width: 38,
     height: 38,
-    borderRadius: 19,
+    borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -742,13 +815,11 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: BMapColors.error,
   },
   profileAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: BMapColors.primary,
+    width: 34,
+    height: 34,
+    borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -757,7 +828,7 @@ const styles = StyleSheet.create({
   },
   mainScrollContent: {
     flexGrow: 1,
-    paddingBottom: 24,
+    paddingBottom: 40,
   },
   mapCanvasWrapper: {
     position: 'relative',
@@ -772,17 +843,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   searchCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 18,
+    borderRadius: Radius.xl,
     paddingHorizontal: 12,
     paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#1E293B',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 18,
-    elevation: 6,
+    borderWidth: 1,
+    ...Shadows.md,
     gap: 8,
   },
   searchLeftGroup: {
@@ -793,14 +860,12 @@ const styles = StyleSheet.create({
   searchLogoThumb: {
     width: 28,
     height: 28,
-    borderRadius: 8,
-    backgroundColor: BMapColors.primaryFixed,
+    borderRadius: Radius.sm,
   },
   searchAvatarMini: {
     width: 24,
     height: 24,
-    borderRadius: 12,
-    backgroundColor: BMapColors.surfaceContainerHigh,
+    borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -811,14 +876,13 @@ const styles = StyleSheet.create({
     paddingLeft: 4,
   },
   searchPlaceholder: {
+    ...Typography.bodyMedium,
     fontSize: 13,
-    color: BMapColors.onSurfaceVariant,
     flexShrink: 1,
   },
   cursorBeam: {
     width: 2,
     height: 14,
-    backgroundColor: BMapColors.primaryContainer,
     marginLeft: 3,
   },
   searchRightGroup: {
@@ -829,7 +893,6 @@ const styles = StyleSheet.create({
   dividerV: {
     width: 1,
     height: 18,
-    backgroundColor: BMapColors.outlineVariant,
     opacity: 0.5,
   },
   micButtonWrapper: {
@@ -844,20 +907,18 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: BMapColors.primaryContainer,
   },
   micButton: {
     width: 32,
     height: 32,
-    borderRadius: 16,
-    backgroundColor: BMapColors.surfaceContainer,
+    borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cameraButton: {
     width: 30,
     height: 30,
-    borderRadius: 15,
+    borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -872,49 +933,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    elevation: 2,
-  },
-  transitChipActive: {
-    backgroundColor: BMapColors.primaryContainer,
-    shadowColor: BMapColors.primaryContainer,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-  },
-  transitChipInactive: {
-    backgroundColor: '#ffffff',
-    shadowColor: '#111C2D',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
+    paddingVertical: 7,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    ...Shadows.xs,
   },
   transitChipLabel: {
+    ...Typography.labelMedium,
     fontSize: 12,
     fontWeight: '700',
   },
-  chipTextActive: {
-    color: '#ffffff',
-  },
-  chipTextInactive: {
-    color: BMapColors.onSurface,
-  },
   metroBadge: {
-    backgroundColor: BMapColors.errorContainer,
     paddingHorizontal: 5,
     paddingVertical: 1,
-    borderRadius: 8,
+    borderRadius: Radius.sm,
   },
   metroBadgeText: {
     fontSize: 9,
     fontWeight: '700',
-    color: BMapColors.onErrorContainer,
   },
   ridePriceBadge: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#00C06D',
   },
   floatingLeftWidgets: {
     position: 'absolute',
@@ -927,20 +967,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.94)',
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 12,
-    shadowColor: '#111C2D',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    ...Shadows.sm,
   },
   weatherTemp: {
+    ...Typography.labelMedium,
     fontSize: 11,
     fontWeight: '700',
-    color: BMapColors.onSurface,
   },
   aqiRow: {
     flexDirection: 'row',
@@ -952,31 +988,25 @@ const styles = StyleSheet.create({
     width: 5,
     height: 5,
     borderRadius: 3,
-    backgroundColor: BMapColors.secondary,
   },
   aqiText: {
     fontSize: 9,
     fontWeight: '600',
-    color: BMapColors.secondary,
   },
   speedCameraBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.94)',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 8,
-    shadowColor: '#111C2D',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 2,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    ...Shadows.xs,
   },
   speedCameraText: {
+    ...Typography.labelSmall,
     fontSize: 10,
     fontWeight: '600',
-    color: BMapColors.onSurface,
   },
   floatingRightControls: {
     position: 'absolute',
@@ -987,129 +1017,88 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   fabBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: '#ffffff',
+    width: 44,
+    height: 44,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#1E293B',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 3,
+    ...Shadows.sm,
   },
   trafficIconWrapper: {
     alignItems: 'center',
-    gap: 2,
+    justifyContent: 'center',
   },
   trafficIndicatorDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginBottom: 2,
   },
   trafficBars: {
     flexDirection: 'row',
     gap: 2,
-    marginTop: 2,
   },
   miniBar: {
-    width: 4,
-    height: 3,
-    borderRadius: 2,
+    width: 3,
+    height: 10,
+    borderRadius: 1.5,
   },
   routeFabText: {
-    fontSize: 8,
-    fontWeight: '700',
-    color: BMapColors.primary,
-    marginTop: 1,
-  },
-  compassBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#ffffff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#1E293B',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  compassN: {
     fontSize: 9,
-    fontWeight: '800',
-    color: BMapColors.error,
-    lineHeight: 11,
-  },
-  compassNeedle: {
-    width: 2,
-    height: 12,
-    backgroundColor: BMapColors.error,
-    borderRadius: 1,
+    fontWeight: '700',
     marginTop: 1,
   },
   locateMeFab: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: '#ffffff',
+    width: 48,
+    height: 48,
+    borderRadius: Radius.full,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: BMapColors.primaryContainer,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 14,
-    elevation: 5,
-    marginTop: 4,
+    ...Shadows.md,
   },
   bottomSheetHUD: {
-    backgroundColor: '#ffffff',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 20,
+    borderTopLeftRadius: Radius.xxl,
+    borderTopRightRadius: Radius.xxl,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.xl,
+    marginTop: -20,
     gap: 12,
-    shadowColor: '#111C2D',
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 8,
-    marginTop: -80,
-    zIndex: 40,
+    ...Shadows.lg,
   },
   sheetHandleContainer: {
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: 6,
   },
   sheetHandle: {
-    width: 36,
+    width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: BMapColors.outlineVariant,
   },
   commuteWorkCard: {
-    backgroundColor: BMapColors.surfaceContainerLow,
-    borderRadius: 16,
-    padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 10,
+    padding: Spacing.md,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    ...Shadows.xs,
   },
   commuteLeft: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    marginRight: Spacing.sm,
   },
   workIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: BMapColors.primaryFixed,
+    width: 36,
+    height: 36,
+    borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1119,29 +1108,25 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   commuteTitle: {
-    fontSize: 15,
+    ...Typography.titleSmall,
     fontWeight: '700',
-    color: BMapColors.onSurface,
   },
   fastestBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#E2F6EA',
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 10,
+    borderRadius: Radius.full,
   },
   greenPulseDot: {
     width: 5,
     height: 5,
-    borderRadius: 3,
-    backgroundColor: '#00C06D',
+    borderRadius: 2.5,
   },
   fastestBadgeText: {
     fontSize: 9,
     fontWeight: '700',
-    color: '#00743F',
   },
   commuteMetaRow: {
     flexDirection: 'row',
@@ -1152,49 +1137,37 @@ const styles = StyleSheet.create({
   commuteTimeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#00C06D',
   },
   dotSeparator: {
-    color: BMapColors.outlineVariant,
+    fontSize: 12,
   },
   commuteDistText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: BMapColors.onSurfaceVariant,
   },
   commuteRoadText: {
-    fontSize: 12,
-    color: BMapColors.onSurfaceVariant,
+    fontSize: 11,
     flexShrink: 1,
   },
   goButton: {
-    backgroundColor: BMapColors.primaryContainer,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    shadowColor: BMapColors.primaryContainer,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 3,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: Radius.full,
+    ...Shadows.sm,
   },
   goButtonText: {
-    color: '#ffffff',
-    fontSize: 13,
+    ...Typography.labelMedium,
     fontWeight: '700',
   },
   commuteHomeCard: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: BMapColors.surfaceContainer,
-    borderRadius: 14,
-    padding: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    padding: Spacing.md,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
   },
   homeLeft: {
     flex: 1,
@@ -1205,19 +1178,16 @@ const styles = StyleSheet.create({
   homeIconBox: {
     width: 32,
     height: 32,
-    borderRadius: 8,
-    backgroundColor: BMapColors.surfaceContainer,
+    borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   homeTitle: {
-    fontSize: 13,
+    ...Typography.titleSmall,
     fontWeight: '700',
-    color: BMapColors.onSurface,
   },
   homeSubtitle: {
-    fontSize: 11,
-    color: BMapColors.onSurfaceVariant,
+    ...Typography.bodySmall,
     marginTop: 1,
   },
   starButton: {
@@ -1232,37 +1202,34 @@ const styles = StyleSheet.create({
   serviceCol: {
     flex: 1,
     alignItems: 'center',
-    backgroundColor: BMapColors.surfaceContainer,
-    borderRadius: 12,
-    paddingVertical: 8,
+    borderRadius: Radius.lg,
+    paddingVertical: 10,
     paddingHorizontal: 4,
   },
   serviceCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,
   },
   serviceLabel: {
-    fontSize: 11,
+    ...Typography.labelSmall,
     fontWeight: '700',
-    color: BMapColors.onSurface,
     textAlign: 'center',
   },
   serviceSubLabel: {
     fontSize: 9,
     fontWeight: '600',
-    color: BMapColors.onSurfaceVariant,
     marginTop: 1,
     textAlign: 'center',
   },
   alertBanner: {
-    backgroundColor: BMapColors.surfaceContainer,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -1275,64 +1242,53 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   alertText: {
-    fontSize: 11,
-    color: BMapColors.onSurface,
+    ...Typography.bodySmall,
     flexShrink: 1,
   },
   alertDetailsBtn: {
-    fontSize: 11,
+    ...Typography.labelSmall,
     fontWeight: '700',
-    color: BMapColors.primary,
   },
 
   /* Map Layers Modal */
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
     justifyContent: 'flex-end',
   },
   layerModalCard: {
-    backgroundColor: '#ffffff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
+    borderTopLeftRadius: Radius.xxl,
+    borderTopRightRadius: Radius.xxl,
+    borderWidth: 1,
+    padding: Spacing.xl,
     gap: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 8,
+    ...Shadows.lg,
   },
   layerModalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F3FF',
+    borderBottomWidth: StyleSheet.hairlineWidth,
     paddingBottom: 10,
   },
   layerModalTitle: {
-    fontSize: 17,
+    ...Typography.titleMedium,
     fontWeight: '800',
-    color: '#111C2D',
   },
   layerModalSub: {
-    fontSize: 11,
-    color: '#707884',
+    ...Typography.bodySmall,
     marginTop: 2,
   },
   layerModalClose: {
     width: 32,
     height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F0F3FF',
+    borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
   layerSectionLabel: {
-    fontSize: 12,
+    ...Typography.labelMedium,
     fontWeight: '700',
-    color: '#111C2D',
     marginTop: 2,
   },
   layerOptionsRow: {
@@ -1345,47 +1301,34 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 12,
     paddingHorizontal: 4,
-    borderRadius: 12,
-    backgroundColor: '#F8FAFF',
+    borderRadius: Radius.md,
     borderWidth: 1.5,
-    borderColor: '#D8E3FB',
-  },
-  layerOptionChipSelected: {
-    backgroundColor: '#0096FF',
-    borderColor: '#0096FF',
   },
   layerOptionText: {
+    ...Typography.labelSmall,
     fontSize: 10,
     fontWeight: '700',
-    color: '#3F4753',
     textAlign: 'center',
   },
-  layerOptionTextSelected: {
-    color: '#ffffff',
-  },
   overlayToggles: {
-    backgroundColor: '#F8FAFF',
-    borderRadius: 14,
-    paddingHorizontal: 14,
+    borderRadius: Radius.lg,
+    paddingHorizontal: Spacing.md,
     borderWidth: 1,
-    borderColor: '#D8E3FB',
   },
   overlayToggleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E8EEFF',
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   overlayTitle: {
-    fontSize: 12,
+    ...Typography.bodyMedium,
     fontWeight: '700',
-    color: '#111C2D',
   },
   overlayDesc: {
+    ...Typography.bodySmall,
     fontSize: 10,
-    color: '#707884',
     marginTop: 2,
   },
   applyLayersBtn: {
@@ -1393,19 +1336,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#0096FF',
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: Radius.lg,
     marginTop: 4,
-    shadowColor: '#0096FF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
+    ...Shadows.sm,
   },
   applyLayersText: {
-    fontSize: 14,
+    ...Typography.labelLarge,
     fontWeight: '700',
-    color: '#ffffff',
   },
 });

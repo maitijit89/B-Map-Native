@@ -11,7 +11,7 @@ import {
   StyleProp,
 } from 'react-native';
 import { Eye, EyeOff, X } from 'lucide-react-native';
-import { BMapColors } from '../../constants/BMapTheme';
+import { useThemeColors } from '../../hooks';
 import { Radius, Spacing, Typography } from '../../constants/tokens';
 
 export interface InputProps extends Omit<TextInputProps, 'style'> {
@@ -39,9 +39,10 @@ export const Input: React.FC<InputProps> = ({
   secureTextEntry,
   containerStyle,
   inputStyle,
-  placeholderTextColor = BMapColors.outline,
+  placeholderTextColor,
   ...rest
 }) => {
+  const colors = useThemeColors();
   const [isFocused, setIsFocused] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
@@ -55,21 +56,33 @@ export const Input: React.FC<InputProps> = ({
 
   return (
     <View style={[styles.container, containerStyle]}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && (
+        <Text style={[styles.label, { color: colors.onSurface }]}>
+          {label}
+        </Text>
+      )}
 
       <View
         style={[
           styles.inputWrapper,
-          isFocused && styles.focusedWrapper,
-          Boolean(error) && styles.errorWrapper,
+          {
+            backgroundColor: isFocused
+              ? colors.surfaceContainerLowest
+              : colors.surfaceContainerLow,
+            borderColor: error
+              ? colors.error
+              : isFocused
+              ? colors.primary
+              : colors.outlineVariant,
+          },
         ]}>
         {leftIcon && <View style={styles.leftIconContainer}>{leftIcon}</View>}
 
         <TextInput
-          style={[styles.input, inputStyle]}
+          style={[styles.input, { color: colors.onBackground }, inputStyle]}
           value={value}
           onChangeText={onChangeText}
-          placeholderTextColor={placeholderTextColor}
+          placeholderTextColor={placeholderTextColor || colors.outline}
           secureTextEntry={isSecure}
           onFocus={(e) => {
             setIsFocused(true);
@@ -86,8 +99,10 @@ export const Input: React.FC<InputProps> = ({
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={handleClear}
-            style={styles.actionIcon}>
-            <X size={16} color={BMapColors.outline} />
+            style={styles.actionIcon}
+            accessibilityLabel="Clear input"
+            accessibilityRole="button">
+            <X size={16} color={colors.outline} />
           </TouchableOpacity>
         )}
 
@@ -95,11 +110,13 @@ export const Input: React.FC<InputProps> = ({
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={() => setIsPasswordVisible((prev) => !prev)}
-            style={styles.actionIcon}>
+            style={styles.actionIcon}
+            accessibilityLabel="Toggle password visibility"
+            accessibilityRole="button">
             {isPasswordVisible ? (
-              <EyeOff size={18} color={BMapColors.outline} />
+              <EyeOff size={18} color={colors.outline} />
             ) : (
-              <Eye size={18} color={BMapColors.outline} />
+              <Eye size={18} color={colors.outline} />
             )}
           </TouchableOpacity>
         )}
@@ -110,9 +127,11 @@ export const Input: React.FC<InputProps> = ({
       </View>
 
       {error ? (
-        <Text style={styles.errorText}>{error}</Text>
+        <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
       ) : helperText ? (
-        <Text style={styles.helperText}>{helperText}</Text>
+        <Text style={[styles.helperText, { color: colors.onSurfaceVariant }]}>
+          {helperText}
+        </Text>
       ) : null}
     </View>
   );
@@ -125,31 +144,20 @@ const styles = StyleSheet.create({
   },
   label: {
     ...Typography.labelMedium,
-    color: BMapColors.onSurface,
     marginBottom: Spacing.xs,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: BMapColors.surfaceContainerLowest,
     borderWidth: 1.5,
-    borderColor: BMapColors.outlineVariant,
     borderRadius: Radius.lg,
     paddingHorizontal: Spacing.md,
     height: 50,
-  },
-  focusedWrapper: {
-    borderColor: BMapColors.primaryContainer,
-    backgroundColor: '#FFFFFF',
-  },
-  errorWrapper: {
-    borderColor: BMapColors.error,
   },
   input: {
     flex: 1,
     height: '100%',
     ...Typography.bodyLarge,
-    color: BMapColors.onBackground,
     paddingVertical: 0,
   },
   leftIconContainer: {
@@ -168,12 +176,10 @@ const styles = StyleSheet.create({
   },
   errorText: {
     ...Typography.bodySmall,
-    color: BMapColors.error,
     marginTop: Spacing.xs,
   },
   helperText: {
     ...Typography.bodySmall,
-    color: BMapColors.onSurfaceVariant,
     marginTop: Spacing.xs,
   },
 });

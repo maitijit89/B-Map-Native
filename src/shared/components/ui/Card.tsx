@@ -7,7 +7,7 @@ import {
   ViewStyle,
   StyleProp,
 } from 'react-native';
-import { BMapColors } from '../../constants/BMapTheme';
+import { useThemeColors } from '../../hooks';
 import { Radius, Shadows, Spacing } from '../../constants/tokens';
 
 export type CardVariant = 'elevated' | 'outlined' | 'flat' | 'glass';
@@ -20,6 +20,7 @@ export interface CardProps {
   onPress?: () => void;
   style?: StyleProp<ViewStyle>;
   activeOpacity?: number;
+  accessibilityLabel?: string;
 }
 
 export const Card: React.FC<CardProps> = ({
@@ -29,7 +30,9 @@ export const Card: React.FC<CardProps> = ({
   onPress,
   style,
   activeOpacity = 0.85,
+  accessibilityLabel,
 }) => {
+  const colors = useThemeColors();
   const [scaleAnim] = useState(() => new Animated.Value(1));
 
   const handlePressIn = () => {
@@ -52,11 +55,41 @@ export const Card: React.FC<CardProps> = ({
     }).start();
   };
 
+  const getVariantStyle = (): ViewStyle => {
+    switch (variant) {
+      case 'outlined':
+        return {
+          backgroundColor: colors.surfaceContainerLowest,
+          borderWidth: 1,
+          borderColor: colors.outlineVariant,
+        };
+      case 'flat':
+        return {
+          backgroundColor: colors.surfaceContainerLow,
+        };
+      case 'glass':
+        return {
+          backgroundColor: colors.surfaceContainerLowest,
+          borderWidth: 1,
+          borderColor: colors.outlineVariant,
+          ...Shadows.md,
+        };
+      case 'elevated':
+      default:
+        return {
+          backgroundColor: colors.surfaceContainerLowest,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.surfaceContainerHigh,
+          ...Shadows.sm,
+        };
+    }
+  };
+
   const content = (
     <View
       style={[
         styles.base,
-        variantStyles[variant],
+        getVariantStyle(),
         paddingStyles[padding],
         style,
       ]}>
@@ -71,7 +104,9 @@ export const Card: React.FC<CardProps> = ({
           activeOpacity={activeOpacity}
           onPress={onPress}
           onPressIn={handlePressIn}
-          onPressOut={handlePressOut}>
+          onPressOut={handlePressOut}
+          accessibilityRole="button"
+          accessibilityLabel={accessibilityLabel}>
           {content}
         </TouchableOpacity>
       </Animated.View>
@@ -93,27 +128,6 @@ const paddingStyles: Record<CardPadding, ViewStyle> = {
   sm: { padding: Spacing.sm },
   md: { padding: Spacing.lg },
   lg: { padding: Spacing.xxl },
-};
-
-const variantStyles: Record<CardVariant, ViewStyle> = {
-  elevated: {
-    backgroundColor: BMapColors.surfaceContainerLowest,
-    ...Shadows.sm,
-  },
-  outlined: {
-    backgroundColor: BMapColors.surfaceContainerLowest,
-    borderWidth: 1,
-    borderColor: BMapColors.outlineVariant,
-  },
-  flat: {
-    backgroundColor: BMapColors.surfaceContainerLow,
-  },
-  glass: {
-    backgroundColor: 'rgba(255, 255, 255, 0.88)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.6)',
-    ...Shadows.md,
-  },
 };
 
 export default Card;

@@ -8,7 +8,7 @@ import {
   TextStyle,
   StyleProp,
 } from 'react-native';
-import { BMapColors } from '../../constants/BMapTheme';
+import { useThemeColors } from '../../hooks';
 import { Radius, Spacing, Typography } from '../../constants/tokens';
 
 export type BadgeVariant =
@@ -40,6 +40,7 @@ export const Badge: React.FC<BadgeProps> = ({
   style,
   textStyle,
 }) => {
+  const colors = useThemeColors();
   const [pulseAnim] = useState(() => new Animated.Value(1));
 
   useEffect(() => {
@@ -63,14 +64,61 @@ export const Badge: React.FC<BadgeProps> = ({
     }
   }, [variant, showDot, pulseAnim]);
 
-  const dotColor = dotColors[variant];
+  const getVariantStyles = (): { bg: string; text: string; dot: string; border?: string } => {
+    switch (variant) {
+      case 'success':
+        return {
+          bg: colors.secondaryContainer,
+          text: colors.onSecondaryContainer,
+          dot: colors.secondary,
+        };
+      case 'warning':
+        return {
+          bg: colors.tertiaryContainer,
+          text: colors.onTertiaryContainer,
+          dot: colors.tertiary,
+        };
+      case 'error':
+        return {
+          bg: colors.errorContainer,
+          text: colors.onErrorContainer,
+          dot: colors.error,
+        };
+      case 'neutral':
+        return {
+          bg: colors.surfaceContainerHigh,
+          text: colors.onSurfaceVariant,
+          dot: colors.outline,
+        };
+      case 'live':
+        return {
+          bg: colors.surfaceContainerLow,
+          text: colors.primary,
+          dot: colors.primaryContainer,
+          border: colors.primaryContainer,
+        };
+      case 'primary':
+      default:
+        return {
+          bg: colors.primaryFixed,
+          text: colors.onPrimaryFixedVariant,
+          dot: colors.primary,
+        };
+    }
+  };
+
+  const currentStyles = getVariantStyles();
 
   return (
     <View
       style={[
         styles.base,
         sizeStyles[size],
-        variantStyles[variant],
+        {
+          backgroundColor: currentStyles.bg,
+          borderColor: currentStyles.border || 'transparent',
+          borderWidth: currentStyles.border ? 1 : 0,
+        },
         style,
       ]}>
       {showDot && (
@@ -78,7 +126,7 @@ export const Badge: React.FC<BadgeProps> = ({
           style={[
             styles.dot,
             dotSizeStyles[size],
-            { backgroundColor: dotColor, opacity: pulseAnim },
+            { backgroundColor: currentStyles.dot, opacity: pulseAnim },
           ]}
         />
       )}
@@ -87,7 +135,7 @@ export const Badge: React.FC<BadgeProps> = ({
         style={[
           styles.text,
           textSizeStyles[size],
-          textVariantStyles[variant],
+          { color: currentStyles.text },
           textStyle,
         ]}>
         {label}
@@ -150,59 +198,6 @@ const textSizeStyles: Record<BadgeSize, TextStyle> = {
     ...Typography.labelMedium,
     fontSize: 12,
   },
-};
-
-const variantStyles: Record<BadgeVariant, ViewStyle> = {
-  primary: {
-    backgroundColor: BMapColors.primaryFixed,
-  },
-  success: {
-    backgroundColor: '#E6F8F0',
-  },
-  warning: {
-    backgroundColor: '#FFF4E5',
-  },
-  error: {
-    backgroundColor: BMapColors.errorContainer,
-  },
-  neutral: {
-    backgroundColor: BMapColors.surfaceContainerHigh,
-  },
-  live: {
-    backgroundColor: '#E6F4FE',
-    borderWidth: 1,
-    borderColor: BMapColors.primaryContainer,
-  },
-};
-
-const textVariantStyles: Record<BadgeVariant, TextStyle> = {
-  primary: {
-    color: BMapColors.onPrimaryFixedVariant,
-  },
-  success: {
-    color: BMapColors.trafficGreen,
-  },
-  warning: {
-    color: BMapColors.trafficOrange,
-  },
-  error: {
-    color: BMapColors.onErrorContainer,
-  },
-  neutral: {
-    color: BMapColors.onSurfaceVariant,
-  },
-  live: {
-    color: BMapColors.primary,
-  },
-};
-
-const dotColors: Record<BadgeVariant, string> = {
-  primary: BMapColors.primary,
-  success: BMapColors.trafficGreen,
-  warning: BMapColors.trafficOrange,
-  error: BMapColors.trafficRed,
-  neutral: BMapColors.outline,
-  live: BMapColors.primaryContainer,
 };
 
 export default Badge;

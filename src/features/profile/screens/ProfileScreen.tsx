@@ -7,12 +7,12 @@ import {
   TouchableOpacity,
   Alert,
   Switch,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import {
-  User,
-  Award,
   Car,
   Zap,
   CreditCard,
@@ -22,13 +22,11 @@ import {
   MapPin,
   History,
   Satellite,
-  ShieldCheck,
   DownloadCloud,
   Volume2,
   Copy,
   Navigation,
   LogOut,
-  Sparkles,
   Leaf,
   CheckCircle2,
   EyeOff,
@@ -36,6 +34,19 @@ import {
   Gauge,
   Phone,
 } from 'lucide-react-native';
+import { useThemeColors } from '@/shared/hooks';
+import { Radius, Shadows, Spacing, Typography } from '@/shared/constants/tokens';
+import {
+  Header,
+  Card,
+  Button,
+  Badge,
+  StatusBadge,
+  Avatar,
+  ListItem,
+  MetricCard,
+  SectionHeader,
+} from '@/shared/components/ui';
 
 const INDIAN_LANGUAGES = [
   { code: 'en', name: 'English', script: 'English' },
@@ -95,50 +106,73 @@ const RECENT_TRIPS = [
   },
 ];
 
-export default function MineScreen() {
+export default function ProfileScreen() {
+  const colors = useThemeColors();
+
   const [selectedLanguage, setSelectedLanguage] = useState('hi');
   const [navicMode, setNavicMode] = useState(true);
   const [differentialPrivacy, setDifferentialPrivacy] = useState(false);
   const [offlineSync, setOfflineSync] = useState(true);
   const [speedAlerts, setSpeedAlerts] = useState(true);
 
+  const triggerHaptic = () => {
+    if (Platform.OS === 'ios' || Platform.OS === 'android') {
+      try {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch {
+        // Haptics unavailable
+      }
+    }
+  };
+
   const handleCopyDigiPin = (pin: string) => {
+    triggerHaptic();
     Alert.alert('DigiPIN Copied', `Copied ${pin} to clipboard (4m × 4m sovereign grid code).`);
   };
 
+  const handleLanguageSelect = (code: string) => {
+    triggerHaptic();
+    setSelectedLanguage(code);
+  };
+
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Top Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>My Profile & Fleet</Text>
-          <Text style={styles.subtitle}>Sovereign Identity · Telematics & Settings</Text>
-        </View>
-        <TouchableOpacity
-          style={styles.sosQuickBtn}
-          onPress={() => router.push('/sos-distress')}>
-          <Phone size={16} color="#F44336" />
-          <Text style={styles.sosQuickText}>112</Text>
-        </TouchableOpacity>
-      </View>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+      {/* Top Header with Emergency Quick Action */}
+      <Header
+        title="My Profile & Fleet"
+        subtitle="Sovereign Identity · Telematics & Settings"
+        showBack={false}
+        rightAction={
+          <TouchableOpacity
+            style={[styles.sosQuickBtn, { backgroundColor: colors.errorContainer }]}
+            onPress={() => {
+              triggerHaptic();
+              router.push('/sos-distress');
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="SOS 112 emergency quick dial"
+            activeOpacity={0.8}>
+            <Phone size={14} color={colors.error} />
+            <Text style={[styles.sosQuickText, { color: colors.error }]}>112</Text>
+          </TouchableOpacity>
+        }
+      />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* User Profile Card */}
-        <View style={styles.profileCard}>
+        <Card variant="elevated" padding="md" style={styles.cardGap}>
           <View style={styles.profileTop}>
-            <View style={styles.avatar}>
-              <User size={32} color="#ffffff" />
-            </View>
+            <Avatar name="Aarav Sharma" size="lg" status="online" />
             <View style={styles.profileInfo}>
               <View style={styles.nameRow}>
-                <Text style={styles.profileName}>Aarav Sharma</Text>
-                <CheckCircle2 size={16} color="#0096FF" />
+                <Text style={[styles.profileName, { color: colors.onSurface }]}>Aarav Sharma</Text>
+                <CheckCircle2 size={16} color={colors.primary} />
               </View>
-              <Text style={styles.profileContact}>+91 98765 43210 · aarav.sharma@example.com</Text>
-              <View style={styles.vipBadge}>
-                <Award size={12} color="#D57E00" />
-                <Text style={styles.vipText}>VIP Navigator Level 4</Text>
-                <Sparkles size={11} color="#D57E00" />
+              <Text style={[styles.profileContact, { color: colors.onSurfaceVariant }]}>
+                +91 98765 43210 · aarav.sharma@example.com
+              </Text>
+              <View style={styles.badgeRow}>
+                <Badge label="VIP Navigator Level 4" variant="primary" size="sm" showDot />
               </View>
             </View>
           </View>
@@ -146,115 +180,161 @@ export default function MineScreen() {
           {/* Level Progress */}
           <View style={styles.levelProgressContainer}>
             <View style={styles.levelLabelRow}>
-              <Text style={styles.levelLabel}>Level 4 Voyager</Text>
-              <Text style={styles.levelPoints}>8,420 / 10,000 XP to Level 5</Text>
+              <Text style={[styles.levelLabel, { color: colors.onSurface }]}>Level 4 Voyager</Text>
+              <Text style={[styles.levelPoints, { color: colors.onSurfaceVariant }]}>
+                8,420 / 10,000 XP to Level 5
+              </Text>
             </View>
-            <View style={styles.progressBarTrack}>
-              <View style={[styles.progressBarFill, { width: '84%' }]} />
+            <View
+              style={[
+                styles.progressBarTrack,
+                { backgroundColor: colors.surfaceContainerHigh },
+              ]}>
+              <View
+                style={[
+                  styles.progressBarFill,
+                  { width: '84%', backgroundColor: colors.primary },
+                ]}
+              />
             </View>
           </View>
 
           {/* Overall Stats Row */}
-          <View style={styles.statsRow}>
-            <View style={styles.statBox}>
-              <Text style={styles.statValue}>4,820</Text>
-              <Text style={styles.statLabel}>KM Navigated</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statBox}>
-              <Text style={styles.statValue}>142</Text>
-              <Text style={styles.statLabel}>Total Trips</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statBox}>
-              <View style={styles.ecoStatRow}>
-                <Leaf size={12} color="#00C06D" />
-                <Text style={[styles.statValue, { color: '#00C06D' }]}>68.4 kg</Text>
-              </View>
-              <Text style={styles.statLabel}>CO₂ Saved</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statBox}>
-              <Text style={styles.statValue}>98.4%</Text>
-              <Text style={styles.statLabel}>Trust Score</Text>
-            </View>
+          <View style={styles.metricsGrid}>
+            <MetricCard
+              label="KM Navigated"
+              value="4,820"
+              unit="km"
+              style={styles.metricItem}
+            />
+            <MetricCard
+              label="Total Trips"
+              value="142"
+              style={styles.metricItem}
+            />
           </View>
-        </View>
+          <View style={styles.metricsGrid}>
+            <MetricCard
+              label="CO₂ Saved"
+              value="68.4"
+              unit="kg"
+              trend={{ value: '+4.2 kg', positive: true }}
+              style={styles.metricItem}
+            />
+            <MetricCard
+              label="Trust Score"
+              value="98.4"
+              unit="%"
+              style={styles.metricItem}
+            />
+          </View>
+        </Card>
 
         {/* Live Activity Recognition State */}
-        <View style={styles.activityBanner}>
+        <Card variant="outlined" padding="md" style={styles.activityBanner}>
           <View style={styles.activityLeft}>
-            <View style={styles.activityIconRing}>
-              <Activity size={16} color="#0096FF" />
+            <View
+              style={[
+                styles.activityIconRing,
+                { backgroundColor: colors.primaryContainer },
+              ]}>
+              <Activity size={18} color={colors.primary} />
             </View>
-            <View>
-              <Text style={styles.activityTitle}>AI Motion State: Driving</Text>
-              <Text style={styles.activitySub}>Sensors calibrated · Confidence 96% · 48 km/h</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.activityTitle, { color: colors.onSurface }]}>
+                AI Motion State: Driving
+              </Text>
+              <Text style={[styles.activitySub, { color: colors.onSurfaceVariant }]}>
+                Sensors calibrated · Confidence 96% · 48 km/h
+              </Text>
             </View>
           </View>
-          <View style={styles.activityLiveBadge}>
-            <View style={styles.pulsingGreenDot} />
-            <Text style={styles.activityLiveText}>Active</Text>
-          </View>
-        </View>
+          <StatusBadge status="success" label="Active" size="sm" pulsing={true} />
+        </Card>
 
         {/* Connected Vehicle & FASTag */}
-        <View style={styles.card}>
+        <Card variant="elevated" padding="md" style={styles.cardGap}>
           <View style={styles.cardHeader}>
-            <View style={styles.cardHeaderLeft}>
-              <Car size={18} color="#0096FF" />
-              <Text style={styles.cardTitle}>My Vehicle & FASTag</Text>
+            <View style={styles.headerLeftCluster}>
+              <View style={[styles.iconContainer, { backgroundColor: colors.primaryContainer }]}>
+                <Car size={18} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.cardTitle, { color: colors.onSurface }]}>My Vehicle & FASTag</Text>
+                <Text style={[styles.cardSubTitle, { color: colors.onSurfaceVariant }]}>Connected EV Telematics</Text>
+              </View>
             </View>
-            <TouchableOpacity onPress={() => router.push('/vehicle-fleet')}>
-              <Text style={styles.cardHeaderAction}>Manage</Text>
+            <TouchableOpacity
+              onPress={() => {
+                triggerHaptic();
+                router.push('/vehicle-fleet');
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Manage vehicles and fleet">
+              <Text style={[styles.cardHeaderAction, { color: colors.primary }]}>Manage</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.vehicleDetails}>
             <View style={styles.vehicleRow}>
               <View>
-                <Text style={styles.vehicleModel}>Tata Nexon EV Max</Text>
-                <Text style={styles.vehicleReg}>DL 01 AB 1234 · Class 4 (Car/Jeep)</Text>
+                <Text style={[styles.vehicleModel, { color: colors.onSurface }]}>
+                  Tata Nexon EV Max
+                </Text>
+                <Text style={[styles.vehicleReg, { color: colors.onSurfaceVariant }]}>
+                  DL 01 AB 1234 · Class 4 (Car/Jeep)
+                </Text>
               </View>
-              <View style={styles.batteryPill}>
-                <Zap size={12} color="#00C06D" />
-                <Text style={styles.batteryText}>78% · 312 km</Text>
-              </View>
+              <Badge label="78% · 312 km" variant="success" size="sm" leftIcon={<Zap size={11} color={colors.secondary} />} />
             </View>
 
-            <TouchableOpacity
-              style={styles.fastagBanner}
-              onPress={() => router.push('/vehicle-fleet')}
-              activeOpacity={0.85}>
-              <View style={styles.fastagLeft}>
-                <CreditCard size={18} color="#6A1B9A" />
-                <View>
-                  <Text style={styles.fastagTitle}>NHAI FASTag Linked</Text>
-                  <Text style={styles.fastagNumber}>Tag ID: 3416-8920-1102 (SBI Auto-Reload)</Text>
+            <Card
+              variant="outlined"
+              padding="sm"
+              onPress={() => {
+                triggerHaptic();
+                router.push('/vehicle-fleet');
+              }}
+              accessibilityLabel="Manage FASTag balance">
+              <View style={styles.fastagBannerInner}>
+                <View style={styles.fastagLeft}>
+                  <CreditCard size={18} color={colors.primary} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.fastagTitle, { color: colors.onSurface }]}>
+                      NHAI FASTag Linked
+                    </Text>
+                    <Text style={[styles.fastagNumber, { color: colors.onSurfaceVariant }]}>
+                      Tag ID: 3416-8920-1102 (SBI Auto-Reload)
+                    </Text>
+                  </View>
+                </View>
+                <View style={[styles.fastagBalanceBox, { backgroundColor: colors.surfaceContainerLow }]}>
+                  <Text style={[styles.fastagBalanceLabel, { color: colors.onSurfaceVariant }]}>BALANCE</Text>
+                  <Text style={[styles.fastagBalance, { color: colors.onSurface }]}>₹1,450</Text>
                 </View>
               </View>
-              <View style={styles.fastagBalanceBox}>
-                <Text style={styles.fastagBalanceLabel}>BALANCE</Text>
-                <Text style={styles.fastagBalance}>₹1,450</Text>
-              </View>
-            </TouchableOpacity>
+            </Card>
           </View>
-        </View>
+        </Card>
 
         {/* 12 Indian Languages Selector */}
-        <View style={styles.card}>
+        <Card variant="elevated" padding="md" style={styles.cardGap}>
           <View style={styles.cardHeader}>
-            <View style={styles.cardHeaderLeft}>
-              <Languages size={18} color="#0096FF" />
-              <Text style={styles.cardTitle}>Vernacular Voice & UI (12 Languages)</Text>
+            <View style={styles.headerLeftCluster}>
+              <View style={[styles.iconContainer, { backgroundColor: colors.primaryContainer }]}>
+                <Languages size={18} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.cardTitle, { color: colors.onSurface }]}>
+                  Vernacular Voice & UI
+                </Text>
+                <Text style={[styles.cardSubTitle, { color: colors.onSurfaceVariant }]}>
+                  Regional TTS & Navigation Signage
+                </Text>
+              </View>
             </View>
-            <View style={styles.langCountBadge}>
-              <Text style={styles.langCountText}>12 Indic</Text>
-            </View>
+            <Badge label="12 Indic" variant="primary" size="sm" />
           </View>
-          <Text style={styles.cardSub}>
-            Select your preferred regional voice TTS navigation & signage language:
-          </Text>
 
           <View style={styles.langGrid}>
             {INDIAN_LANGUAGES.map((lang) => {
@@ -262,183 +342,268 @@ export default function MineScreen() {
               return (
                 <TouchableOpacity
                   key={lang.code}
-                  style={[styles.langChip, isSelected && styles.langChipActive]}
-                  onPress={() => setSelectedLanguage(lang.code)}
+                  style={[
+                    styles.langChip,
+                    {
+                      backgroundColor: isSelected
+                        ? colors.primaryContainer
+                        : colors.surfaceContainerLow,
+                      borderColor: isSelected
+                        ? colors.primary
+                        : colors.surfaceContainerHigh,
+                    },
+                  ]}
+                  onPress={() => handleLanguageSelect(lang.code)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSelected }}
+                  accessibilityLabel={`Language ${lang.name}`}
                   activeOpacity={0.8}>
-                  <Text style={[styles.langScript, isSelected && styles.langScriptActive]}>
+                  <Text
+                    style={[
+                      styles.langScript,
+                      {
+                        color: isSelected ? colors.primary : colors.onSurface,
+                        fontWeight: isSelected ? '700' : '600',
+                      },
+                    ]}>
                     {lang.script}
                   </Text>
-                  <Text style={[styles.langName, isSelected && styles.langNameActive]}>
+                  <Text
+                    style={[
+                      styles.langName,
+                      {
+                        color: isSelected ? colors.primary : colors.onSurfaceVariant,
+                      },
+                    ]}>
                     {lang.name}
                   </Text>
                 </TouchableOpacity>
               );
             })}
           </View>
-        </View>
+        </Card>
 
         {/* Saved Places with DigiPIN */}
-        <View style={styles.card}>
+        <Card variant="elevated" padding="md" style={styles.cardGap}>
           <View style={styles.cardHeader}>
-            <View style={styles.cardHeaderLeft}>
-              <Bookmark size={18} color="#0096FF" />
-              <Text style={styles.cardTitle}>Saved Places with DigiPIN</Text>
+            <View style={styles.headerLeftCluster}>
+              <View style={[styles.iconContainer, { backgroundColor: colors.primaryContainer }]}>
+                <Bookmark size={18} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.cardTitle, { color: colors.onSurface }]}>Saved Places with DigiPIN</Text>
+                <Text style={[styles.cardSubTitle, { color: colors.onSurfaceVariant }]}>4m × 4m Sovereign Grid Addresses</Text>
+              </View>
             </View>
-            <TouchableOpacity onPress={() => Alert.alert('Add Place', 'Enter destination and resolve its 4m × 4m DigiPIN.')}>
-              <Text style={styles.cardHeaderAction}>+ Add Place</Text>
+            <TouchableOpacity
+              onPress={() => {
+                triggerHaptic();
+                Alert.alert('Add Place', 'Enter destination and resolve its 4m × 4m DigiPIN.');
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Add new place">
+              <Text style={[styles.cardHeaderAction, { color: colors.primary }]}>+ Add Place</Text>
             </TouchableOpacity>
           </View>
 
           {SAVED_PLACES.map((place) => (
-            <View key={place.id} style={styles.placeItem}>
-              <View style={styles.placeIconCircle}>
-                <MapPin size={16} color="#0096FF" />
+            <View
+              key={place.id}
+              style={[styles.placeItem, { borderBottomColor: colors.surfaceContainerHigh }]}>
+              <View
+                style={[styles.placeIconCircle, { backgroundColor: colors.surfaceContainerLow }]}>
+                <MapPin size={16} color={colors.primary} />
               </View>
               <View style={styles.placeInfo}>
-                <Text style={styles.placeLabel}>{place.label}</Text>
-                <Text style={styles.placeAddress} numberOfLines={1}>{place.address}</Text>
+                <Text style={[styles.placeLabel, { color: colors.onSurface }]}>{place.label}</Text>
+                <Text style={[styles.placeAddress, { color: colors.onSurfaceVariant }]} numberOfLines={1}>
+                  {place.address}
+                </Text>
                 <TouchableOpacity
-                  style={styles.placePinRow}
-                  onPress={() => router.push('/digipin-explorer')}
+                  style={[styles.placePinRow, { backgroundColor: colors.surfaceContainerLow }]}
+                  onPress={() => {
+                    triggerHaptic();
+                    router.push('/digipin-explorer');
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`DigiPIN ${place.digiPin}`}
                   activeOpacity={0.8}>
-                  <View style={styles.digiBadge}>
-                    <Text style={styles.digiBadgeText}>DigiPIN</Text>
+                  <View style={[styles.digiBadge, { backgroundColor: colors.primary }]}>
+                    <Text style={[styles.digiBadgeText, { color: colors.onPrimary }]}>DigiPIN</Text>
                   </View>
-                  <Text style={styles.digiCode}>{place.digiPin}</Text>
+                  <Text style={[styles.digiCode, { color: colors.primary }]}>{place.digiPin}</Text>
                   <TouchableOpacity
                     style={styles.copyBtn}
-                    onPress={() => handleCopyDigiPin(place.digiPin)}>
-                    <Copy size={11} color="#707884" />
+                    onPress={() => handleCopyDigiPin(place.digiPin)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Copy DigiPIN for ${place.label}`}>
+                    <Copy size={11} color={colors.onSurfaceVariant} />
                   </TouchableOpacity>
                 </TouchableOpacity>
               </View>
               <TouchableOpacity
-                style={styles.routePlaceBtn}
-                onPress={() => router.push('/modal')}>
-                <Navigation size={14} color="#fff" />
+                style={[styles.routePlaceBtn, { backgroundColor: colors.primary }]}
+                onPress={() => {
+                  triggerHaptic();
+                  router.push('/modal');
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`Navigate to ${place.label}`}>
+                <Navigation size={14} color={colors.onPrimary} />
               </TouchableOpacity>
             </View>
           ))}
-        </View>
+        </Card>
 
         {/* Recent Trip History */}
-        <View style={styles.card}>
+        <Card variant="elevated" padding="md" style={styles.cardGap}>
           <View style={styles.cardHeader}>
-            <View style={styles.cardHeaderLeft}>
-              <History size={18} color="#0096FF" />
-              <Text style={styles.cardTitle}>Recent Trips</Text>
+            <View style={styles.headerLeftCluster}>
+              <View style={[styles.iconContainer, { backgroundColor: colors.primaryContainer }]}>
+                <History size={18} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.cardTitle, { color: colors.onSurface }]}>Recent Trips</Text>
+                <Text style={[styles.cardSubTitle, { color: colors.onSurfaceVariant }]}>Trip Logs & Toll Records</Text>
+              </View>
             </View>
-            <TouchableOpacity onPress={() => Alert.alert('Trip History', 'Viewing all 142 completed trips and mileage exports.')}>
-              <Text style={styles.cardHeaderAction}>View All</Text>
+            <TouchableOpacity
+              onPress={() => {
+                triggerHaptic();
+                Alert.alert('Trip History', 'Viewing all 142 completed trips and mileage exports.');
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="View all trip history">
+              <Text style={[styles.cardHeaderAction, { color: colors.primary }]}>View All</Text>
             </TouchableOpacity>
           </View>
 
           {RECENT_TRIPS.map((trip, idx) => (
-            <View key={idx} style={styles.tripItem}>
+            <View
+              key={idx}
+              style={[styles.tripItem, { borderBottomColor: colors.surfaceContainerHigh }]}>
               <View style={styles.tripTopRow}>
-                <Text style={styles.tripDest}>{trip.destination}</Text>
-                <Text style={styles.tripDate}>{trip.date}</Text>
+                <Text style={[styles.tripDest, { color: colors.onSurface }]}>{trip.destination}</Text>
+                <Text style={[styles.tripDate, { color: colors.outline }]}>{trip.date}</Text>
               </View>
               <View style={styles.tripMetaRow}>
-                <View style={styles.tripBadge}>
-                  <Clock size={11} color="#707884" />
-                  <Text style={styles.tripBadgeText}>{trip.duration}</Text>
+                <View style={[styles.tripBadge, { backgroundColor: colors.surfaceContainerLow }]}>
+                  <Clock size={11} color={colors.onSurfaceVariant} />
+                  <Text style={[styles.tripBadgeText, { color: colors.onSurfaceVariant }]}>
+                    {trip.duration}
+                  </Text>
                 </View>
-                <View style={styles.tripBadge}>
-                  <Gauge size={11} color="#707884" />
-                  <Text style={styles.tripBadgeText}>{trip.distance}</Text>
+                <View style={[styles.tripBadge, { backgroundColor: colors.surfaceContainerLow }]}>
+                  <Gauge size={11} color={colors.onSurfaceVariant} />
+                  <Text style={[styles.tripBadgeText, { color: colors.onSurfaceVariant }]}>
+                    {trip.distance}
+                  </Text>
                 </View>
-                <View style={styles.tripBadge}>
-                  <CreditCard size={11} color="#707884" />
-                  <Text style={styles.tripBadgeText}>{trip.toll}</Text>
+                <View style={[styles.tripBadge, { backgroundColor: colors.surfaceContainerLow }]}>
+                  <CreditCard size={11} color={colors.onSurfaceVariant} />
+                  <Text style={[styles.tripBadgeText, { color: colors.onSurfaceVariant }]}>
+                    {trip.toll}
+                  </Text>
                 </View>
-                <View style={[styles.tripBadge, { backgroundColor: '#E8F8EE' }]}>
-                  <Leaf size={11} color="#00C06D" />
-                  <Text style={[styles.tripBadgeText, { color: '#00C06D' }]}>{trip.co2}</Text>
+                <View
+                  style={[
+                    styles.tripBadge,
+                    { backgroundColor: colors.secondaryContainer },
+                  ]}>
+                  <Leaf size={11} color={colors.secondary} />
+                  <Text style={[styles.tripBadgeText, { color: colors.onSecondaryContainer }]}>
+                    {trip.co2}
+                  </Text>
                 </View>
               </View>
             </View>
           ))}
-        </View>
+        </Card>
 
         {/* Sovereign & Privacy Preferences */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <View style={styles.cardHeaderLeft}>
-              <ShieldCheck size={18} color="#0096FF" />
-              <Text style={styles.cardTitle}>Sovereignty & Security</Text>
-            </View>
-          </View>
-
-          <View style={styles.settingRow}>
-            <View style={styles.settingIconCol}>
-              <Satellite size={18} color="#0096FF" />
-            </View>
-            <View style={styles.settingInfo}>
-              <Text style={styles.settingTitle}>ISRO NavIC Constellation Mode</Text>
-              <Text style={styles.settingDesc}>Dual-Band L5/S ionospheric delay cancellation</Text>
-            </View>
-            <Switch
-              value={navicMode}
-              onValueChange={setNavicMode}
-              trackColor={{ false: '#D8E3FB', true: '#0096FF' }}
-              thumbColor="#fff"
-            />
-          </View>
-
-          <View style={styles.settingRow}>
-            <View style={styles.settingIconCol}>
-              <EyeOff size={18} color="#FF9800" />
-            </View>
-            <View style={styles.settingInfo}>
-              <Text style={styles.settingTitle}>Differential Privacy Obfuscation</Text>
-              <Text style={styles.settingDesc}>200m spatial laplacian noise near defense zones</Text>
-            </View>
-            <Switch
-              value={differentialPrivacy}
-              onValueChange={setDifferentialPrivacy}
-              trackColor={{ false: '#D8E3FB', true: '#0096FF' }}
-              thumbColor="#fff"
-            />
-          </View>
-
-          <View style={styles.settingRow}>
-            <View style={styles.settingIconCol}>
-              <DownloadCloud size={18} color="#00C06D" />
-            </View>
-            <View style={styles.settingInfo}>
-              <Text style={styles.settingTitle}>Offline Regional Vector Maps</Text>
-              <Text style={styles.settingDesc}>Delhi NCR & Yamuna Expressway (420 MB)</Text>
-            </View>
-            <Switch
-              value={offlineSync}
-              onValueChange={setOfflineSync}
-              trackColor={{ false: '#D8E3FB', true: '#0096FF' }}
-              thumbColor="#fff"
-            />
-          </View>
-
-          <View style={[styles.settingRow, { borderBottomWidth: 0 }]}>
-            <View style={styles.settingIconCol}>
-              <Volume2 size={18} color="#6A1B9A" />
-            </View>
-            <View style={styles.settingInfo}>
-              <Text style={styles.settingTitle}>ADAS Speed & Camera Chimes</Text>
-              <Text style={styles.settingDesc}>Audio alerts when exceeding corridor limits</Text>
-            </View>
-            <Switch
-              value={speedAlerts}
-              onValueChange={setSpeedAlerts}
-              trackColor={{ false: '#D8E3FB', true: '#0096FF' }}
-              thumbColor="#fff"
-            />
-          </View>
-        </View>
+        <SectionHeader
+          title="Sovereignty & Security"
+          subtitle="Privacy boundaries & telemetry preferences"
+        />
+        <Card variant="elevated" padding="none">
+          <ListItem
+            leading={<Satellite size={20} color={colors.primary} />}
+            title="ISRO NavIC Constellation Mode"
+            subtitle="Dual-Band L5/S ionospheric delay cancellation"
+            trailing={
+              <Switch
+                value={navicMode}
+                onValueChange={(val) => {
+                  triggerHaptic();
+                  setNavicMode(val);
+                }}
+                trackColor={{ false: colors.surfaceContainerHighest, true: colors.primary }}
+                thumbColor="#fff"
+              />
+            }
+            divider
+          />
+          <ListItem
+            leading={<EyeOff size={20} color={colors.tertiary} />}
+            title="Differential Privacy Obfuscation"
+            subtitle="200m spatial laplacian noise near defense zones"
+            trailing={
+              <Switch
+                value={differentialPrivacy}
+                onValueChange={(val) => {
+                  triggerHaptic();
+                  setDifferentialPrivacy(val);
+                }}
+                trackColor={{ false: colors.surfaceContainerHighest, true: colors.primary }}
+                thumbColor="#fff"
+              />
+            }
+            divider
+          />
+          <ListItem
+            leading={<DownloadCloud size={20} color={colors.secondary} />}
+            title="Offline Regional Vector Maps"
+            subtitle="Delhi NCR & Yamuna Expressway (420 MB)"
+            trailing={
+              <Switch
+                value={offlineSync}
+                onValueChange={(val) => {
+                  triggerHaptic();
+                  setOfflineSync(val);
+                }}
+                trackColor={{ false: colors.surfaceContainerHighest, true: colors.primary }}
+                thumbColor="#fff"
+              />
+            }
+            divider
+          />
+          <ListItem
+            leading={<Volume2 size={20} color={colors.primary} />}
+            title="ADAS Speed & Camera Chimes"
+            subtitle="Audio alerts when exceeding corridor limits"
+            trailing={
+              <Switch
+                value={speedAlerts}
+                onValueChange={(val) => {
+                  triggerHaptic();
+                  setSpeedAlerts(val);
+                }}
+                trackColor={{ false: colors.surfaceContainerHighest, true: colors.primary }}
+                thumbColor="#fff"
+              />
+            }
+          />
+        </Card>
 
         {/* Logout Action */}
-        <TouchableOpacity
-          style={styles.logoutBtn}
-          onPress={() =>
+        <Button
+          title="Sign Out of Session"
+          variant="outline"
+          size="lg"
+          fullWidth
+          leftIcon={<LogOut size={16} color={colors.error} />}
+          onPress={() => {
+            triggerHaptic();
             Alert.alert(
               'Sign Out?',
               'Are you sure you want to end your current sovereign navigation session?',
@@ -450,19 +615,13 @@ export default function MineScreen() {
                   onPress: () => router.push('/auth'),
                 },
               ]
-            )
-          }
-          activeOpacity={0.8}>
-          <LogOut size={16} color="#BA1A1A" />
-          <Text style={styles.logoutText}>Sign Out of B Map</Text>
-        </TouchableOpacity>
+            );
+          }}
+          style={[styles.logoutBtn, { borderColor: colors.error }]}
+          textStyle={{ color: colors.error }}
+        />
 
-        <View style={styles.footerNote}>
-          <Text style={styles.footerText}>B Map v1.0.0 · ISRO NavIC & Survey of India Compliant</Text>
-          <Text style={styles.footerSubText}>High-Precision Sovereign Navigation Engine</Text>
-        </View>
-
-        <View style={{ height: 32 }} />
+        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -471,79 +630,30 @@ export default function MineScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFF',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 10,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E8EEFF',
+  scroll: {
+    padding: Spacing.md,
+    gap: 14,
   },
-  title: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#111C2D',
-  },
-  subtitle: {
-    fontSize: 11,
-    color: '#707884',
-    marginTop: 2,
-    letterSpacing: 0.3,
+  cardGap: {
+    gap: 12,
   },
   sosQuickBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#FFEBEE',
-    borderWidth: 1,
-    borderColor: '#FFCDD2',
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingVertical: 5,
+    borderRadius: Radius.full,
   },
   sosQuickText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
-    color: '#F44336',
-  },
-  scroll: {
-    padding: 16,
-    gap: 14,
-  },
-
-  /* Profile Card */
-  profileCard: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
   },
   profileTop: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-  },
-  avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#0096FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#0096FF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
   },
   profileInfo: {
     flex: 1,
@@ -555,281 +665,160 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   profileName: {
-    fontSize: 18,
+    ...Typography.titleMedium,
     fontWeight: '800',
-    color: '#111C2D',
   },
   profileContact: {
+    ...Typography.bodySmall,
     fontSize: 11,
-    color: '#707884',
-    marginTop: 1,
   },
-  vipBadge: {
+  badgeRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    backgroundColor: '#FFF4E5',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-    gap: 4,
     marginTop: 4,
   },
-  vipText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#D57E00',
-  },
-
   levelProgressContainer: {
-    marginTop: 14,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F3FF',
+    gap: 6,
+    marginTop: 2,
   },
   levelLabelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 6,
+    alignItems: 'center',
   },
   levelLabel: {
-    fontSize: 11,
+    ...Typography.bodySmall,
     fontWeight: '700',
-    color: '#111C2D',
   },
   levelPoints: {
     fontSize: 10,
-    color: '#707884',
   },
   progressBarTrack: {
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#E8EEFF',
     overflow: 'hidden',
   },
   progressBarFill: {
-    height: 6,
+    height: '100%',
     borderRadius: 3,
-    backgroundColor: '#0096FF',
   },
-
-  statsRow: {
+  metricsGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 14,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F3FF',
+    gap: 8,
   },
-  statBox: {
+  metricItem: {
     flex: 1,
-    alignItems: 'center',
   },
-  statValue: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#111C2D',
-  },
-  statLabel: {
-    fontSize: 9,
-    fontWeight: '600',
-    color: '#707884',
-    marginTop: 2,
-    textAlign: 'center',
-  },
-  statDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: '#E8EEFF',
-  },
-  ecoStatRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-
-  /* Activity Banner */
   activityBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#E8F4FF',
-    borderRadius: 14,
-    padding: 12,
+    ...Shadows.xs,
   },
   activityLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     flex: 1,
+    marginRight: 8,
   },
   activityIconRing: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#fff',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
   },
   activityTitle: {
-    fontSize: 13,
+    ...Typography.bodyMedium,
     fontWeight: '700',
-    color: '#0061A7',
   },
   activitySub: {
+    ...Typography.bodySmall,
     fontSize: 10,
-    color: '#4B779A',
-    marginTop: 1,
-  },
-  activityLiveBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#E8F8EE',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-  },
-  pulsingGreenDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#00C06D',
-  },
-  activityLiveText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#00C06D',
-  },
-
-  /* Card General */
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 18,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
   },
-  cardHeaderLeft: {
+  headerLeftCluster: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
+    flex: 1,
+  },
+  iconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: Radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cardTitle: {
-    fontSize: 15,
+    ...Typography.titleSmall,
     fontWeight: '700',
-    color: '#111C2D',
+  },
+  cardSubTitle: {
+    ...Typography.bodySmall,
+    fontSize: 11,
+    marginTop: 1,
   },
   cardHeaderAction: {
-    fontSize: 12,
+    ...Typography.bodySmall,
     fontWeight: '700',
-    color: '#0096FF',
   },
-  cardSub: {
-    fontSize: 11,
-    color: '#707884',
-    marginBottom: 12,
-    lineHeight: 16,
-  },
-
-  /* Vehicle & FASTag */
   vehicleDetails: {
     gap: 10,
   },
   vehicleRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F3FF',
+    justifyContent: 'space-between',
   },
   vehicleModel: {
-    fontSize: 14,
+    ...Typography.titleSmall,
     fontWeight: '700',
-    color: '#111C2D',
   },
   vehicleReg: {
+    ...Typography.bodySmall,
     fontSize: 11,
-    color: '#707884',
-    marginTop: 2,
+    marginTop: 1,
   },
-  batteryPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#E8F8EE',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
-  },
-  batteryText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#00C06D',
-  },
-  fastagBanner: {
+  fastagBannerInner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F9F4FC',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#EBD8F7',
+    padding: Spacing.xs,
   },
   fastagLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     flex: 1,
   },
   fastagTitle: {
-    fontSize: 12,
+    ...Typography.bodyMedium,
     fontWeight: '700',
-    color: '#4A154B',
   },
   fastagNumber: {
+    ...Typography.bodySmall,
     fontSize: 10,
-    color: '#7B5282',
     marginTop: 1,
   },
   fastagBalanceBox: {
     alignItems: 'flex-end',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: Radius.sm,
+    marginLeft: 8,
   },
   fastagBalanceLabel: {
     fontSize: 8,
     fontWeight: '700',
-    color: '#7B5282',
-    letterSpacing: 0.5,
   },
   fastagBalance: {
-    fontSize: 16,
+    ...Typography.titleSmall,
     fontWeight: '800',
-    color: '#6A1B9A',
-  },
-
-  /* Languages Grid */
-  langCountBadge: {
-    backgroundColor: '#E8F4FF',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  langCountText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#0096FF',
   },
   langGrid: {
     flexDirection: 'row',
@@ -838,124 +827,96 @@ const styles = StyleSheet.create({
   },
   langChip: {
     width: '31%',
-    backgroundColor: '#F8FAFF',
-    borderWidth: 1.5,
-    borderColor: '#E8EEFF',
-    borderRadius: 12,
-    paddingVertical: 10,
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  langChipActive: {
-    borderColor: '#0096FF',
-    backgroundColor: '#E8F4FF',
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    gap: 2,
   },
   langScript: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#3F4753',
-  },
-  langScriptActive: {
-    color: '#0096FF',
+    fontSize: 12,
   },
   langName: {
-    fontSize: 9,
-    color: '#707884',
-    marginTop: 2,
+    fontSize: 10,
   },
-  langNameActive: {
-    color: '#0061A7',
-    fontWeight: '600',
-  },
-
-  /* Saved Places with DigiPIN */
   placeItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F3FF',
     gap: 10,
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   placeIconCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#E8F4FF',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   placeInfo: {
     flex: 1,
+    gap: 2,
   },
   placeLabel: {
-    fontSize: 13,
+    ...Typography.bodyMedium,
     fontWeight: '700',
-    color: '#111C2D',
   },
   placeAddress: {
+    ...Typography.bodySmall,
     fontSize: 11,
-    color: '#707884',
-    marginTop: 1,
   },
   placePinRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'flex-start',
     gap: 6,
-    marginTop: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radius.xs,
+    marginTop: 2,
   },
   digiBadge: {
-    backgroundColor: '#0096FF',
-    paddingHorizontal: 5,
+    paddingHorizontal: 4,
     paddingVertical: 1,
-    borderRadius: 4,
+    borderRadius: 2,
   },
   digiBadgeText: {
     fontSize: 8,
     fontWeight: '800',
-    color: '#fff',
-    letterSpacing: 0.5,
   },
   digiCode: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
-    color: '#111C2D',
-    fontFamily: 'monospace',
   },
   copyBtn: {
-    padding: 3,
+    padding: 2,
   },
   routePlaceBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#0096FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  /* Trip Item */
   tripItem: {
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F3FF',
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     gap: 6,
   },
   tripTopRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   tripDest: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#111C2D',
+    ...Typography.bodyMedium,
+    fontWeight: '700',
     flex: 1,
     marginRight: 8,
   },
   tripDate: {
     fontSize: 10,
-    color: '#707884',
   },
   tripMetaRow: {
     flexDirection: 'row',
@@ -966,77 +927,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#F0F3FF',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radius.xs,
   },
   tripBadgeText: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#3F4753',
   },
-
-  /* Settings */
-  settingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F3FF',
-    gap: 12,
-  },
-  settingIconCol: {
-    width: 24,
-    alignItems: 'center',
-  },
-  settingInfo: {
-    flex: 1,
-  },
-  settingTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#111C2D',
-  },
-  settingDesc: {
-    fontSize: 10,
-    color: '#707884',
-    marginTop: 2,
-    lineHeight: 14,
-  },
-
-  /* Logout */
   logoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#FFF0F0',
-    borderWidth: 1,
-    borderColor: '#FFCDD2',
-    borderRadius: 14,
-    paddingVertical: 14,
-    marginTop: 4,
-  },
-  logoutText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#BA1A1A',
-  },
-
-  /* Footer */
-  footerNote: {
-    alignItems: 'center',
-    paddingVertical: 12,
-    gap: 3,
-  },
-  footerText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#707884',
-  },
-  footerSubText: {
-    fontSize: 10,
-    color: '#A0A8B4',
+    marginTop: 8,
   },
 });

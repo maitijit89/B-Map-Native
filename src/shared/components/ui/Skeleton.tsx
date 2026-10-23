@@ -5,7 +5,7 @@ import {
   ViewStyle,
   StyleProp,
 } from 'react-native';
-import { BMapColors } from '../../constants/BMapTheme';
+import { useThemeColors } from '../../hooks';
 import { Radius } from '../../constants/tokens';
 
 export type SkeletonShape = 'rect' | 'circle' | 'text';
@@ -25,13 +25,14 @@ export const Skeleton: React.FC<SkeletonProps> = ({
   borderRadius,
   style,
 }) => {
+  const colors = useThemeColors();
   const [shimmerAnim] = useState(() => new Animated.Value(0.35));
 
   useEffect(() => {
     const pulseLoop = Animated.loop(
       Animated.sequence([
         Animated.timing(shimmerAnim, {
-          toValue: 0.8,
+          toValue: 0.85,
           duration: 800,
           useNativeDriver: true,
         }),
@@ -60,6 +61,7 @@ export const Skeleton: React.FC<SkeletonProps> = ({
       style={[
         styles.base,
         {
+          backgroundColor: colors.surfaceContainerHigh,
           width: width as any,
           height: height as any,
           borderRadius: computedRadius,
@@ -73,7 +75,6 @@ export const Skeleton: React.FC<SkeletonProps> = ({
 
 const styles = StyleSheet.create({
   base: {
-    backgroundColor: BMapColors.surfaceContainerHigh,
     overflow: 'hidden',
   },
 });

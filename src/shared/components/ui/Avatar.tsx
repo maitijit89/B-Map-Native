@@ -7,7 +7,7 @@ import {
   ViewStyle,
   StyleProp,
 } from 'react-native';
-import { BMapColors } from '../../constants/BMapTheme';
+import { useThemeColors } from '../../hooks';
 import { Radius } from '../../constants/tokens';
 
 export type AvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
@@ -28,6 +28,7 @@ export const Avatar: React.FC<AvatarProps> = ({
   status,
   style,
 }) => {
+  const colors = useThemeColors();
   const [imageError, setImageError] = useState(false);
 
   const getInitials = (fullName?: string) => {
@@ -39,6 +40,12 @@ export const Avatar: React.FC<AvatarProps> = ({
 
   const dim = sizeDimensions[size];
   const hasImage = Boolean(source && !imageError);
+
+  const statusColors: Record<AvatarStatus, string> = {
+    online: colors.trafficGreen,
+    busy: colors.trafficOrange,
+    offline: colors.outline,
+  };
 
   return (
     <View style={[styles.container, { width: dim, height: dim }, style]}>
@@ -52,9 +59,15 @@ export const Avatar: React.FC<AvatarProps> = ({
         <View
           style={[
             styles.fallbackContainer,
-            { width: dim, height: dim, borderRadius: dim / 2 },
+            {
+              width: dim,
+              height: dim,
+              borderRadius: dim / 2,
+              backgroundColor: colors.primaryFixed,
+              borderColor: colors.surfaceContainerLowest,
+            },
           ]}>
-          <Text style={[styles.initialsText, textSizes[size]]}>
+          <Text style={[styles.initialsText, textSizes[size], { color: colors.onPrimaryFixedVariant }]}>
             {getInitials(name)}
           </Text>
         </View>
@@ -65,7 +78,10 @@ export const Avatar: React.FC<AvatarProps> = ({
           style={[
             styles.statusDot,
             statusDotSizes[size],
-            { backgroundColor: statusColors[status] },
+            {
+              backgroundColor: statusColors[status],
+              borderColor: colors.surfaceContainerLowest,
+            },
           ]}
         />
       )}
@@ -83,15 +99,12 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
   },
   fallbackContainer: {
-    backgroundColor: BMapColors.primaryFixed,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: '#FFFFFF',
   },
   initialsText: {
     fontWeight: '700',
-    color: BMapColors.onPrimaryFixedVariant,
   },
   statusDot: {
     position: 'absolute',
@@ -99,7 +112,6 @@ const styles = StyleSheet.create({
     right: 0,
     borderRadius: Radius.full,
     borderWidth: 2,
-    borderColor: '#FFFFFF',
   },
 });
 
@@ -125,12 +137,6 @@ const statusDotSizes: Record<AvatarSize, ViewStyle> = {
   md: { width: 13, height: 13 },
   lg: { width: 16, height: 16 },
   xl: { width: 20, height: 20 },
-};
-
-const statusColors: Record<AvatarStatus, string> = {
-  online: BMapColors.trafficGreen,
-  busy: BMapColors.trafficOrange,
-  offline: BMapColors.outline,
 };
 
 export default Avatar;

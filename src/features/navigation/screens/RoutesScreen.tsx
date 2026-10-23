@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import {
   Navigation,
   Car,
@@ -27,7 +29,15 @@ import {
   RotateCw,
   ChevronRight,
 } from 'lucide-react-native';
-import { BMapColors } from '@/shared';
+import { useTheme, useThemeColors } from '@/shared/hooks';
+import { Radius, Shadows, Spacing, Typography } from '@/shared/constants/tokens';
+import {
+  Chip,
+  Card,
+  Button,
+  SectionHeader,
+  MetricCard,
+} from '@/shared/components/ui';
 
 type RouteProfile = 'drive' | 'bike' | 'walk' | 'transit';
 
@@ -99,416 +109,977 @@ const IMD_WEATHER = {
 };
 
 export default function RoutesScreen() {
-  const [activeProfile, setActiveProfile] = React.useState<RouteProfile>('drive');
-  const [selectedRoute, setSelectedRoute] = React.useState('1');
-  const [origin, setOrigin] = React.useState('Cyber Hub, Gurugram');
-  const [destination, setDestination] = React.useState('Agra Fort, Uttar Pradesh');
+  const { isDark } = useTheme();
+  const colors = useThemeColors();
+
+  const [activeProfile, setActiveProfile] = useState<RouteProfile>('drive');
+  const [selectedRoute, setSelectedRoute] = useState('1');
+  const [origin, setOrigin] = useState('Cyber Hub, Gurugram');
+  const [destination, setDestination] = useState('Agra Fort, Uttar Pradesh');
+
+  const triggerHaptic = () => {
+    if (Platform.OS === 'ios' || Platform.OS === 'android') {
+      try {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      } catch {
+        // Haptics unavailable
+      }
+    }
+  };
 
   const handleSwap = () => {
+    triggerHaptic();
     setOrigin(destination);
     setDestination(origin);
   };
 
-  const profiles: { key: RouteProfile; label: string; icon: React.ReactNode }[] = [
-    { key: 'drive', label: 'Drive', icon: <Car size={18} color={activeProfile === 'drive' ? '#fff' : BMapColors.onSurfaceVariant} /> },
-    { key: 'bike', label: 'Rider', icon: <Bike size={18} color={activeProfile === 'bike' ? '#fff' : BMapColors.onSurfaceVariant} /> },
-    { key: 'walk', label: 'Walk', icon: <Footprints size={18} color={activeProfile === 'walk' ? '#fff' : BMapColors.onSurfaceVariant} /> },
-    { key: 'transit', label: 'Transit', icon: <TrainFront size={18} color={activeProfile === 'transit' ? '#fff' : BMapColors.onSurfaceVariant} /> },
+  const handleProfileSelect = (key: RouteProfile) => {
+    triggerHaptic();
+    setActiveProfile(key);
+  };
+
+  const handleRouteSelect = (id: string) => {
+    triggerHaptic();
+    setSelectedRoute(id);
+  };
+
+  const handleStartNavigation = () => {
+    triggerHaptic();
+    router.push('/modal');
+  };
+
+  const profiles: { key: RouteProfile; label: string; icon: (focused: boolean) => React.ReactNode }[] = [
+    {
+      key: 'drive',
+      label: 'Drive',
+      icon: (focused) => (
+        <Car size={18} color={focused ? colors.onPrimary : colors.onSurfaceVariant} />
+      ),
+    },
+    {
+      key: 'bike',
+      label: 'Rider',
+      icon: (focused) => (
+        <Bike size={18} color={focused ? colors.onPrimary : colors.onSurfaceVariant} />
+      ),
+    },
+    {
+      key: 'walk',
+      label: 'Walk',
+      icon: (focused) => (
+        <Footprints size={18} color={focused ? colors.onPrimary : colors.onSurfaceVariant} />
+      ),
+    },
+    {
+      key: 'transit',
+      label: 'Transit',
+      icon: (focused) => (
+        <TrainFront size={18} color={focused ? colors.onPrimary : colors.onSurfaceVariant} />
+      ),
+    },
   ];
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Route Planner</Text>
-        <Text style={styles.subtitle}>OSRM Multi-Modal Intelligent Routing</Text>
+      <View
+        style={[
+          styles.header,
+          {
+            backgroundColor: colors.surfaceContainerLowest,
+            borderBottomColor: colors.surfaceContainerHigh,
+          },
+        ]}>
+        <Text style={[styles.title, { color: colors.onSurface }]}>Route Planner</Text>
+        <Text style={[styles.subtitle, { color: colors.onSurfaceVariant }]}>
+          OSRM Multi-Modal Intelligent Routing · NavIC Telematics
+        </Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Origin → Destination Input */}
-        <View style={styles.routeInputCard}>
+        {/* Origin → Destination Input Card */}
+        <Card variant="flat" padding="md" style={styles.routeInputCard}>
           <TouchableOpacity
             style={styles.routeInputRow}
-            onPress={() => router.push('/search')}
+            onPress={() => {
+              triggerHaptic();
+              router.push('/search');
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Edit origin"
             activeOpacity={0.7}>
-            <View style={[styles.dotIndicator, { backgroundColor: '#0096FF' }]} />
+            <View style={[styles.dotIndicator, { backgroundColor: colors.primaryContainer }]} />
             <View style={styles.routeInputField}>
-              <Text style={styles.routeInputLabel}>FROM (TAP TO EDIT)</Text>
-              <Text style={styles.routeInputValue}>{origin}</Text>
+              <Text style={[styles.routeInputLabel, { color: colors.onSurfaceVariant }]}>
+                FROM (TAP TO EDIT)
+              </Text>
+              <Text style={[styles.routeInputValue, { color: colors.onSurface }]}>{origin}</Text>
             </View>
           </TouchableOpacity>
+
           <View style={styles.routeInputDivider}>
-            <View style={styles.dottedLine} />
-            <TouchableOpacity style={styles.swapButton} onPress={handleSwap} activeOpacity={0.8}>
-              <ArrowDownUp size={16} color="#0096FF" />
+            <View style={[styles.dottedLine, { borderColor: colors.outlineVariant }]} />
+            <TouchableOpacity
+              style={[
+                styles.swapButton,
+                {
+                  backgroundColor: colors.surfaceContainerLow,
+                  borderColor: colors.surfaceContainerHigh,
+                },
+              ]}
+              onPress={handleSwap}
+              accessibilityRole="button"
+              accessibilityLabel="Swap origin and destination"
+              activeOpacity={0.8}>
+              <ArrowDownUp size={16} color={colors.primary} />
             </TouchableOpacity>
           </View>
+
           <TouchableOpacity
             style={styles.routeInputRow}
-            onPress={() => router.push('/search')}
+            onPress={() => {
+              triggerHaptic();
+              router.push('/search');
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Edit destination"
             activeOpacity={0.7}>
-            <View style={[styles.dotIndicator, { backgroundColor: '#F44336' }]} />
+            <View style={[styles.dotIndicator, { backgroundColor: colors.error }]} />
             <View style={styles.routeInputField}>
-              <Text style={styles.routeInputLabel}>TO (TAP TO EDIT)</Text>
-              <Text style={styles.routeInputValue}>{destination}</Text>
+              <Text style={[styles.routeInputLabel, { color: colors.onSurfaceVariant }]}>
+                TO (TAP TO EDIT)
+              </Text>
+              <Text style={[styles.routeInputValue, { color: colors.onSurface }]}>{destination}</Text>
             </View>
           </TouchableOpacity>
-          {/* DigiPIN */}
+
+          {/* DigiPIN Code */}
           <TouchableOpacity
-            style={styles.digiPinRow}
-            onPress={() => router.push('/digipin-explorer')}
+            style={[
+              styles.digiPinRow,
+              {
+                backgroundColor: colors.surfaceContainerLow,
+                borderColor: colors.surfaceContainerHigh,
+              },
+            ]}
+            onPress={() => {
+              triggerHaptic();
+              router.push('/digipin-explorer');
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="DigiPIN 28J4-K8M2-9P Explorer"
             activeOpacity={0.8}>
-            <View style={styles.digiPinBadge}>
-              <Text style={styles.digiPinLabel}>DigiPIN</Text>
+            <View style={[styles.digiPinBadge, { backgroundColor: colors.primary }]}>
+              <Text style={[styles.digiPinLabel, { color: colors.onPrimary }]}>DigiPIN</Text>
             </View>
-            <Text style={styles.digiPinCode}>28J4-K8M2-9P</Text>
-            <Text style={styles.digiPinDesc}>4m×4m grid (Tap to inspect)</Text>
+            <Text style={[styles.digiPinCode, { color: colors.primary }]}>28J4-K8M2-9P</Text>
+            <Text style={[styles.digiPinDesc, { color: colors.onSurfaceVariant }]}>
+              4m×4m sovereign grid
+            </Text>
           </TouchableOpacity>
-        </View>
+        </Card>
 
         {/* Multi-Modal Profile Selector */}
         <View style={styles.profileRow}>
-          {profiles.map((p) => (
-            <TouchableOpacity
-              key={p.key}
-              style={[styles.profileChip, activeProfile === p.key && styles.profileChipActive]}
-              onPress={() => setActiveProfile(p.key)}>
-              {p.icon}
-              <Text style={[styles.profileChipText, activeProfile === p.key && styles.profileChipTextActive]}>
-                {p.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {profiles.map((p) => {
+            const isFocused = activeProfile === p.key;
+            return (
+              <Chip
+                key={p.key}
+                label={p.label}
+                selected={isFocused}
+                onPress={() => handleProfileSelect(p.key)}
+                icon={p.icon(isFocused)}
+                size="md"
+              />
+            );
+          })}
         </View>
 
         {/* If Transit selected, show Multimodal Transit Planner Shortcut */}
         {activeProfile === 'transit' && (
-          <TouchableOpacity
-            style={[styles.tspActionCard, { backgroundColor: '#F3E5F5', borderColor: '#CE93D8' }]}
-            onPress={() => router.push('/transit-planner')}
-            activeOpacity={0.85}>
+          <Card
+            variant="flat"
+            padding="md"
+            style={[
+              styles.tspActionCard,
+              {
+                backgroundColor: isDark ? 'rgba(156, 39, 176, 0.15)' : '#F3E5F5',
+                borderColor: '#CE93D8',
+              },
+            ]}
+            onPress={() => {
+              triggerHaptic();
+              router.push('/transit-planner');
+            }}>
             <View style={styles.tspActionLeft}>
               <View style={[styles.tspIconBadge, { backgroundColor: '#9C27B0' }]}>
                 <TrainFront size={16} color="#ffffff" />
               </View>
               <View>
-                <Text style={styles.tspActionTitle}>DMRC Metro & Bus Schedules</Text>
-                <Text style={styles.tspActionSub}>Yellow/Blue lines, feeder buses & QR tokens</Text>
+                <Text style={[styles.tspActionTitle, { color: colors.onSurface }]}>
+                  DMRC Metro & Bus Schedules
+                </Text>
+                <Text style={[styles.tspActionSub, { color: colors.onSurfaceVariant }]}>
+                  Yellow/Blue lines, feeder buses & QR tokens
+                </Text>
               </View>
             </View>
             <ChevronRight size={18} color="#9C27B0" />
-          </TouchableOpacity>
+          </Card>
         )}
 
         {/* Multi-Stop TSP Delivery Optimizer */}
-        <TouchableOpacity
+        <Card
+          variant="flat"
+          padding="md"
           style={styles.tspActionCard}
-          onPress={() => router.push('/tsp-optimizer')}
-          activeOpacity={0.85}>
+          onPress={() => {
+            triggerHaptic();
+            router.push('/tsp-optimizer');
+          }}>
           <View style={styles.tspActionLeft}>
-            <View style={styles.tspIconBadge}>
-              <RotateCw size={16} color="#ffffff" />
+            <View style={[styles.tspIconBadge, { backgroundColor: colors.primaryContainer }]}>
+              <RotateCw size={16} color={colors.onPrimary} />
             </View>
             <View>
-              <Text style={styles.tspActionTitle}>Multi-Stop Delivery Optimizer (TSP)</Text>
-              <Text style={styles.tspActionSub}>Greedy 2-Opt edge exchange · Up to 25 stops</Text>
+              <Text style={[styles.tspActionTitle, { color: colors.onSurface }]}>
+                Multi-Stop Delivery Optimizer (TSP)
+              </Text>
+              <Text style={[styles.tspActionSub, { color: colors.onSurfaceVariant }]}>
+                Greedy 2-Opt edge exchange · Up to 25 stops
+              </Text>
             </View>
           </View>
-          <ChevronRight size={18} color="#0096FF" />
-        </TouchableOpacity>
+          <ChevronRight size={18} color={colors.primary} />
+        </Card>
 
         {/* IMD Weather Advisory Banner */}
-        <View style={[styles.weatherBanner, { borderLeftColor: IMD_WEATHER.color }]}>
+        <Card
+          variant="flat"
+          padding="md"
+          style={[
+            styles.weatherBanner,
+            {
+              borderLeftColor: IMD_WEATHER.color,
+              borderColor: colors.surfaceContainerHigh,
+            },
+          ]}>
           <View style={styles.weatherBannerHeader}>
             <View style={[styles.weatherLevelBadge, { backgroundColor: IMD_WEATHER.color }]}>
               <AlertTriangle size={12} color="#fff" />
               <Text style={styles.weatherLevelText}>{IMD_WEATHER.level}</Text>
             </View>
-            <Text style={styles.weatherValid}>{IMD_WEATHER.validUntil}</Text>
+            <Text style={[styles.weatherValid, { color: colors.onSurfaceVariant }]}>
+              {IMD_WEATHER.validUntil}
+            </Text>
           </View>
-          <Text style={styles.weatherTitle}>{IMD_WEATHER.title}</Text>
-          <Text style={styles.weatherDesc}>{IMD_WEATHER.description}</Text>
-        </View>
+          <Text style={[styles.weatherTitle, { color: colors.onSurface }]}>
+            {IMD_WEATHER.title}
+          </Text>
+          <Text style={[styles.weatherDesc, { color: colors.onSurfaceVariant }]}>
+            {IMD_WEATHER.description}
+          </Text>
+        </Card>
 
         {/* Route Alternatives */}
-        <Text style={styles.sectionTitle}>Route Alternatives</Text>
-        {ROUTE_ALTERNATIVES.map((route) => (
-          <TouchableOpacity
-            key={route.id}
-            style={[
-              styles.routeCard,
-              selectedRoute === route.id && styles.routeCardSelected,
-            ]}
-            onPress={() => setSelectedRoute(route.id)}
-            activeOpacity={0.8}>
-            <View style={styles.routeCardHeader}>
-              <View style={styles.routeCardLeft}>
-                <View style={[styles.routeLabelBadge, { backgroundColor: route.color }]}>
-                  <Text style={styles.routeLabelText}>{route.label}</Text>
-                </View>
-                {route.isRecommended && (
-                  <View style={styles.recommendedBadge}>
-                    <Zap size={10} color="#0096FF" />
-                    <Text style={styles.recommendedText}>AI Recommended</Text>
+        <SectionHeader title="Route Alternatives" />
+        {ROUTE_ALTERNATIVES.map((route) => {
+          const isSelected = selectedRoute === route.id;
+          return (
+            <Card
+              key={route.id}
+              variant={isSelected ? 'glass' : 'flat'}
+              padding="md"
+              style={[
+                styles.routeCard,
+                {
+                  borderColor: isSelected ? colors.primary : colors.surfaceContainerHigh,
+                },
+                isSelected && styles.routeCardSelected,
+              ]}
+              onPress={() => handleRouteSelect(route.id)}>
+              <View style={styles.routeCardHeader}>
+                <View style={styles.routeCardLeft}>
+                  <View style={[styles.routeLabelBadge, { backgroundColor: route.color }]}>
+                    <Text style={styles.routeLabelText}>{route.label}</Text>
                   </View>
-                )}
+                  {route.isRecommended && (
+                    <View
+                      style={[
+                        styles.recommendedBadge,
+                        { backgroundColor: colors.primaryFixed },
+                      ]}>
+                      <Zap size={10} color={colors.primary} />
+                      <Text style={[styles.recommendedText, { color: colors.primary }]}>
+                        AI Recommended
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <View
+                  style={[
+                    styles.trafficPill,
+                    { backgroundColor: route.trafficColor + '20' },
+                  ]}>
+                  <View style={[styles.trafficDot, { backgroundColor: route.trafficColor }]} />
+                  <Text style={[styles.trafficText, { color: route.trafficColor }]}>
+                    {route.trafficLabel}
+                  </Text>
+                </View>
               </View>
-              <View style={[styles.trafficPill, { backgroundColor: route.trafficColor + '20' }]}>
-                <View style={[styles.trafficDot, { backgroundColor: route.trafficColor }]} />
-                <Text style={[styles.trafficText, { color: route.trafficColor }]}>{route.trafficLabel}</Text>
-              </View>
-            </View>
 
-            <Text style={styles.routeVia}>{route.via}</Text>
+              <Text style={[styles.routeVia, { color: colors.onSurfaceVariant }]}>
+                {route.via}
+              </Text>
 
-            <View style={styles.routeMetrics}>
-              <View style={styles.metric}>
-                <Clock size={14} color={BMapColors.onSurfaceVariant} />
-                <Text style={styles.metricValue}>{route.time}</Text>
+              <View style={[styles.routeMetrics, { borderTopColor: colors.surfaceContainerHigh }]}>
+                <View style={styles.metric}>
+                  <Clock size={14} color={colors.onSurfaceVariant} />
+                  <Text style={[styles.metricValue, { color: colors.onSurface }]}>
+                    {route.time}
+                  </Text>
+                </View>
+                <View style={[styles.metricDivider, { backgroundColor: colors.outlineVariant }]} />
+                <View style={styles.metric}>
+                  <MapPin size={14} color={colors.onSurfaceVariant} />
+                  <Text style={[styles.metricValue, { color: colors.onSurface }]}>
+                    {route.distance}
+                  </Text>
+                </View>
+                <View style={[styles.metricDivider, { backgroundColor: colors.outlineVariant }]} />
+                <View style={styles.metric}>
+                  <IndianRupee size={14} color={colors.onSurfaceVariant} />
+                  <Text style={[styles.metricValue, { color: colors.onSurface }]}>
+                    {route.toll}
+                  </Text>
+                  <Text style={[styles.metricSub, { color: colors.onSurfaceVariant }]}>
+                    ({route.tollPlazas} tolls)
+                  </Text>
+                </View>
+                <View style={[styles.metricDivider, { backgroundColor: colors.outlineVariant }]} />
+                <View style={styles.metric}>
+                  <Leaf size={14} color={route.ecoScore > 80 ? colors.trafficGreen : colors.trafficOrange} />
+                  <Text
+                    style={[
+                      styles.metricValue,
+                      { color: route.ecoScore > 80 ? colors.trafficGreen : colors.trafficOrange },
+                    ]}>
+                    {route.ecoScore}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.metricDivider} />
-              <View style={styles.metric}>
-                <MapPin size={14} color={BMapColors.onSurfaceVariant} />
-                <Text style={styles.metricValue}>{route.distance}</Text>
-              </View>
-              <View style={styles.metricDivider} />
-              <View style={styles.metric}>
-                <IndianRupee size={14} color={BMapColors.onSurfaceVariant} />
-                <Text style={styles.metricValue}>{route.toll}</Text>
-                <Text style={styles.metricSub}>({route.tollPlazas} tolls)</Text>
-              </View>
-              <View style={styles.metricDivider} />
-              <View style={styles.metric}>
-                <Leaf size={14} color={route.ecoScore > 80 ? '#00C06D' : '#FF9800'} />
-                <Text style={[styles.metricValue, { color: route.ecoScore > 80 ? '#00C06D' : '#FF9800' }]}>{route.ecoScore}</Text>
-              </View>
-            </View>
 
-            {selectedRoute === route.id && (
-              <TouchableOpacity
-                style={styles.startNavButton}
-                onPress={() => router.push('/modal')}>
-                <Navigation size={18} color="#fff" />
-                <Text style={styles.startNavText}>Start Navigation</Text>
-              </TouchableOpacity>
-            )}
-          </TouchableOpacity>
-        ))}
+              {isSelected && (
+                <Button
+                  variant="primary"
+                  size="md"
+                  title="Start Navigation"
+                  leftIcon={<Navigation size={18} color={colors.onPrimary} />}
+                  onPress={handleStartNavigation}
+                  style={{ marginTop: Spacing.md }}
+                />
+              )}
+            </Card>
+          );
+        })}
 
         {/* FASTag NHAI Toll Breakdown */}
-        <Text style={styles.sectionTitle}>FASTag Toll Breakdown</Text>
-        <View style={styles.tollCard}>
+        <SectionHeader title="FASTag Toll Breakdown" />
+        <Card variant="flat" padding="md" style={styles.tollCard}>
           <TouchableOpacity
             style={styles.tollHeader}
-            onPress={() => router.push('/vehicle-fleet')}
+            onPress={() => {
+              triggerHaptic();
+              router.push('/vehicle-fleet');
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Manage FASTag fleet"
             activeOpacity={0.8}>
             <View style={styles.tollHeaderLeft}>
-              <View style={styles.fastagBadge}>
-                <Text style={styles.fastagText}>FASTag</Text>
+              <View style={[styles.fastagBadge, { backgroundColor: colors.primary }]}>
+                <Text style={[styles.fastagText, { color: colors.onPrimary }]}>FASTag</Text>
               </View>
-              <Text style={styles.tollVehicleClass}>Vehicle: Car/Jeep (Class 4) · Manage Fleet</Text>
+              <Text style={[styles.tollVehicleClass, { color: colors.onSurfaceVariant }]}>
+                Car/Jeep (Class 4) · Manage Fleet
+              </Text>
             </View>
-            <Text style={styles.tollTotal}>₹435 ➔</Text>
+            <Text style={[styles.tollTotal, { color: colors.primary }]}>₹435 ➔</Text>
           </TouchableOpacity>
+
           {TOLL_BREAKDOWN.map((toll, index) => (
-            <View key={index} style={styles.tollRow}>
+            <View
+              key={index}
+              style={[styles.tollRow, { borderBottomColor: colors.surfaceContainerHigh }]}>
               <View style={styles.tollRowLeft}>
-                <View style={styles.tollDot} />
+                <View style={[styles.tollDot, { backgroundColor: colors.primaryContainer }]} />
                 <View>
-                  <Text style={styles.tollPlazaName}>{toll.plaza}</Text>
-                  <Text style={styles.tollHighway}>{toll.highway}</Text>
+                  <Text style={[styles.tollPlazaName, { color: colors.onSurface }]}>
+                    {toll.plaza}
+                  </Text>
+                  <Text style={[styles.tollHighway, { color: colors.onSurfaceVariant }]}>
+                    {toll.highway}
+                  </Text>
                 </View>
               </View>
-              <Text style={styles.tollFee}>{toll.fee}</Text>
+              <Text style={[styles.tollFee, { color: colors.onSurface }]}>{toll.fee}</Text>
             </View>
           ))}
-          <View style={styles.tollLaneHint}>
-            <Shield size={14} color="#0096FF" />
-            <Text style={styles.tollLaneText}>Use FASTag dedicated lanes for cashless express passage</Text>
-          </View>
-        </View>
 
-        {/* Turn-by-Turn Preview */}
-        <Text style={styles.sectionTitle}>Turn-by-Turn Preview</Text>
-        <View style={styles.stepsCard}>
+          <View style={[styles.tollLaneHint, { backgroundColor: colors.surfaceContainerLow }]}>
+            <Shield size={14} color={colors.primary} />
+            <Text style={[styles.tollLaneText, { color: colors.onSurfaceVariant }]}>
+              Use FASTag dedicated lanes for cashless express passage
+            </Text>
+          </View>
+        </Card>
+
+        {/* Turn-by-Turn Preview Timeline */}
+        <SectionHeader title="Turn-by-Turn Preview" />
+        <Card variant="flat" padding="md" style={styles.stepsCard}>
           {TURN_STEPS.map((step, index) => (
             <View key={index} style={styles.stepRow}>
               <View style={styles.stepIconCol}>
-                <View style={[styles.stepIconCircle, index === TURN_STEPS.length - 1 && { backgroundColor: '#F44336' }]}>
+                <View
+                  style={[
+                    styles.stepIconCircle,
+                    {
+                      backgroundColor:
+                        index === TURN_STEPS.length - 1
+                          ? colors.error
+                          : colors.primaryContainer,
+                    },
+                  ]}>
                   {index === TURN_STEPS.length - 1 ? (
-                    <MapPin size={14} color="#fff" />
+                    <MapPin size={14} color="#ffffff" />
                   ) : (
-                    <CornerDownRight size={14} color="#fff" />
+                    <CornerDownRight size={14} color="#ffffff" />
                   )}
                 </View>
-                {index < TURN_STEPS.length - 1 && <View style={styles.stepLine} />}
+                {index < TURN_STEPS.length - 1 && (
+                  <View style={[styles.stepLine, { backgroundColor: colors.outlineVariant }]} />
+                )}
               </View>
               <View style={styles.stepContent}>
-                <Text style={styles.stepInstruction}>{step.instruction}</Text>
+                <Text style={[styles.stepInstruction, { color: colors.onSurface }]}>
+                  {step.instruction}
+                </Text>
                 <View style={styles.stepMeta}>
-                  <Text style={styles.stepDistance}>{step.distance}</Text>
+                  <Text style={[styles.stepDistance, { color: colors.onSurfaceVariant }]}>
+                    {step.distance}
+                  </Text>
                   {step.lane ? (
-                    <View style={styles.laneBadge}>
-                      <Milestone size={10} color="#0096FF" />
-                      <Text style={styles.laneText}>{step.lane}</Text>
+                    <View
+                      style={[
+                        styles.laneBadge,
+                        { backgroundColor: colors.surfaceContainerLow },
+                      ]}>
+                      <Milestone size={10} color={colors.primary} />
+                      <Text style={[styles.laneText, { color: colors.primary }]}>{step.lane}</Text>
                     </View>
                   ) : null}
                 </View>
               </View>
             </View>
           ))}
-        </View>
+        </Card>
 
-        {/* Eco-Routing Info */}
-        <View style={styles.ecoCard}>
+        {/* Eco-Routing Info Card */}
+        <Card variant="flat" padding="md" style={styles.ecoCard}>
           <View style={styles.ecoHeader}>
-            <Leaf size={20} color="#00C06D" />
-            <Text style={styles.ecoTitle}>Green Eco-Routing</Text>
+            <Leaf size={20} color={colors.trafficGreen} />
+            <Text style={[styles.ecoTitle, { color: colors.onSurface }]}>Green Eco-Routing</Text>
           </View>
-          <Text style={styles.ecoDesc}>
+          <Text style={[styles.ecoDesc, { color: colors.onSurfaceVariant }]}>
             The Eco-Friendly route saves ~1.8 kg CO₂ by reducing acceleration events and toll stop-and-go idling. 
             EV vehicles gain +12 km range from regenerative braking on downhill gradients.
           </Text>
           <View style={styles.ecoMetrics}>
-            <View style={styles.ecoMetricItem}>
-              <Text style={styles.ecoMetricValue}>-23%</Text>
-              <Text style={styles.ecoMetricLabel}>Carbon</Text>
-            </View>
-            <View style={styles.ecoMetricItem}>
-              <Text style={styles.ecoMetricValue}>+12 km</Text>
-              <Text style={styles.ecoMetricLabel}>EV Range</Text>
-            </View>
-            <View style={styles.ecoMetricItem}>
-              <Text style={styles.ecoMetricValue}>₹0</Text>
-              <Text style={styles.ecoMetricLabel}>Toll Fees</Text>
-            </View>
+            <MetricCard label="Carbon" value="-23%" style={{ flex: 1 }} />
+            <MetricCard label="EV Range" value="+12 km" style={{ flex: 1 }} />
+            <MetricCard label="Toll Fees" value="₹0" style={{ flex: 1 }} />
           </View>
-        </View>
+        </Card>
 
-        <View style={{ height: 32 }} />
+        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFF' },
-  header: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E8EEFF' },
-  title: { fontSize: 22, fontWeight: '800', color: '#111C2D' },
-  subtitle: { fontSize: 11, color: '#707884', marginTop: 2, letterSpacing: 0.3 },
-  scroll: { padding: 16, gap: 14 },
-
-  routeInputCard: { backgroundColor: '#fff', borderRadius: 18, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
-  routeInputRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  dotIndicator: { width: 12, height: 12, borderRadius: 6 },
-  routeInputField: { flex: 1 },
-  routeInputLabel: { fontSize: 10, fontWeight: '700', color: '#707884', letterSpacing: 1 },
-  routeInputValue: { fontSize: 15, fontWeight: '600', color: '#111C2D', marginTop: 2 },
-  routeInputDivider: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingLeft: 5 },
-  dottedLine: { flex: 1, height: 1, borderStyle: 'dashed', borderWidth: 0.8, borderColor: '#BFC7D5' },
-  swapButton: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#E8F4FF', alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
-  digiPinRow: { flexDirection: 'row', alignItems: 'center', marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F0F3FF', gap: 8 },
-  digiPinBadge: { backgroundColor: '#0096FF', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
-  digiPinLabel: { fontSize: 9, fontWeight: '800', color: '#fff', letterSpacing: 0.5 },
-  digiPinCode: { fontSize: 14, fontWeight: '700', color: '#111C2D', fontFamily: 'monospace' },
-  digiPinDesc: { fontSize: 10, color: '#707884' },
-
-  profileRow: { flexDirection: 'row', gap: 8 },
+  container: {
+    flex: 1,
+  },
+  header: {
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    ...Shadows.xs,
+  },
+  title: {
+    ...Typography.titleLarge,
+    fontWeight: '800',
+  },
+  subtitle: {
+    ...Typography.bodySmall,
+    marginTop: 2,
+    letterSpacing: 0.2,
+  },
+  scroll: {
+    padding: Spacing.md,
+    gap: 14,
+  },
+  routeInputCard: {
+    borderRadius: Radius.xl,
+    padding: Spacing.md,
+    borderWidth: 1,
+    ...Shadows.sm,
+    gap: 10,
+  },
+  routeInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  dotIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  routeInputField: {
+    flex: 1,
+  },
+  routeInputLabel: {
+    ...Typography.labelSmall,
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+  },
+  routeInputValue: {
+    ...Typography.bodyMedium,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  routeInputDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: -2,
+    paddingLeft: 5,
+  },
+  dottedLine: {
+    width: 2,
+    height: 20,
+    borderStyle: 'dotted',
+    borderLeftWidth: 2,
+  },
+  swapButton: {
+    marginLeft: 14,
+    width: 32,
+    height: 32,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  digiPinRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: Radius.md,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    marginTop: 4,
+  },
+  digiPinBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radius.sm,
+  },
+  digiPinLabel: {
+    ...Typography.labelSmall,
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  digiPinCode: {
+    ...Typography.labelMedium,
+    fontWeight: '700',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  digiPinDesc: {
+    ...Typography.bodySmall,
+    fontSize: 10,
+  },
+  profileRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  profileChip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    ...Shadows.xs,
+  },
+  profileChipText: {
+    ...Typography.labelMedium,
+    fontSize: 12,
+  },
   tspActionCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1.5,
-    borderColor: '#D0E4FF',
-    shadowColor: '#0096FF',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 2,
+    padding: Spacing.md,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    ...Shadows.xs,
   },
-  tspActionLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  tspActionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
   tspIconBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#0096FF',
+    width: 36,
+    height: 36,
+    borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  tspActionTitle: { fontSize: 13, fontWeight: '700', color: '#111C2D' },
-  tspActionSub: { fontSize: 10, color: '#707884', marginTop: 1 },
-  profileChip: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, backgroundColor: '#fff', paddingVertical: 10, borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
-  profileChipActive: { backgroundColor: '#0096FF', shadowColor: '#0096FF', shadowOpacity: 0.3, shadowRadius: 8, elevation: 3 },
-  profileChipText: { fontSize: 12, fontWeight: '700', color: '#3F4753' },
-  profileChipTextActive: { color: '#fff' },
-
-  weatherBanner: { backgroundColor: '#FFF8E1', borderRadius: 14, padding: 14, borderLeftWidth: 4 },
-  weatherBannerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
-  weatherLevelBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
-  weatherLevelText: { fontSize: 10, fontWeight: '800', color: '#fff', letterSpacing: 0.5 },
-  weatherValid: { fontSize: 9, color: '#707884' },
-  weatherTitle: { fontSize: 13, fontWeight: '700', color: '#111C2D' },
-  weatherDesc: { fontSize: 12, color: '#3F4753', lineHeight: 17, marginTop: 3 },
-
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#111C2D', marginTop: 4 },
-
-  routeCard: { backgroundColor: '#fff', borderRadius: 16, padding: 14, borderWidth: 2, borderColor: 'transparent', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
-  routeCardSelected: { borderColor: '#0096FF', shadowColor: '#0096FF', shadowOpacity: 0.15 },
-  routeCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  routeCardLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  routeLabelBadge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 8 },
-  routeLabelText: { fontSize: 11, fontWeight: '800', color: '#fff' },
-  recommendedBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#E8F4FF', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
-  recommendedText: { fontSize: 9, fontWeight: '700', color: '#0096FF' },
-  trafficPill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
-  trafficDot: { width: 6, height: 6, borderRadius: 3 },
-  trafficText: { fontSize: 10, fontWeight: '600' },
-  routeVia: { fontSize: 12, color: '#707884', marginTop: 6 },
-  routeMetrics: { flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 6 },
-  metric: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  metricValue: { fontSize: 13, fontWeight: '700', color: '#111C2D' },
-  metricSub: { fontSize: 10, color: '#707884' },
-  metricDivider: { width: 1, height: 14, backgroundColor: '#E8EEFF' },
-  startNavButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#0096FF', borderRadius: 12, paddingVertical: 12, marginTop: 12, shadowColor: '#0096FF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 4 },
-  startNavText: { fontSize: 14, fontWeight: '700', color: '#fff' },
-
-  tollCard: { backgroundColor: '#fff', borderRadius: 16, padding: 14, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
-  tollHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  tollHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  fastagBadge: { backgroundColor: '#6A1B9A', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  fastagText: { fontSize: 10, fontWeight: '800', color: '#fff', letterSpacing: 0.5 },
-  tollVehicleClass: { fontSize: 11, color: '#707884' },
-  tollTotal: { fontSize: 20, fontWeight: '800', color: '#111C2D' },
-  tollRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#F0F3FF' },
-  tollRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  tollDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#6A1B9A' },
-  tollPlazaName: { fontSize: 13, fontWeight: '600', color: '#111C2D' },
-  tollHighway: { fontSize: 10, color: '#707884', marginTop: 1 },
-  tollFee: { fontSize: 14, fontWeight: '700', color: '#111C2D' },
-  tollLaneHint: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#E8F4FF', borderRadius: 10, padding: 10, marginTop: 10 },
-  tollLaneText: { flex: 1, fontSize: 11, color: '#0061A7', lineHeight: 15 },
-
-  stepsCard: { backgroundColor: '#fff', borderRadius: 16, padding: 14, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
-  stepRow: { flexDirection: 'row', gap: 12 },
-  stepIconCol: { alignItems: 'center', width: 28 },
-  stepIconCircle: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#0096FF', alignItems: 'center', justifyContent: 'center' },
-  stepLine: { width: 2, flex: 1, backgroundColor: '#E8EEFF', marginVertical: 4 },
-  stepContent: { flex: 1, paddingBottom: 16 },
-  stepInstruction: { fontSize: 13, fontWeight: '600', color: '#111C2D', lineHeight: 18 },
-  stepMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
-  stepDistance: { fontSize: 12, fontWeight: '700', color: '#707884' },
-  laneBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#E8F4FF', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
-  laneText: { fontSize: 10, fontWeight: '600', color: '#0096FF' },
-
-  ecoCard: { backgroundColor: '#E8F8EE', borderRadius: 16, padding: 16 },
-  ecoHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  ecoTitle: { fontSize: 15, fontWeight: '700', color: '#006D3B' },
-  ecoDesc: { fontSize: 12, color: '#1B5E20', lineHeight: 18 },
-  ecoMetrics: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#C8E6C9' },
-  ecoMetricItem: { alignItems: 'center' },
-  ecoMetricValue: { fontSize: 18, fontWeight: '800', color: '#006D3B' },
-  ecoMetricLabel: { fontSize: 10, fontWeight: '600', color: '#2E7D32', marginTop: 2 },
+  tspActionTitle: {
+    ...Typography.titleSmall,
+    fontWeight: '700',
+  },
+  tspActionSub: {
+    ...Typography.bodySmall,
+    fontSize: 11,
+    marginTop: 1,
+  },
+  weatherBanner: {
+    borderLeftWidth: 4,
+    borderWidth: 1,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    gap: 6,
+    ...Shadows.xs,
+  },
+  weatherBannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  weatherLevelBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radius.sm,
+  },
+  weatherLevelText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#fff',
+  },
+  weatherValid: {
+    fontSize: 10,
+  },
+  weatherTitle: {
+    ...Typography.titleSmall,
+    fontWeight: '700',
+  },
+  weatherDesc: {
+    ...Typography.bodySmall,
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  sectionTitle: {
+    ...Typography.titleMedium,
+    fontWeight: '800',
+    marginTop: 6,
+  },
+  routeCard: {
+    borderRadius: Radius.xl,
+    padding: Spacing.md,
+    borderWidth: 1.5,
+    gap: 10,
+    ...Shadows.sm,
+  },
+  routeCardSelected: {
+    borderWidth: 2,
+    ...Shadows.md,
+  },
+  routeCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  routeCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  routeLabelBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: Radius.sm,
+  },
+  routeLabelText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#fff',
+  },
+  recommendedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radius.sm,
+  },
+  recommendedText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  trafficPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: Radius.full,
+  },
+  trafficDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  trafficText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  routeVia: {
+    ...Typography.bodyMedium,
+    fontWeight: '500',
+  },
+  routeMetrics: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  metric: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  metricValue: {
+    ...Typography.labelMedium,
+    fontWeight: '700',
+  },
+  metricSub: {
+    fontSize: 9,
+  },
+  metricDivider: {
+    width: 1,
+    height: 14,
+  },
+  startNavButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: Radius.lg,
+    marginTop: 4,
+    ...Shadows.sm,
+  },
+  startNavText: {
+    ...Typography.labelLarge,
+    fontWeight: '700',
+  },
+  tollCard: {
+    borderRadius: Radius.xl,
+    padding: Spacing.md,
+    borderWidth: 1,
+    gap: 10,
+    ...Shadows.sm,
+  },
+  tollHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: 6,
+  },
+  tollHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  fastagBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radius.sm,
+  },
+  fastagText: {
+    fontSize: 9,
+    fontWeight: '800',
+  },
+  tollVehicleClass: {
+    ...Typography.bodySmall,
+    fontSize: 11,
+  },
+  tollTotal: {
+    ...Typography.titleSmall,
+    fontWeight: '800',
+  },
+  tollRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  tollRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  tollDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  tollPlazaName: {
+    ...Typography.bodyMedium,
+    fontWeight: '600',
+  },
+  tollHighway: {
+    ...Typography.bodySmall,
+    fontSize: 10,
+  },
+  tollFee: {
+    ...Typography.labelMedium,
+    fontWeight: '700',
+  },
+  tollLaneHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: Radius.md,
+    padding: Spacing.sm,
+    marginTop: 2,
+  },
+  tollLaneText: {
+    ...Typography.bodySmall,
+    fontSize: 10,
+    flex: 1,
+  },
+  stepsCard: {
+    borderRadius: Radius.xl,
+    padding: Spacing.md,
+    borderWidth: 1,
+    ...Shadows.sm,
+  },
+  stepRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  stepIconCol: {
+    alignItems: 'center',
+    width: 24,
+  },
+  stepIconCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepLine: {
+    width: 2,
+    height: 32,
+    marginVertical: 2,
+  },
+  stepContent: {
+    flex: 1,
+    paddingBottom: 16,
+  },
+  stepInstruction: {
+    ...Typography.bodyMedium,
+    fontWeight: '600',
+  },
+  stepMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 3,
+  },
+  stepDistance: {
+    ...Typography.bodySmall,
+    fontSize: 11,
+  },
+  laneBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: Radius.sm,
+  },
+  laneText: {
+    fontSize: 9,
+    fontWeight: '600',
+  },
+  ecoCard: {
+    borderRadius: Radius.xl,
+    padding: Spacing.md,
+    borderWidth: 1,
+    gap: 8,
+    ...Shadows.sm,
+  },
+  ecoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  ecoTitle: {
+    ...Typography.titleSmall,
+    fontWeight: '700',
+  },
+  ecoDesc: {
+    ...Typography.bodySmall,
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  ecoMetrics: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  ecoMetricItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderRadius: Radius.md,
+  },
+  ecoMetricValue: {
+    ...Typography.titleSmall,
+    fontWeight: '800',
+  },
+  ecoMetricLabel: {
+    ...Typography.labelSmall,
+    fontSize: 10,
+    marginTop: 2,
+  },
 });

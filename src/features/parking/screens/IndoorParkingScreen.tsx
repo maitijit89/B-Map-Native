@@ -14,11 +14,12 @@ import {
   Radio,
   SquareParking,
   Zap,
-  Navigation,
+  Navigation as NavIcon,
   Layers,
   CheckCircle2,
   Wifi,
 } from 'lucide-react-native';
+import { storageService } from '@/shared/services';
 
 interface ParkingBay {
   id: string;
@@ -55,11 +56,19 @@ export default function IndoorParkingModal() {
   const [selectedFloor, setSelectedFloor] = useState(1); // B2
   const [selectedBay, setSelectedBay] = useState<ParkingBay | null>(BAYS_B2[3]); // B2-04 (150kW EV)
 
-  const handleReserve = () => {
+  const handleReserve = async () => {
     if (!selectedBay) return;
+    await storageService.addSavedPlace({
+      name: `Parked Vehicle: Slot ${selectedBay.code}`,
+      address: `DLF Cyber Hub Parking Garage (${FLOORS[selectedFloor]})`,
+      latitude: 28.4952,
+      longitude: 77.0888,
+      category: 'Parking',
+    });
+
     Alert.alert(
-      'Bay Reserved & Indoor Route Active! 🚗',
-      `Bay ${selectedBay.code} (${selectedBay.type.toUpperCase()}) held for 15 minutes. Follow the blue indoor beacon corridor on Floor B2.`,
+      'Bay Reserved & Parked Spot Saved! 🚗',
+      `Bay ${selectedBay.code} (${selectedBay.type.toUpperCase()}) held for 15 minutes. Location saved to your profile ("Find My Car").`,
       [
         {
           text: 'Start Indoor Navigation',
@@ -245,7 +254,7 @@ export default function IndoorParkingModal() {
             </View>
 
             <TouchableOpacity style={styles.reserveBtn} onPress={handleReserve} activeOpacity={0.85}>
-              <Navigation size={16} color="#ffffff" />
+              <NavIcon size={16} color="#ffffff" />
               <Text style={styles.reserveBtnText}>Reserve Bay & Start Indoor Routing</Text>
             </TouchableOpacity>
           </View>
