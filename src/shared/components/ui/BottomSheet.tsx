@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useCallback, memo } from 'react';
 import {
   Modal,
   View,
@@ -6,14 +6,24 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   StyleSheet,
-  Animated,
   Dimensions,
   StyleProp,
   ViewStyle,
 } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  runOnJS,
+  interpolate,
+  Extrapolation,
+} from 'react-native-reanimated';
 import { X } from 'lucide-react-native';
 import { useThemeColors } from '../../hooks';
 import { Radius, Shadows, Spacing, Typography } from '../../constants/tokens';
+import { haptics } from '../../utils/haptics';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -28,7 +38,13 @@ export interface BottomSheetProps {
   contentStyle?: StyleProp<ViewStyle>;
 }
 
-export const BottomSheet: React.FC<BottomSheetProps> = ({
+const SPRING_CONFIG = {
+  damping: 24,
+  stiffness: 240,
+  mass: 0.8,
+};
+
+export const BottomSheet: React.FC<BottomSheetProps> = memo(({
   visible,
   onClose,
   title,
@@ -39,39 +55,60 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   contentStyle,
 }) => {
   const colors = useThemeColors();
-  const [slideAnim] = useState(() => new Animated.Value(SCREEN_HEIGHT));
-  const [fadeAnim] = useState(() => new Animated.Value(0));
+  const translateY = useSharedValue(SCREEN_HEIGHT);
+  const startY = useSharedValue(0);
+
+  const handleDismiss = useCallback(() => {
+    haptics.light();
+    onClose();
+  }, [onClose]);
+
+  const panGesture = Gesture.Pan()
+    .onStart(() => {
+      startY.value = translateY.value;
+    })
+    .onUpdate((event) => {
+      // Only allow dragging down or slight elastic resistance dragging up
+      if (event.translationY > 0) {
+        translateY.value = startY.value + event.translationY;
+      } else {
+        // Elastic pull up
+        translateY.value = startY.value + event.translationY * 0.2;
+      }
+    })
+    .onEnd((event) => {
+      if (event.translationY > 100 || event.velocityY > 600) {
+        translateY.value = withTiming(SCREEN_HEIGHT, { duration: 220 }, () => {
+          runOnJS(handleDismiss)();
+        });
+      } else {
+        translateY.value = withSpring(0, SPRING_CONFIG);
+      }
+    });
 
   useEffect(() => {
     if (visible) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-        Animated.spring(slideAnim, {
-          toValue: 0,
-          damping: 25,
-          stiffness: 200,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      translateY.value = withSpring(0, SPRING_CONFIG);
     } else {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: SCREEN_HEIGHT,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      translateY.value = withTiming(SCREEN_HEIGHT, { duration: 250 });
     }
-  }, [visible, slideAnim, fadeAnim]);
+  }, [visible, translateY]);
+
+  const sheetAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateY: Math.max(0, translateY.value) }],
+    };
+  });
+
+  const backdropAnimatedStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      translateY.value,
+      [0, SCREEN_HEIGHT * 0.5, SCREEN_HEIGHT],
+      [1, 0.4, 0],
+      Extrapolation.CLAMP
+    );
+    return { opacity };
+  });
 
   return (
     <Modal
@@ -81,43 +118,51 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
       onRequestClose={onClose}>
       <View style={styles.overlay}>
         <TouchableWithoutFeedback onPress={onClose}>
-          <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]} />
+          <Animated.View style={[styles.backdrop, backdropAnimatedStyle]} />
         </TouchableWithoutFeedback>
 
-        <Animated.View
-          style={[
-            styles.sheetContainer,
-            {
-              backgroundColor: colors.surfaceContainerLowest,
-              maxHeight: maxHeight as any,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}>
-          <View style={[styles.handleBar, { backgroundColor: colors.outlineVariant }]} />
-
-          {(title || showCloseButton) && (
-            <View style={[styles.header, { borderBottomColor: colors.surfaceContainerHigh }]}>
-              <View style={styles.headerTitleContainer}>
-                {title && <Text style={[styles.title, { color: colors.onBackground }]}>{title}</Text>}
-                {subtitle && <Text style={[styles.subtitle, { color: colors.onSurfaceVariant }]}>{subtitle}</Text>}
-              </View>
-              {showCloseButton && (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={onClose}
-                  style={[styles.closeButton, { backgroundColor: colors.surfaceContainerLow }]}>
-                  <X size={20} color={colors.onSurfaceVariant} />
-                </TouchableOpacity>
-              )}
+        <GestureDetector gesture={panGesture}>
+          <Animated.View
+            style={[
+              styles.sheetContainer,
+              {
+                backgroundColor: colors.surfaceContainerLowest,
+                maxHeight: maxHeight as any,
+              },
+              sheetAnimatedStyle,
+            ]}>
+            <View style={styles.dragHandleHitSlop}>
+              <View style={[styles.handleBar, { backgroundColor: colors.outlineVariant }]} />
             </View>
-          )}
 
-          <View style={[styles.content, contentStyle]}>{children}</View>
-        </Animated.View>
+            {(title || showCloseButton) && (
+              <View style={[styles.header, { borderBottomColor: colors.surfaceContainerHigh }]}>
+                <View style={styles.headerTitleContainer}>
+                  {title && <Text style={[styles.title, { color: colors.onBackground }]}>{title}</Text>}
+                  {subtitle && <Text style={[styles.subtitle, { color: colors.onSurfaceVariant }]}>{subtitle}</Text>}
+                </View>
+                {showCloseButton && (
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={handleDismiss}
+                    style={[styles.closeButton, { backgroundColor: colors.surfaceContainerLow }]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Close bottom sheet">
+                    <X size={20} color={colors.onSurfaceVariant} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
+            <View style={[styles.content, contentStyle]}>{children}</View>
+          </Animated.View>
+        </GestureDetector>
       </View>
     </Modal>
   );
-};
+});
+
+BottomSheet.displayName = 'BottomSheet';
 
 const styles = StyleSheet.create({
   overlay: {
@@ -134,20 +179,23 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xl,
     ...Shadows.xl,
   },
+  dragHandleHitSlop: {
+    width: '100%',
+    paddingVertical: Spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   handleBar: {
     width: 44,
     height: 5,
     borderRadius: Radius.full,
-    alignSelf: 'center',
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.xs,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.md,
+    paddingBottom: Spacing.md,
     borderBottomWidth: 1,
   },
   headerTitleContainer: {

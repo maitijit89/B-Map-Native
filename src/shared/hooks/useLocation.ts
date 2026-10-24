@@ -25,6 +25,13 @@ export function useLocation(watch: boolean = true) {
   useEffect(() => {
     let isMounted = true;
 
+    const handleCoords = (coords: LocationCoordinates) => {
+      if (isMounted) {
+        setLocation(coords);
+        setLoading(false);
+      }
+    };
+
     async function init() {
       const granted = await locationService.requestPermissions();
       if (!isMounted) return;
@@ -32,12 +39,7 @@ export function useLocation(watch: boolean = true) {
       setPermissionGranted(granted);
 
       if (granted && watch) {
-        await locationService.startLocationUpdates((coords) => {
-          if (isMounted) {
-            setLocation(coords);
-            setLoading(false);
-          }
-        });
+        await locationService.startLocationUpdates(handleCoords);
       } else {
         const coords = await locationService.getCurrentLocation();
         if (isMounted) {
@@ -51,7 +53,9 @@ export function useLocation(watch: boolean = true) {
 
     return () => {
       isMounted = false;
-      locationService.stopLocationUpdates();
+      if (watch) {
+        locationService.stopLocationUpdates(handleCoords);
+      }
     };
   }, [watch]);
 

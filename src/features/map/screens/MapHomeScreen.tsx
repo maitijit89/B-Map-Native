@@ -1,18 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Image,
   Alert,
   Switch,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import * as Haptics from 'expo-haptics';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+  FadeInDown,
+  FadeInLeft,
+  FadeInRight,
+  FadeInUp,
+} from 'react-native-reanimated';
 import {
   Bell,
   User,
@@ -35,11 +43,8 @@ import {
   Fuel,
   SquareParking,
   Utensils,
-  Megaphone,
-  CheckCircle2,
-  Satellite,
 } from 'lucide-react-native';
-import VectorMapCanvas from '../components/VectorMapCanvas';
+import { VectorMapCanvas } from '../components/VectorMapCanvas';
 import { useThemeColors, useLocation } from '@/shared/hooks';
 import { Radius, Shadows, Spacing, Typography } from '@/shared/constants/tokens';
 import {
@@ -50,11 +55,9 @@ import {
   BottomSheet,
   SearchBar,
   DynamicCompassIcon,
+  AnimatedPressable,
 } from '@/shared/components/ui';
-import { AppLaunchGyroIntro } from '@/features/compass';
-
-const LOGO_URI =
-  'https://lh3.googleusercontent.com/aida/AEtjO1VN3H4tzgmXs2ZRa0LcSjl67XdRLkUoaSPeH_CWrj-KjJJn-jxm5Ry5BCuQEgauBA2ThJbop3aKeUWeQ6SIdguokZoxbQ03I2vdvAUunO_QvAU8m1DCVcEXQYq8TxLTr2sWs2k07ep1c3xBFVp7H3inSTj60j6IHieJAYPLhMEQKWUapTBKMbNFv4M-1wMcH_cGS00_NluNZE-s9nOPbjxB6lGgQyLc1ATdoWESAGL1bzNPnljLN2abiRf-';
+import { haptics } from '@/shared/utils/haptics';
 
 type TransitMode = 'drive' | 'transit' | 'ride' | 'bike' | 'walk';
 type MapLayerType = 'standard' | 'satellite' | 'night' | 'navic';
@@ -69,59 +72,81 @@ export default function HomeScreen() {
   const [selectedLayer, setSelectedLayer] = useState<MapLayerType>('standard');
   const [showCameras, setShowCameras] = useState(true);
   const [showHazards, setShowHazards] = useState(true);
-  const [showGyroIntro, setShowGyroIntro] = useState(true);
+  const [isLocating, setIsLocating] = useState(false);
 
-  const triggerHaptic = () => {
-    if (Platform.OS === 'ios' || Platform.OS === 'android') {
-      try {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } catch {
-        // Haptics unavailable
-      }
-    }
-  };
+  // Pulse animation for weather & speed camera badge
+  const alertPulse = useSharedValue(1);
 
-  const handleCompassPress = () => {
-    triggerHaptic();
+  useEffect(() => {
+    alertPulse.value = withRepeat(
+      withSequence(
+        withTiming(1.04, { duration: 900 }),
+        withTiming(1, { duration: 900 })
+      ),
+      -1,
+      true
+    );
+  }, [alertPulse]);
+
+  const alertAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: alertPulse.value }],
+    };
+  });
+
+  const handleCompassPress = useCallback(() => {
+    haptics.selection();
     router.push('/compass-hud' as any);
-  };
+  }, []);
 
-  const handleStartNav = () => {
-    triggerHaptic();
+  const handleStartNav = useCallback(() => {
+    haptics.medium();
     router.push('/modal');
-  };
+  }, []);
 
-  const handlePoiSelect = (poiName: string) => {
-    triggerHaptic();
+  const handlePoiSelect = useCallback((poiName: string) => {
+    haptics.medium();
     Alert.alert('Waypoint Selected', `${poiName}\nReady for turn-by-turn guidance.`, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Start Route', onPress: handleStartNav },
     ]);
-  };
+  }, [handleStartNav]);
 
   const { location, refreshLocation } = useLocation(true);
 
-  const handleLocateMe = async () => {
-    triggerHaptic();
-    await refreshLocation();
-    const lat = location.latitude.toFixed(4);
-    const lon = location.longitude.toFixed(4);
-    const acc = location.accuracy ? `${location.accuracy.toFixed(1)}m` : '±0.8m';
-    Alert.alert('GPS Location Lock Established', `Latitude: ${lat}\nLongitude: ${lon}\nAccuracy Fix: ${acc}`);
-  };
+  const handleLocateMe = useCallback(async () => {
+    haptics.heavy();
+    setIsLocating(true);
+    try {
+      await refreshLocation();
+      const lat = location.latitude.toFixed(4);
+      const lon = location.longitude.toFixed(4);
+      const acc = location.accuracy ? `${location.accuracy.toFixed(1)}m` : '±0.8m';
+      Alert.alert(
+        'GPS Location Lock Established',
+        `Latitude: ${lat}\nLongitude: ${lon}\nAccuracy Fix: ${acc}`
+      );
+    } finally {
+      setIsLocating(false);
+    }
+  }, [location, refreshLocation]);
 
-  const handleVoiceAssistant = () => {
-    triggerHaptic();
+  const handleVoiceAssistant = useCallback(() => {
+    haptics.light();
     router.push('/ai-copilot');
-  };
+  }, []);
 
-  const handleModeChange = (mode: TransitMode) => {
-    triggerHaptic();
+  const handleModeChange = useCallback((mode: TransitMode) => {
+    haptics.selection();
     setActiveMode(mode);
     if (mode === 'transit') {
       router.push('/transit-planner');
     }
-  };
+  }, []);
+
+  const handleLayerModalClose = useCallback(() => {
+    setShowLayerModal(false);
+  }, []);
 
   return (
     <View style={[styles.screenContainer, { backgroundColor: colors.background }]}>
@@ -137,7 +162,12 @@ export default function HomeScreen() {
         ]}>
         <View style={styles.header}>
           <View style={styles.brandCluster}>
-            <Image source={{ uri: LOGO_URI }} style={styles.logoImage} resizeMode="contain" />
+            <AnimatedPressable
+              onPress={handleCompassPress}
+              accessibilityRole="button"
+              accessibilityLabel="B Map live compass app icon">
+              <DynamicCompassIcon size={34} dynamic={false} borderRadius={9} />
+            </AnimatedPressable>
             <View style={styles.titleColumn}>
               <Text style={[styles.logoTag, { color: colors.primaryContainer }]}>B MAP</Text>
               <Text style={[styles.headerTitle, { color: colors.onSurface }]}>Map Explore</Text>
@@ -145,35 +175,33 @@ export default function HomeScreen() {
           </View>
 
           <View style={styles.headerActions}>
-            <TouchableOpacity
+            <AnimatedPressable
               style={[styles.headerIconButton, { backgroundColor: colors.surfaceContainerLow }]}
-              activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel="Notifications"
               onPress={() => {
-                triggerHaptic();
+                haptics.light();
                 Alert.alert('Notifications', 'No new alerts. Real-time traffic monitoring active.');
               }}>
               <Bell size={19} color={colors.onSurfaceVariant} />
               <View style={[styles.notifDot, { backgroundColor: colors.error }]} />
-            </TouchableOpacity>
+            </AnimatedPressable>
 
-            <TouchableOpacity
+            <AnimatedPressable
               style={[styles.profileAvatar, { backgroundColor: colors.primary }]}
-              activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel="User profile"
               onPress={() => {
-                triggerHaptic();
+                haptics.light();
                 router.push('/auth');
               }}>
               <User size={18} color={colors.onPrimary} />
-            </TouchableOpacity>
+            </AnimatedPressable>
           </View>
         </View>
       </SafeAreaView>
 
-      {/* 2. MAP CANVAS BACKGROUND */}
+      {/* 2. MAP CANVAS BACKGROUND & INTERACTIVE HUD */}
       <ScrollView
         style={styles.mainScroll}
         contentContainerStyle={styles.mainScrollContent}
@@ -183,26 +211,28 @@ export default function HomeScreen() {
           <VectorMapCanvas onPoiPress={handlePoiSelect} showTraffic={showTraffic} />
 
           {/* FLOATING TOP SEARCH BAR & TRANSIT CAROUSEL */}
-          <View style={styles.floatingTopContainer}>
+          <Animated.View
+            entering={FadeInDown.duration(320).springify().damping(16)}
+            style={styles.floatingTopContainer}>
             {/* Search Bar Component */}
             <SearchBar
               placeholder="Search destination, DigiPIN, fuel..."
               editable={false}
               onPress={() => {
-                triggerHaptic();
+                haptics.light();
                 router.push('/search');
               }}
               onMicPress={handleVoiceAssistant}
               leadingIcon={
                 <View style={styles.searchLeftGroup}>
-                  <Image source={{ uri: LOGO_URI }} style={styles.searchLogoThumb} resizeMode="contain" />
+                  <DynamicCompassIcon size={26} dynamic={false} borderRadius={7} />
                 </View>
               }
               trailingAction={
                 <TouchableOpacity
                   style={[styles.cameraButton, { backgroundColor: colors.surfaceContainerLow }]}
                   onPress={() => {
-                    triggerHaptic();
+                    haptics.light();
                     Alert.alert('AR Navigation', 'Opening AR Camera mode with sovereign spatial anchors...');
                   }}
                   accessibilityRole="button"
@@ -256,12 +286,13 @@ export default function HomeScreen() {
                 icon={<Footprints size={15} color={activeMode === 'walk' ? colors.onPrimaryContainer : colors.onSurfaceVariant} />}
               />
             </ScrollView>
-          </View>
+          </Animated.View>
 
           {/* FLOATING LEFT ENVIRONMENTAL & ROAD SAFETY WIDGETS */}
           <View style={styles.floatingLeftWidgets}>
             {/* Weather & Air Quality Pill */}
-            <View
+            <Animated.View
+              entering={FadeInLeft.delay(100).duration(280).springify().damping(16)}
               style={[
                 styles.weatherPill,
                 {
@@ -277,12 +308,14 @@ export default function HomeScreen() {
                   <Text style={[styles.aqiText, { color: colors.secondary }]}>AQI 28 · Good</Text>
                 </View>
               </View>
-            </View>
+            </Animated.View>
 
             {/* Speed Camera Alert Badge */}
-            <View
+            <Animated.View
+              entering={FadeInLeft.delay(200).duration(280).springify().damping(16)}
               style={[
                 styles.speedCameraBadge,
+                alertAnimatedStyle,
                 {
                   backgroundColor: colors.surfaceContainerLowest,
                   borderColor: colors.surfaceContainerHigh,
@@ -292,13 +325,15 @@ export default function HomeScreen() {
               <Text style={[styles.speedCameraText, { color: colors.onSurface }]}>
                 Camera 450m ahead (60 km/h)
               </Text>
-            </View>
+            </Animated.View>
           </View>
 
           {/* FLOATING RIGHT MAP UTILITY CONTROLS */}
-          <View style={styles.floatingRightControls}>
+          <Animated.View
+            entering={FadeInRight.delay(150).duration(280).springify().damping(16)}
+            style={styles.floatingRightControls}>
             {/* Map Layers */}
-            <TouchableOpacity
+            <AnimatedPressable
               style={[
                 styles.fabBtn,
                 {
@@ -307,31 +342,29 @@ export default function HomeScreen() {
                 },
               ]}
               onPress={() => {
-                triggerHaptic();
+                haptics.light();
                 setShowLayerModal(true);
               }}
               accessibilityRole="button"
-              accessibilityLabel="Map layers"
-              activeOpacity={0.8}>
-              <Layers size={19} color={colors.onSurfaceVariant} />
-            </TouchableOpacity>
+              accessibilityLabel="Map layers">
+              <Layers size={20} color={colors.onSurfaceVariant} />
+            </AnimatedPressable>
 
             {/* Traffic Toggle */}
-            <TouchableOpacity
+            <AnimatedPressable
               style={[
                 styles.fabBtn,
                 {
                   backgroundColor: colors.surfaceContainerLowest,
-                  borderColor: colors.surfaceContainerHigh,
+                  borderColor: showTraffic ? colors.primary : colors.surfaceContainerHigh,
                 },
               ]}
               onPress={() => {
-                triggerHaptic();
+                haptics.light();
                 setShowTraffic(!showTraffic);
               }}
               accessibilityRole="button"
-              accessibilityLabel="Toggle live traffic"
-              activeOpacity={0.8}>
+              accessibilityLabel="Toggle live traffic">
               <View style={styles.trafficIconWrapper}>
                 <View
                   style={[
@@ -349,10 +382,10 @@ export default function HomeScreen() {
                   <View style={[styles.miniBar, { backgroundColor: colors.trafficRed }]} />
                 </View>
               </View>
-            </TouchableOpacity>
+            </AnimatedPressable>
 
             {/* Route Planner Shortcut */}
-            <TouchableOpacity
+            <AnimatedPressable
               style={[
                 styles.fabBtn,
                 {
@@ -361,44 +394,46 @@ export default function HomeScreen() {
                 },
               ]}
               onPress={() => {
-                triggerHaptic();
+                haptics.light();
                 router.push('/(tabs)/routes');
               }}
               accessibilityRole="button"
-              accessibilityLabel="Route planner"
-              activeOpacity={0.8}>
-              <Route size={17} color={colors.primaryContainer} />
+              accessibilityLabel="Route planner">
+              <Route size={18} color={colors.primaryContainer} />
               <Text style={[styles.routeFabText, { color: colors.primaryContainer }]}>Route</Text>
-            </TouchableOpacity>
+            </AnimatedPressable>
 
-            {/* North Compass */}
-            <TouchableOpacity
+            {/* North Compass FAB */}
+            <AnimatedPressable
+              style={styles.compassFab}
               onPress={handleCompassPress}
               accessibilityRole="button"
-              accessibilityLabel="Compass reset north"
-              activeOpacity={0.8}>
-              <DynamicCompassIcon size={44} dynamic={true} tilt3D={true} borderRadius={12} />
-            </TouchableOpacity>
+              accessibilityLabel="Compass reset north">
+              <DynamicCompassIcon size={46} dynamic={true} tilt3D={true} borderRadius={13} />
+            </AnimatedPressable>
 
             {/* Recenter / Locate Me FAB */}
-            <TouchableOpacity
+            <AnimatedPressable
               style={[
                 styles.locateMeFab,
                 {
                   backgroundColor: colors.surfaceContainerLowest,
-                  borderColor: colors.surfaceContainerHigh,
+                  borderColor: isLocating ? colors.primary : colors.surfaceContainerHigh,
                 },
               ]}
               onPress={handleLocateMe}
               accessibilityRole="button"
-              accessibilityLabel="Re-center map"
-              activeOpacity={0.85}>
-              <LocateFixed size={24} color={colors.primaryContainer} />
-            </TouchableOpacity>
-          </View>
+              accessibilityLabel="Re-center map">
+              <LocateFixed
+                size={24}
+                color={isLocating ? colors.secondary : colors.primaryContainer}
+              />
+            </AnimatedPressable>
+          </Animated.View>
 
           {/* 3. BOTTOM SHEET COMMUTE & DISCOVERY HUD */}
-          <View
+          <Animated.View
+            entering={FadeInUp.delay(180).duration(300).springify().damping(16)}
             style={[
               styles.bottomSheetHUD,
               {
@@ -406,12 +441,10 @@ export default function HomeScreen() {
                 borderColor: colors.surfaceContainerHigh,
               },
             ]}>
-            {/* Drag Handle Bar */}
             <View style={styles.sheetHandleContainer}>
               <View style={[styles.sheetHandle, { backgroundColor: colors.outlineVariant }]} />
             </View>
 
-            {/* Commute Target 1: Company / Work */}
             <Card
               variant="flat"
               padding="md"
@@ -459,299 +492,202 @@ export default function HomeScreen() {
               padding="md"
               style={styles.commuteHomeCard}
               onPress={() => {
-                triggerHaptic();
+                haptics.light();
                 Alert.alert('Configure Home', 'Enter home address to set automatic commute alerts');
               }}>
-              <View style={styles.homeLeft}>
+              <View style={styles.commuteLeft}>
                 <View
                   style={[
                     styles.homeIconBox,
-                    { backgroundColor: colors.surfaceContainerHighest },
+                    { backgroundColor: colors.surfaceContainerLow },
                   ]}>
-                  <House size={18} color={colors.onSurfaceVariant} />
+                  <House size={20} color={colors.onSurfaceVariant} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.homeTitle, { color: colors.onSurface }]}>Home</Text>
-                  <Text style={[styles.homeSubtitle, { color: colors.onSurfaceVariant }]}>
-                    Tap to configure commute route
+                  <Text style={[styles.commuteTitle, { color: colors.onSurface }]}>Home</Text>
+                  <Text style={[styles.commuteSubText, { color: colors.onSurfaceVariant }]}>
+                    Set home location for 1-tap guidance
                   </Text>
                 </View>
               </View>
+
               <TouchableOpacity
-                style={styles.starButton}
-                accessibilityRole="button"
-                accessibilityLabel="Star home address"
+                style={styles.starIconButton}
                 onPress={() => {
-                  triggerHaptic();
+                  haptics.selection();
                   setIsHomeStarred(!isHomeStarred);
                 }}
-                activeOpacity={0.7}>
+                accessibilityRole="button"
+                accessibilityLabel="Star home location">
                 <Star
-                  size={19}
-                  color={isHomeStarred ? '#FF9800' : colors.outline}
-                  fill={isHomeStarred ? '#FF9800' : 'none'}
+                  size={18}
+                  color={isHomeStarred ? '#FF9800' : colors.outlineVariant}
+                  fill={isHomeStarred ? '#FF9800' : 'transparent'}
                 />
               </TouchableOpacity>
             </Card>
 
-            {/* Quick Services 4-Column Grid */}
-            <View style={styles.servicesGrid}>
-              {/* EV Charging */}
-              <Card
-                variant="flat"
-                padding="sm"
-                style={styles.serviceCol}
-                onPress={() => {
-                  triggerHaptic();
-                  router.push('/ev-station');
-                }}>
-                <View style={[styles.serviceCircle, { backgroundColor: colors.primaryFixed }]}>
-                  <Zap size={20} color={colors.primary} />
-                </View>
-                <Text style={[styles.serviceLabel, { color: colors.onSurface }]}>EV Charge</Text>
-                <Text style={[styles.serviceSubLabel, { color: colors.primaryContainer }]}>
-                  42 nearby
-                </Text>
-              </Card>
-
-              {/* Gas Station */}
-              <Card
-                variant="flat"
-                padding="sm"
-                style={styles.serviceCol}
-                onPress={() => {
-                  triggerHaptic();
-                  router.push('/(tabs)/nearby');
-                }}>
-                <View style={[styles.serviceCircle, { backgroundColor: colors.tertiaryFixed }]}>
-                  <Fuel size={20} color={colors.tertiary} />
-                </View>
-                <Text style={[styles.serviceLabel, { color: colors.onSurface }]}>Gas Station</Text>
-                <Text style={[styles.serviceSubLabel, { color: colors.trafficGreen }]}>-₹3.50/L</Text>
-              </Card>
-
-              {/* Parking */}
-              <Card
-                variant="flat"
-                padding="sm"
-                style={styles.serviceCol}
-                onPress={() => {
-                  triggerHaptic();
-                  router.push('/indoor-parking');
-                }}>
-                <View style={[styles.serviceCircle, { backgroundColor: colors.secondaryContainer }]}>
-                  <SquareParking size={20} color={colors.onSecondaryContainer} />
-                </View>
-                <Text style={[styles.serviceLabel, { color: colors.onSurface }]}>Parking</Text>
-                <Text style={[styles.serviceSubLabel, { color: colors.onSurfaceVariant }]}>Live spots</Text>
-              </Card>
-
-              {/* Dining */}
-              <Card
-                variant="flat"
-                padding="sm"
-                style={styles.serviceCol}
-                onPress={() => {
-                  triggerHaptic();
-                  router.push('/(tabs)/nearby');
-                }}>
-                <View style={[styles.serviceCircle, { backgroundColor: colors.surfaceContainerHighest }]}>
-                  <Utensils size={20} color={colors.onSurface} />
-                </View>
-                <Text style={[styles.serviceLabel, { color: colors.onSurface }]}>Dining</Text>
-                <Text style={[styles.serviceSubLabel, { color: colors.trafficOrange }]}>Top Rated</Text>
-              </Card>
-            </View>
-
-            {/* Traffic Alert Banner */}
-            <Card variant="flat" padding="sm" style={styles.alertBanner}>
-              <View style={styles.alertLeft}>
-                <Megaphone size={18} color={colors.primaryContainer} />
-                <Text style={[styles.alertText, { color: colors.onSurface }]} numberOfLines={1}>
-                  <Text style={{ fontWeight: '700' }}>Expressway East:</Text> Roadwork cleared, normal
-                  flow resumed.
-                </Text>
-              </View>
+            {/* Quick POI Categories Carousel */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.poiCategoriesTrack}>
               <TouchableOpacity
+                style={[
+                  styles.poiCategoryCard,
+                  { backgroundColor: colors.surfaceContainerLow },
+                ]}
                 onPress={() => {
-                  triggerHaptic();
-                  Alert.alert('Traffic Details', 'Expressway East flow normalized at 75 km/h.');
+                  haptics.light();
+                  router.push('/ev-station');
                 }}
-                accessibilityRole="button"
-                accessibilityLabel="View traffic alert details"
-                activeOpacity={0.7}>
-                <Text style={[styles.alertDetailsBtn, { color: colors.primary }]}>Details</Text>
+                activeOpacity={0.8}>
+                <View style={[styles.poiCategoryIconBox, { backgroundColor: colors.primaryContainer }]}>
+                  <Zap size={18} color={colors.onPrimary} />
+                </View>
+                <Text style={[styles.poiCategoryName, { color: colors.onSurface }]}>EV Charge</Text>
+                <Text style={[styles.poiCategorySub, { color: colors.onSurfaceVariant }]}>42 nearby</Text>
               </TouchableOpacity>
-            </Card>
-          </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.poiCategoryCard,
+                  { backgroundColor: colors.surfaceContainerLow },
+                ]}
+                onPress={() => {
+                  haptics.light();
+                  router.push('/(tabs)/nearby');
+                }}
+                activeOpacity={0.8}>
+                <View style={[styles.poiCategoryIconBox, { backgroundColor: colors.tertiaryContainer }]}>
+                  <Fuel size={18} color={colors.onTertiaryContainer} />
+                </View>
+                <Text style={[styles.poiCategoryName, { color: colors.onSurface }]}>Fuel</Text>
+                <Text style={[styles.poiCategorySub, { color: colors.onSurfaceVariant }]}>28 stations</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.poiCategoryCard,
+                  { backgroundColor: colors.surfaceContainerLow },
+                ]}
+                onPress={() => {
+                  haptics.light();
+                  router.push('/indoor-parking');
+                }}
+                activeOpacity={0.8}>
+                <View style={[styles.poiCategoryIconBox, { backgroundColor: colors.secondaryContainer }]}>
+                  <SquareParking size={18} color={colors.onSecondaryContainer} />
+                </View>
+                <Text style={[styles.poiCategoryName, { color: colors.onSurface }]}>Indoor Parking</Text>
+                <Text style={[styles.poiCategorySub, { color: colors.onSurfaceVariant }]}>18 lots</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.poiCategoryCard,
+                  { backgroundColor: colors.surfaceContainerLow },
+                ]}
+                onPress={() => {
+                  haptics.light();
+                  router.push('/(tabs)/nearby');
+                }}
+                activeOpacity={0.8}>
+                <View style={[styles.poiCategoryIconBox, { backgroundColor: colors.errorContainer }]}>
+                  <Utensils size={18} color={colors.onErrorContainer} />
+                </View>
+                <Text style={[styles.poiCategoryName, { color: colors.onSurface }]}>Dining</Text>
+                <Text style={[styles.poiCategorySub, { color: colors.onSurfaceVariant }]}>65 places</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </Animated.View>
         </View>
       </ScrollView>
 
-      {/* Map Layers & Overlays BottomSheet */}
+      {/* MAP LAYER SELECTOR BOTTOM SHEET MODAL */}
       <BottomSheet
         visible={showLayerModal}
-        onClose={() => setShowLayerModal(false)}
-        title="Sovereign Map Layers"
-        subtitle="ISRO NavIC Dual-Band & Real-Time GIS">
-        <View style={{ gap: Spacing.md }}>
-          {/* Base Layer Switcher */}
-          <Text style={[styles.layerSectionLabel, { color: colors.onSurface }]}>Base Map Type</Text>
-          <View style={styles.layerOptionsRow}>
-            {[
-              { key: 'standard' as const, label: 'Sovereign Vector', icon: Layers },
-              { key: 'satellite' as const, label: '3D Satellite', icon: Building },
-              { key: 'night' as const, label: 'Night HUD', icon: Navigation },
-              { key: 'navic' as const, label: 'NavIC L5/S', icon: Satellite },
-            ].map((opt) => {
-              const IconComp = opt.icon;
-              const isSelected = selectedLayer === opt.key;
-              return (
-                <TouchableOpacity
-                  key={opt.key}
-                  style={[
-                    styles.layerOptionChip,
-                    {
-                      backgroundColor: isSelected
-                        ? colors.primaryContainer
-                        : colors.surfaceContainerLow,
-                      borderColor: isSelected
-                        ? colors.primary
-                        : colors.outlineVariant,
-                    },
-                  ]}
-                  onPress={() => {
-                    triggerHaptic();
-                    setSelectedLayer(opt.key);
-                  }}
-                  activeOpacity={0.8}>
-                  <IconComp
-                    size={18}
-                    color={isSelected ? colors.onPrimary : colors.primaryContainer}
-                  />
-                  <Text
-                    style={[
-                      styles.layerOptionText,
-                      {
-                        color: isSelected
-                          ? colors.onPrimary
-                          : colors.onSurface,
-                      },
-                    ]}>
-                    {opt.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* Live Overlays */}
-          <Text style={[styles.layerSectionLabel, { color: colors.onSurface }]}>
-            Real-Time Telematics Overlays
-          </Text>
-          <View
+        onClose={handleLayerModalClose}
+        title="Map Style & Overlay Layers"
+        subtitle="Custom vector cartography rendering engines">
+        <View style={styles.layerOptionsGrid}>
+          <TouchableOpacity
             style={[
-              styles.overlayToggles,
+              styles.layerGridOption,
               {
-                backgroundColor: colors.surfaceContainerLow,
-                borderColor: colors.surfaceContainerHigh,
+                backgroundColor:
+                  selectedLayer === 'standard'
+                    ? colors.primaryContainer
+                    : colors.surfaceContainerLow,
+                borderColor:
+                  selectedLayer === 'standard'
+                    ? colors.primary
+                    : colors.surfaceContainerHigh,
               },
-            ]}>
-            <View
+            ]}
+            onPress={() => setSelectedLayer('standard')}>
+            <Text
               style={[
-                styles.overlayToggleRow,
-                { borderBottomColor: colors.surfaceContainerHigh },
+                styles.layerGridOptionTitle,
+                { color: selectedLayer === 'standard' ? colors.onPrimary : colors.onSurface },
               ]}>
-              <View style={{ flex: 1, paddingRight: 8 }}>
-                <Text style={[styles.overlayTitle, { color: colors.onSurface }]}>
-                  Live 1Hz Traffic Heatmap
-                </Text>
-                <Text style={[styles.overlayDesc, { color: colors.onSurfaceVariant }]}>
-                  Congestion coloring & flow re-weighting
-                </Text>
-              </View>
-              <Switch
-                value={showTraffic}
-                onValueChange={(val) => {
-                  triggerHaptic();
-                  setShowTraffic(val);
-                }}
-                trackColor={{
-                  false: colors.surfaceContainerHighest,
-                  true: colors.primaryContainer,
-                }}
-                thumbColor="#ffffff"
-              />
-            </View>
+              Standard Vector
+            </Text>
+            <Text style={[styles.layerGridOptionSub, { color: colors.onSurfaceVariant }]}>
+              High contrast road layout
+            </Text>
+          </TouchableOpacity>
 
-            <View
+          <TouchableOpacity
+            style={[
+              styles.layerGridOption,
+              {
+                backgroundColor:
+                  selectedLayer === 'navic'
+                    ? colors.primaryContainer
+                    : colors.surfaceContainerLow,
+                borderColor:
+                  selectedLayer === 'navic'
+                    ? colors.primary
+                    : colors.surfaceContainerHigh,
+              },
+            ]}
+            onPress={() => setSelectedLayer('navic')}>
+            <Text
               style={[
-                styles.overlayToggleRow,
-                { borderBottomColor: colors.surfaceContainerHigh },
+                styles.layerGridOptionTitle,
+                { color: selectedLayer === 'navic' ? colors.onPrimary : colors.onSurface },
               ]}>
-              <View style={{ flex: 1, paddingRight: 8 }}>
-                <Text style={[styles.overlayTitle, { color: colors.onSurface }]}>
-                  ADAS Speed Radar & Red Light Cameras
-                </Text>
-                <Text style={[styles.overlayDesc, { color: colors.onSurfaceVariant }]}>
-                  Fixed radar alerts and corridor speed limits
-                </Text>
-              </View>
-              <Switch
-                value={showCameras}
-                onValueChange={(val) => {
-                  triggerHaptic();
-                  setShowCameras(val);
-                }}
-                trackColor={{
-                  false: colors.surfaceContainerHighest,
-                  true: colors.primaryContainer,
-                }}
-                thumbColor="#ffffff"
-              />
-            </View>
+              ISRO NavIC HD
+            </Text>
+            <Text style={[styles.layerGridOptionSub, { color: colors.onSurfaceVariant }]}>
+              Sovereign dual-band GIS
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-            <View style={[styles.overlayToggleRow, { borderBottomWidth: 0 }]}>
-              <View style={{ flex: 1, paddingRight: 8 }}>
-                <Text style={[styles.overlayTitle, { color: colors.onSurface }]}>
-                  Crowdsourced Road Hazard Icons
-                </Text>
-                <Text style={[styles.overlayDesc, { color: colors.onSurfaceVariant }]}>
-                  Potholes, waterlogging & accident pins
-                </Text>
-              </View>
-              <Switch
-                value={showHazards}
-                onValueChange={(val) => {
-                  triggerHaptic();
-                  setShowHazards(val);
-                }}
-                trackColor={{
-                  false: colors.surfaceContainerHighest,
-                  true: colors.primaryContainer,
-                }}
-                thumbColor="#ffffff"
-              />
-            </View>
-          </View>
-
-          <Button
-            variant="primary"
-            size="md"
-            title="Apply Layer Settings"
-            leftIcon={<CheckCircle2 size={16} color={colors.onPrimary} />}
-            onPress={() => {
-              triggerHaptic();
-              setShowLayerModal(false);
+        <View style={styles.layerSwitchRow}>
+          <Text style={[styles.layerSwitchLabel, { color: colors.onSurface }]}>Fixed Speed Radar Guns</Text>
+          <Switch
+            value={showCameras}
+            onValueChange={(val) => {
+              haptics.selection();
+              setShowCameras(val);
             }}
-            style={{ marginTop: Spacing.xs }}
+          />
+        </View>
+
+        <View style={styles.layerSwitchRow}>
+          <Text style={[styles.layerSwitchLabel, { color: colors.onSurface }]}>Crowdsourced Hazards</Text>
+          <Switch
+            value={showHazards}
+            onValueChange={(val) => {
+              haptics.selection();
+              setShowHazards(val);
+            }}
           />
         </View>
       </BottomSheet>
-
-      {/* 4. INSTANT 3D GYRO LAUNCH EXPERIENCE */}
-      {showGyroIntro && (
-        <AppLaunchGyroIntro onDismiss={() => setShowGyroIntro(false)} />
-      )}
     </View>
   );
 }
@@ -761,13 +697,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerSafeArea: {
-    zIndex: 50,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    ...Shadows.sm,
+    borderBottomWidth: 1,
+    zIndex: 20,
   },
   header: {
     height: 56,
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -775,30 +710,25 @@ const styles = StyleSheet.create({
   brandCluster: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  logoImage: {
-    width: 32,
-    height: 32,
+    gap: Spacing.sm,
   },
   titleColumn: {
     justifyContent: 'center',
   },
   logoTag: {
-    ...Typography.labelSmall,
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '900',
     letterSpacing: 1.2,
   },
   headerTitle: {
-    ...Typography.titleMedium,
-    fontWeight: '700',
-    lineHeight: 22,
+    ...Typography.titleSmall,
+    fontWeight: '800',
+    marginTop: -2,
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.xs + 2,
   },
   headerIconButton: {
     width: 38,
@@ -810,15 +740,15 @@ const styles = StyleSheet.create({
   },
   notifDot: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 9,
+    right: 9,
     width: 7,
     height: 7,
-    borderRadius: 4,
+    borderRadius: 3.5,
   },
   profileAvatar: {
-    width: 34,
-    height: 34,
+    width: 36,
+    height: 36,
     borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
@@ -828,193 +758,90 @@ const styles = StyleSheet.create({
   },
   mainScrollContent: {
     flexGrow: 1,
-    paddingBottom: 40,
   },
   mapCanvasWrapper: {
-    position: 'relative',
     width: '100%',
+    height: 720,
+    position: 'relative',
   },
   floatingTopContainer: {
     position: 'absolute',
-    top: 8,
-    left: 14,
-    right: 14,
-    zIndex: 30,
-    gap: 8,
-  },
-  searchCard: {
-    borderRadius: Radius.xl,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    ...Shadows.md,
-    gap: 8,
+    top: Spacing.md,
+    left: Spacing.md,
+    right: Spacing.md,
+    zIndex: 15,
   },
   searchLeftGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    marginRight: 2,
   },
-  searchLogoThumb: {
-    width: 28,
-    height: 28,
-    borderRadius: Radius.sm,
-  },
-  searchAvatarMini: {
-    width: 24,
-    height: 24,
-    borderRadius: Radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  searchCenterPrompt: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: 4,
-  },
-  searchPlaceholder: {
-    ...Typography.bodyMedium,
-    fontSize: 13,
-    flexShrink: 1,
-  },
-  cursorBeam: {
-    width: 2,
-    height: 14,
-    marginLeft: 3,
-  },
-  searchRightGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  dividerV: {
-    width: 1,
-    height: 18,
-    opacity: 0.5,
-  },
-  micButtonWrapper: {
-    position: 'relative',
-    width: 34,
-    height: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  micHalo: {
-    position: 'absolute',
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-  },
-  micButton: {
+  cameraButton: {
     width: 32,
     height: 32,
     borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cameraButton: {
-    width: 30,
-    height: 30,
-    borderRadius: Radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   transitChipsTrack: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 2,
-  },
-  transitChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    ...Shadows.xs,
-  },
-  transitChipLabel: {
-    ...Typography.labelMedium,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  metroBadge: {
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: Radius.sm,
-  },
-  metroBadgeText: {
-    fontSize: 9,
-    fontWeight: '700',
-  },
-  ridePriceBadge: {
-    fontSize: 10,
-    fontWeight: '700',
+    paddingTop: Spacing.xs,
+    gap: Spacing.xs,
   },
   floatingLeftWidgets: {
     position: 'absolute',
-    top: 106,
-    left: 14,
-    zIndex: 20,
-    gap: 8,
+    top: 130,
+    left: Spacing.md,
+    zIndex: 14,
+    gap: Spacing.xs,
   },
   weatherPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.sm + 2,
     paddingVertical: 6,
-    borderRadius: Radius.md,
+    borderRadius: Radius.full,
     borderWidth: 1,
-    ...Shadows.sm,
+    ...Shadows.xs,
   },
   weatherTemp: {
     ...Typography.labelMedium,
-    fontSize: 11,
     fontWeight: '700',
   },
   aqiRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: 1,
   },
   aqiDot: {
     width: 5,
     height: 5,
-    borderRadius: 3,
+    borderRadius: 2.5,
   },
   aqiText: {
+    ...Typography.labelSmall,
     fontSize: 9,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   speedCameraBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: Radius.sm,
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.sm + 2,
+    paddingVertical: 6,
+    borderRadius: Radius.full,
     borderWidth: 1,
     ...Shadows.xs,
   },
   speedCameraText: {
     ...Typography.labelSmall,
-    fontSize: 10,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   floatingRightControls: {
     position: 'absolute',
-    top: 106,
-    right: 14,
-    zIndex: 20,
+    top: 130,
+    right: Spacing.md,
+    zIndex: 14,
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.xs + 2,
   },
   fabBtn: {
     width: 44,
@@ -1026,56 +853,68 @@ const styles = StyleSheet.create({
     ...Shadows.sm,
   },
   trafficIconWrapper: {
+    position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
   },
   trafficIndicatorDot: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
     width: 6,
     height: 6,
     borderRadius: 3,
-    marginBottom: 2,
   },
   trafficBars: {
     flexDirection: 'row',
+    alignItems: 'flex-end',
     gap: 2,
+    height: 14,
   },
   miniBar: {
     width: 3,
-    height: 10,
+    height: 12,
     borderRadius: 1.5,
   },
   routeFabText: {
-    fontSize: 9,
-    fontWeight: '700',
+    fontSize: 8,
+    fontWeight: '800',
     marginTop: 1,
+  },
+  compassFab: {
+    marginTop: 4,
+    ...Shadows.md,
   },
   locateMeFab: {
     width: 48,
     height: 48,
-    borderRadius: Radius.full,
-    borderWidth: 1,
+    borderRadius: Radius.xl,
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 2,
     ...Shadows.md,
   },
   bottomSheetHUD: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     borderTopLeftRadius: Radius.xxl,
     borderTopRightRadius: Radius.xxl,
-    borderWidth: 1,
-    borderBottomWidth: 0,
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.xl,
-    marginTop: -20,
-    gap: 12,
-    ...Shadows.lg,
+    paddingTop: Spacing.xs,
+    zIndex: 16,
+    ...Shadows.xl,
   },
   sheetHandleContainer: {
     alignItems: 'center',
-    paddingVertical: 6,
+    paddingVertical: Spacing.xs,
   },
   sheetHandle: {
-    width: 40,
+    width: 36,
     height: 4,
     borderRadius: 2,
   },
@@ -1083,21 +922,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: Spacing.md,
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    ...Shadows.xs,
+    marginBottom: Spacing.xs,
+    borderRadius: Radius.lg,
   },
   commuteLeft: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginRight: Spacing.sm,
+    gap: Spacing.md,
+    flex: 1,
   },
   workIconBox: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1105,27 +941,10 @@ const styles = StyleSheet.create({
   commuteTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: Spacing.xs,
   },
   commuteTitle: {
     ...Typography.titleSmall,
-    fontWeight: '700',
-  },
-  fastestBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: Radius.full,
-  },
-  greenPulseDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-  },
-  fastestBadgeText: {
-    fontSize: 9,
     fontWeight: '700',
   },
   commuteMetaRow: {
@@ -1135,214 +954,95 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   commuteTimeText: {
-    fontSize: 12,
-    fontWeight: '700',
+    ...Typography.labelMedium,
+    fontWeight: '800',
   },
   dotSeparator: {
-    fontSize: 12,
+    fontSize: 10,
   },
   commuteDistText: {
-    fontSize: 12,
+    ...Typography.bodySmall,
   },
   commuteRoadText: {
-    fontSize: 11,
-    flexShrink: 1,
-  },
-  goButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: Radius.full,
-    ...Shadows.sm,
-  },
-  goButtonText: {
-    ...Typography.labelMedium,
-    fontWeight: '700',
+    ...Typography.bodySmall,
+    flex: 1,
   },
   commuteHomeCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: Spacing.md,
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-  },
-  homeLeft: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+    marginBottom: Spacing.sm,
+    borderRadius: Radius.lg,
   },
   homeIconBox: {
-    width: 32,
-    height: 32,
+    width: 40,
+    height: 40,
     borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  homeTitle: {
+  commuteSubText: {
+    ...Typography.bodySmall,
+    marginTop: 1,
+  },
+  starIconButton: {
+    padding: Spacing.xs,
+  },
+  poiCategoriesTrack: {
+    gap: Spacing.xs + 2,
+    paddingVertical: 2,
+  },
+  poiCategoryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.sm + 2,
+    paddingVertical: Spacing.xs + 2,
+    borderRadius: Radius.lg,
+  },
+  poiCategoryIconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: Radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  poiCategoryName: {
+    ...Typography.labelMedium,
+    fontWeight: '700',
+  },
+  poiCategorySub: {
+    ...Typography.labelSmall,
+    fontSize: 10,
+  },
+  layerOptionsGrid: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  layerGridOption: {
+    flex: 1,
+    padding: Spacing.md,
+    borderRadius: Radius.lg,
+    borderWidth: 1.5,
+  },
+  layerGridOptionTitle: {
     ...Typography.titleSmall,
     fontWeight: '700',
   },
-  homeSubtitle: {
+  layerGridOptionSub: {
     ...Typography.bodySmall,
-    marginTop: 1,
-  },
-  starButton: {
-    padding: 6,
-  },
-  servicesGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 8,
-    paddingTop: 2,
-  },
-  serviceCol: {
-    flex: 1,
-    alignItems: 'center',
-    borderRadius: Radius.lg,
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-  },
-  serviceCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: Radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
-  },
-  serviceLabel: {
-    ...Typography.labelSmall,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  serviceSubLabel: {
-    fontSize: 9,
-    fontWeight: '600',
-    marginTop: 1,
-    textAlign: 'center',
-  },
-  alertBanner: {
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  alertLeft: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  alertText: {
-    ...Typography.bodySmall,
-    flexShrink: 1,
-  },
-  alertDetailsBtn: {
-    ...Typography.labelSmall,
-    fontWeight: '700',
-  },
-
-  /* Map Layers Modal */
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
-    justifyContent: 'flex-end',
-  },
-  layerModalCard: {
-    borderTopLeftRadius: Radius.xxl,
-    borderTopRightRadius: Radius.xxl,
-    borderWidth: 1,
-    padding: Spacing.xl,
-    gap: 14,
-    ...Shadows.lg,
-  },
-  layerModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingBottom: 10,
-  },
-  layerModalTitle: {
-    ...Typography.titleMedium,
-    fontWeight: '800',
-  },
-  layerModalSub: {
-    ...Typography.bodySmall,
+    fontSize: 11,
     marginTop: 2,
   },
-  layerModalClose: {
-    width: 32,
-    height: 32,
-    borderRadius: Radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  layerSectionLabel: {
-    ...Typography.labelMedium,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  layerOptionsRow: {
+  layerSwitchRow: {
     flexDirection: 'row',
-    gap: 8,
-  },
-  layerOptionChip: {
-    flex: 1,
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 12,
-    paddingHorizontal: 4,
-    borderRadius: Radius.md,
-    borderWidth: 1.5,
-  },
-  layerOptionText: {
-    ...Typography.labelSmall,
-    fontSize: 10,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  overlayToggles: {
-    borderRadius: Radius.lg,
-    paddingHorizontal: Spacing.md,
-    borderWidth: 1,
-  },
-  overlayToggleRow: {
-    flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingVertical: Spacing.sm,
   },
-  overlayTitle: {
+  layerSwitchLabel: {
     ...Typography.bodyMedium,
-    fontWeight: '700',
-  },
-  overlayDesc: {
-    ...Typography.bodySmall,
-    fontSize: 10,
-    marginTop: 2,
-  },
-  applyLayersBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: Radius.lg,
-    marginTop: 4,
-    ...Shadows.sm,
-  },
-  applyLayersText: {
-    ...Typography.labelLarge,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,20 +9,30 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
-  ArrowLeft,
   TrainFront,
   Bus,
   CarTaxiFront,
   Footprints,
   Clock,
-  IndianRupee,
   Leaf,
   QrCode,
-  CheckCircle2,
   ArrowRight,
 } from 'lucide-react-native';
-import Svg, { Rect } from 'react-native-svg';
+import { useThemeColors } from '@/shared/hooks';
+import { Radius, Spacing, Typography } from '@/shared/constants/tokens';
+import { Header, Card, Button } from '@/shared/components/ui';
+import { haptics } from '@/shared/utils/haptics';
+
+interface TransitSegment {
+  type: 'metro' | 'bus' | 'walk' | 'auto';
+  lineName: string;
+  lineColor: string;
+  duration: string;
+  stationsCount?: number;
+  notes?: string;
+}
 
 interface TransitPlan {
   id: string;
@@ -32,14 +42,7 @@ interface TransitPlan {
   duration: string;
   fare: string;
   co2Saved: string;
-  segments: {
-    type: 'metro' | 'bus' | 'walk' | 'auto';
-    lineName: string;
-    lineColor: string;
-    duration: string;
-    stationsCount?: number;
-    notes?: string;
-  }[];
+  segments: TransitSegment[];
 }
 
 const TRANSIT_PLANS: TransitPlan[] = [
@@ -143,13 +146,14 @@ const TRANSIT_PLANS: TransitPlan[] = [
 ];
 
 const METRO_LINES_STATUS = [
-  { name: 'Yellow Line', status: 'Normal Flow', freq: 'Every 2.5 min', color: '#FFD600' },
-  { name: 'Blue Line', status: 'Normal Flow', freq: 'Every 3 min', color: '#2196F3' },
-  { name: 'Rapid Metro', status: 'Normal Flow', freq: 'Every 4 min', color: '#FF9800' },
-  { name: 'Airport Express', status: 'Super Fast', freq: 'Every 10 min', color: '#E91E63' },
+  { id: 'ml_1', name: 'Yellow Line', status: 'Normal Flow', freq: 'Every 2.5 min', color: '#FFD600' },
+  { id: 'ml_2', name: 'Blue Line', status: 'Normal Flow', freq: 'Every 3 min', color: '#2196F3' },
+  { id: 'ml_3', name: 'Rapid Metro', status: 'Normal Flow', freq: 'Every 4 min', color: '#FF9800' },
+  { id: 'ml_4', name: 'Airport Express', status: 'Super Fast', freq: 'Every 10 min', color: '#E91E63' },
 ];
 
 export default function TransitPlannerScreen() {
+  const colors = useThemeColors();
   const [selectedPlan, setSelectedPlan] = useState<string>('1');
   const [showQrTicket, setShowQrTicket] = useState(false);
   const [ticketCountdown, setTicketCountdown] = useState(179);
@@ -164,222 +168,196 @@ export default function TransitPlannerScreen() {
     return () => clearInterval(interval);
   }, [showQrTicket, ticketCountdown]);
 
-  const activePlan = TRANSIT_PLANS.find((p) => p.id === selectedPlan) || TRANSIT_PLANS[0];
+  const activePlan = useMemo(() => {
+    return TRANSIT_PLANS.find((p) => p.id === selectedPlan) || TRANSIT_PLANS[0];
+  }, [selectedPlan]);
 
-  const handleBuyQrTicket = () => {
+  const handleBuyQrTicket = useCallback(() => {
+    haptics.success();
     setShowQrTicket(true);
     setTicketCountdown(180);
     Alert.alert(
       'Digital Metro QR Generated! 🎫',
       'Scan at DMRC / Rapid Metro automated entry gates within 3 hours. Fare ₹42 deducted via FASTag/UPI.'
     );
+  }, []);
+
+  const handleBackPress = useCallback(() => {
+    haptics.light();
+    router.back();
+  }, []);
+
+  const handleToggleQr = useCallback(() => {
+    haptics.selection();
+    setShowQrTicket((prev) => !prev);
+  }, []);
+
+  const getSegmentIcon = (type: TransitSegment['type']) => {
+    switch (type) {
+      case 'metro':
+        return <TrainFront size={14} color="#ffffff" />;
+      case 'bus':
+        return <Bus size={14} color="#ffffff" />;
+      case 'auto':
+        return <CarTaxiFront size={14} color="#ffffff" />;
+      case 'walk':
+      default:
+        return <Footprints size={14} color="#ffffff" />;
+    }
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       {/* Top Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
-          <ArrowLeft size={22} color="#111C2D" />
-        </TouchableOpacity>
-        <View style={styles.headerTitleCol}>
-          <Text style={styles.headerTitle}>Multimodal Transit Planner</Text>
-          <Text style={styles.headerSub}>DMRC Metro · Feeder Buses · EV Auto Last-Mile</Text>
-        </View>
-        <TouchableOpacity
-          style={styles.qrHeaderBtn}
-          onPress={() => setShowQrTicket(!showQrTicket)}
-          activeOpacity={0.7}>
-          <QrCode size={18} color="#0096FF" />
-        </TouchableOpacity>
-      </View>
+      <Header
+        title="Multimodal Transit Planner"
+        onBackPress={handleBackPress}
+        rightAction={
+          <TouchableOpacity
+            style={[styles.qrHeaderBtn, { backgroundColor: colors.surfaceContainerLow }]}
+            onPress={handleToggleQr}
+            accessibilityRole="button"
+            accessibilityLabel="Toggle QR Ticket"
+            activeOpacity={0.7}>
+            <QrCode size={18} color={colors.primary} />
+          </TouchableOpacity>
+        }
+      />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Origin & Destination Card */}
-        <View style={styles.routeHeaderCard}>
-          <View style={styles.routePill}>
-            <View style={[styles.stationDot, { backgroundColor: '#FFD600' }]} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.stationLabel}>ORIGIN METRO HUB</Text>
-              <Text style={styles.stationName}>Rajiv Chowk (Central Delhi)</Text>
+        <Animated.View entering={FadeInDown.duration(280).springify().damping(16)}>
+          <Card variant="elevated" padding="md" style={styles.routeHeaderCard}>
+            <View style={[styles.routePill, { backgroundColor: colors.surfaceContainerLow }]}>
+              <View style={[styles.stationDot, { backgroundColor: '#FFD600' }]} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.stationLabel, { color: colors.onSurfaceVariant }]}>ORIGIN METRO HUB</Text>
+                <Text style={[styles.stationName, { color: colors.onSurface }]}>Rajiv Chowk (Central Delhi)</Text>
+              </View>
             </View>
-          </View>
-          <View style={styles.routeArrowRow}>
-            <View style={styles.routeLine} />
-            <View style={styles.arrowIconBox}>
-              <ArrowRight size={14} color="#0096FF" />
+            <View style={styles.routeArrowRow}>
+              <View style={[styles.routeLine, { backgroundColor: colors.surfaceContainerHigh }]} />
+              <View style={[styles.arrowIconBox, { backgroundColor: colors.surfaceContainerLow }]}>
+                <ArrowRight size={14} color={colors.primary} />
+              </View>
+              <View style={[styles.routeLine, { backgroundColor: colors.surfaceContainerHigh }]} />
             </View>
-            <View style={styles.routeLine} />
-          </View>
-          <View style={styles.routePill}>
-            <View style={[styles.stationDot, { backgroundColor: '#FF9800' }]} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.stationLabel}>DESTINATION STATION</Text>
-              <Text style={styles.stationName}>Cyber Hub, Gurugram (Rapid Metro)</Text>
+            <View style={[styles.routePill, { backgroundColor: colors.surfaceContainerLow }]}>
+              <View style={[styles.stationDot, { backgroundColor: '#FF9800' }]} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.stationLabel, { color: colors.onSurfaceVariant }]}>DESTINATION STATION</Text>
+                <Text style={[styles.stationName, { color: colors.onSurface }]}>Cyber Hub, Gurugram (Rapid Metro)</Text>
+              </View>
             </View>
-          </View>
-        </View>
+          </Card>
+        </Animated.View>
 
         {/* Live DMRC Network Status Bar */}
-        <View style={styles.statusSection}>
-          <Text style={styles.statusSectionTitle}>Live NCR Transit Feeds</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statusTrack}>
-            {METRO_LINES_STATUS.map((line, idx) => (
-              <View key={idx} style={styles.statusChip}>
-                <View style={[styles.statusColorStrip, { backgroundColor: line.color }]} />
-                <View>
-                  <Text style={styles.statusLineName}>{line.name}</Text>
-                  <Text style={styles.statusLineFreq}>{line.freq}</Text>
+        <Animated.View entering={FadeInDown.delay(50).duration(280).springify().damping(16)}>
+          <View style={styles.statusSection}>
+            <Text style={[styles.statusSectionTitle, { color: colors.onSurface }]}>Live NCR Transit Feeds</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statusTrack}>
+              {METRO_LINES_STATUS.map((line) => (
+                <View
+                  key={line.id}
+                  style={[
+                    styles.statusChip,
+                    {
+                      backgroundColor: colors.surfaceContainerLowest,
+                      borderColor: colors.surfaceContainerHigh,
+                    },
+                  ]}>
+                  <View style={[styles.lineDot, { backgroundColor: line.color }]} />
+                  <View>
+                    <Text style={[styles.lineName, { color: colors.onSurface }]}>{line.name}</Text>
+                    <Text style={[styles.lineFreq, { color: colors.onSurfaceVariant }]}>{line.freq}</Text>
+                  </View>
                 </View>
-                <View style={styles.normalPulse}>
-                  <View style={styles.greenDot} />
-                </View>
-              </View>
-            ))}
-          </ScrollView>
-        </View>
+              ))}
+            </ScrollView>
+          </View>
+        </Animated.View>
 
-        {/* Journey Plans Switcher */}
-        <Text style={styles.sectionHeading}>Recommended Journey Plans</Text>
-        {TRANSIT_PLANS.map((plan) => {
-          const isSelected = plan.id === selectedPlan;
-          return (
-            <TouchableOpacity
-              key={plan.id}
-              style={[styles.planCard, isSelected && styles.planCardSelected]}
-              onPress={() => setSelectedPlan(plan.id)}
-              activeOpacity={0.85}>
-              <View style={styles.planCardTop}>
-                <View style={[styles.planTagBadge, { backgroundColor: plan.tagColor + '20' }]}>
-                  <Text style={[styles.planTagText, { color: plan.tagColor }]}>{plan.tag}</Text>
-                </View>
-                <View style={styles.planPriceRow}>
-                  <IndianRupee size={14} color="#111C2D" />
-                  <Text style={styles.planPriceText}>{plan.fare.replace('₹', '')}</Text>
-                </View>
-              </View>
-
-              <Text style={styles.planTitle}>{plan.title}</Text>
-
-              {/* Segment Icons Track */}
-              <View style={styles.segmentIconsTrack}>
-                {plan.segments.map((seg, sIdx) => (
-                  <React.Fragment key={sIdx}>
-                    <View style={[styles.segIconBox, { borderColor: seg.lineColor }]}>
-                      {seg.type === 'metro' && <TrainFront size={14} color={seg.lineColor} />}
-                      {seg.type === 'bus' && <Bus size={14} color={seg.lineColor} />}
-                      {seg.type === 'walk' && <Footprints size={14} color={seg.lineColor} />}
-                      {seg.type === 'auto' && <CarTaxiFront size={14} color={seg.lineColor} />}
+        {/* Route Option Tabs */}
+        <View style={styles.plansContainer}>
+          {TRANSIT_PLANS.map((plan, idx) => {
+            const isSelected = plan.id === selectedPlan;
+            return (
+              <Animated.View
+                key={plan.id}
+                entering={FadeInDown.delay(75 + idx * 40).duration(280).springify().damping(16)}>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    haptics.selection();
+                    setSelectedPlan(plan.id);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Transit route: ${plan.title}, duration ${plan.duration}, fare ${plan.fare}`}
+                  accessibilityState={{ selected: isSelected }}>
+                  <Card
+                    variant={isSelected ? 'elevated' : 'flat'}
+                    padding="md"
+                    style={[
+                      styles.planCard,
+                      isSelected && { borderColor: colors.primary, borderWidth: 2 },
+                    ]}>
+                  <View style={styles.planHeader}>
+                    <View style={[styles.planTag, { backgroundColor: plan.tagColor + '20' }]}>
+                      <Text style={[styles.planTagText, { color: plan.tagColor }]}>{plan.tag}</Text>
                     </View>
-                    {sIdx < plan.segments.length - 1 && <View style={styles.segConnectorLine} />}
-                  </React.Fragment>
-                ))}
-              </View>
+                    <Text style={[styles.planFare, { color: colors.primary }]}>{plan.fare}</Text>
+                  </View>
 
-              <View style={styles.planMetaRow}>
-                <View style={styles.planMetaBadge}>
-                  <Clock size={12} color="#707884" />
-                  <Text style={styles.planMetaText}>{plan.duration}</Text>
-                </View>
-                <View style={[styles.planMetaBadge, { backgroundColor: '#E8F8EE' }]}>
-                  <Leaf size={12} color="#00C06D" />
-                  <Text style={[styles.planMetaText, { color: '#00C06D' }]}>
-                    Saved {plan.co2Saved} CO₂
-                  </Text>
-                </View>
-              </View>
-            </TouchableOpacity>
+                  <Text style={[styles.planTitle, { color: colors.onSurface }]}>{plan.title}</Text>
+
+                  <View style={styles.planMetricsRow}>
+                    <View style={styles.metricPill}>
+                      <Clock size={12} color={colors.onSurfaceVariant} />
+                      <Text style={[styles.metricText, { color: colors.onSurface }]}>{plan.duration}</Text>
+                    </View>
+                    <View style={styles.metricPill}>
+                      <Leaf size={12} color="#00C06D" />
+                      <Text style={[styles.metricText, { color: '#00C06D' }]}>{plan.co2Saved} CO₂</Text>
+                    </View>
+                  </View>
+                </Card>
+              </TouchableOpacity>
+            </Animated.View>
           );
         })}
+      </View>
 
         {/* Selected Plan Step-by-Step Breakdown */}
-        <View style={styles.breakdownCard}>
-          <View style={styles.breakdownHeader}>
-            <Text style={styles.breakdownTitle}>Itinerary Maneuver Details</Text>
-            <Text style={styles.breakdownSub}>{activePlan.title}</Text>
-          </View>
+        <Animated.View entering={FadeInDown.delay(100).duration(280).springify().damping(16)}>
+          <Card variant="flat" padding="md" style={styles.breakdownCard}>
+            <Text style={[styles.breakdownTitle, { color: colors.onSurface }]}>Step-by-Step Navigation Legs</Text>
 
-          {activePlan.segments.map((seg, idx) => (
-            <View key={idx} style={styles.stepRow}>
-              <View style={styles.stepIndicatorCol}>
-                <View style={[styles.stepDot, { backgroundColor: seg.lineColor }]} />
-                {idx < activePlan.segments.length - 1 && <View style={styles.stepTrackLine} />}
-              </View>
-              <View style={styles.stepContent}>
-                <View style={styles.stepTitleRow}>
-                  <Text style={styles.stepLineName}>{seg.lineName}</Text>
-                  <Text style={styles.stepDuration}>{seg.duration}</Text>
+            {activePlan.segments.map((seg, i) => (
+              <View key={i} style={styles.segmentRow}>
+                <View style={[styles.segIconBox, { backgroundColor: seg.lineColor }]}>
+                  {getSegmentIcon(seg.type)}
                 </View>
-                {seg.stationsCount ? (
-                  <Text style={styles.stepSubDetail}>{seg.stationsCount} stations en-route</Text>
-                ) : null}
-                {seg.notes ? <Text style={styles.stepNotes}>ℹ️ {seg.notes}</Text> : null}
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={[styles.segName, { color: colors.onSurface }]}>{seg.lineName}</Text>
+                  {seg.notes ? <Text style={[styles.segNotes, { color: colors.onSurfaceVariant }]}>{seg.notes}</Text> : null}
+                </View>
+                <Text style={[styles.segDur, { color: colors.primary }]}>{seg.duration}</Text>
               </View>
+            ))}
+
+            <View style={{ marginTop: 14 }}>
+              <Button
+                title="Book QR Metro & Transit Ticket"
+                onPress={handleBuyQrTicket}
+                size="md"
+                variant="primary"
+                fullWidth
+                leftIcon={<QrCode size={18} color={colors.onPrimary} />}
+              />
             </View>
-          ))}
-        </View>
-
-        {/* Digital QR Ticket Simulator */}
-        {showQrTicket ? (
-          <View style={styles.qrCard}>
-            <View style={styles.qrHeader}>
-              <View style={styles.qrHeaderLeft}>
-                <QrCode size={18} color="#0096FF" />
-                <Text style={styles.qrTitle}>DMRC Digital QR Gate Pass</Text>
-              </View>
-              <Text style={styles.qrTimer}>Expires: {ticketCountdown}s</Text>
-            </View>
-
-            {/* Simulated QR Code Graphic */}
-            <View style={styles.qrVisualWrapper}>
-              <Svg width={140} height={140} viewBox="0 0 100 100">
-                <Rect x="0" y="0" width="100" height="100" fill="#ffffff" />
-                {/* 3 Position Detection Patterns */}
-                <Rect x="5" y="5" width="25" height="25" fill="#111C2D" />
-                <Rect x="9" y="9" width="17" height="17" fill="#ffffff" />
-                <Rect x="13" y="13" width="9" height="9" fill="#111C2D" />
-
-                <Rect x="70" y="5" width="25" height="25" fill="#111C2D" />
-                <Rect x="74" y="9" width="17" height="17" fill="#ffffff" />
-                <Rect x="78" y="13" width="9" height="9" fill="#111C2D" />
-
-                <Rect x="5" y="70" width="25" height="25" fill="#111C2D" />
-                <Rect x="9" y="74" width="17" height="17" fill="#ffffff" />
-                <Rect x="13" y="78" width="9" height="9" fill="#111C2D" />
-
-                {/* Data modules pattern */}
-                <Rect x="35" y="10" width="10" height="10" fill="#111C2D" />
-                <Rect x="50" y="15" width="12" height="6" fill="#111C2D" />
-                <Rect x="35" y="30" width="30" height="10" fill="#0096FF" />
-                <Rect x="40" y="45" width="20" height="15" fill="#111C2D" />
-                <Rect x="10" y="40" width="15" height="8" fill="#111C2D" />
-                <Rect x="70" y="40" width="20" height="10" fill="#111C2D" />
-                <Rect x="35" y="70" width="12" height="18" fill="#111C2D" />
-                <Rect x="55" y="75" width="35" height="15" fill="#111C2D" />
-              </Svg>
-            </View>
-
-            <Text style={styles.qrStationHint}>
-              Valid for single journey: Rajiv Chowk ➔ Cyber Hub
-            </Text>
-            <View style={styles.qrGateVerified}>
-              <CheckCircle2 size={14} color="#00C06D" />
-              <Text style={styles.qrGateText}>NCMC Auto-Gate Tap Ready</Text>
-            </View>
-          </View>
-        ) : (
-          <TouchableOpacity
-            style={styles.buyTicketBtn}
-            onPress={handleBuyQrTicket}
-            activeOpacity={0.85}>
-            <QrCode size={18} color="#ffffff" />
-            <Text style={styles.buyTicketText}>
-              Generate Metro QR Ticket ({activePlan.fare})
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        <View style={{ height: 28 }} />
+          </Card>
+        </Animated.View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -388,109 +366,66 @@ export default function TransitPlannerScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFF',
   },
-  header: {
-    height: 56,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E8EEFF',
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F0F3FF',
-  },
-  headerTitleCol: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111C2D',
-  },
-  headerSub: {
-    fontSize: 10,
-    color: '#707884',
-    marginTop: 1,
+  scroll: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: 100,
+    gap: Spacing.md,
   },
   qrHeaderBtn: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#E8F4FF',
   },
-  scroll: {
-    padding: 16,
-    gap: 14,
-  },
-
-  /* Origin Destination Card */
   routeHeaderCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 18,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-    gap: 8,
+    borderRadius: Radius.xl,
   },
   routePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    padding: 10,
+    borderRadius: Radius.lg,
+    gap: 8,
   },
   stationDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   stationLabel: {
+    ...Typography.labelSmall,
     fontSize: 9,
-    fontWeight: '800',
-    color: '#707884',
-    letterSpacing: 0.5,
   },
   stationName: {
-    fontSize: 14,
+    ...Typography.titleSmall,
     fontWeight: '700',
-    color: '#111C2D',
-    marginTop: 1,
   },
   routeArrowRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 2,
+    marginVertical: 4,
   },
   routeLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#E8EEFF',
   },
   arrowIconBox: {
-    paddingHorizontal: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 8,
   },
-
-  /* Status Chips */
   statusSection: {
-    gap: 8,
+    marginTop: 4,
   },
   statusSectionTitle: {
-    fontSize: 13,
+    ...Typography.titleSmall,
     fontWeight: '700',
-    color: '#111C2D',
+    marginBottom: 8,
   },
   statusTrack: {
     gap: 8,
@@ -499,290 +434,98 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    paddingRight: 10,
-    paddingVertical: 6,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
   },
-  statusColorStrip: {
-    width: 4,
-    height: 28,
+  lineDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
-  statusLineName: {
-    fontSize: 11,
+  lineName: {
+    ...Typography.labelMedium,
     fontWeight: '700',
-    color: '#111C2D',
   },
-  statusLineFreq: {
-    fontSize: 9,
-    color: '#707884',
+  lineFreq: {
+    ...Typography.labelSmall,
+    fontSize: 10,
   },
-  normalPulse: {
-    marginLeft: 4,
-  },
-  greenDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#00C06D',
-  },
-
-  /* Journey Plans */
-  sectionHeading: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#111C2D',
-    marginTop: 4,
+  plansContainer: {
+    gap: 10,
   },
   planCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 18,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-    gap: 10,
-    borderWidth: 1.5,
-    borderColor: 'transparent',
+    borderRadius: Radius.xl,
   },
-  planCardSelected: {
-    borderColor: '#0096FF',
-    backgroundColor: '#F8FBFF',
-  },
-  planCardTop: {
+  planHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  planTagBadge: {
+  planTag: {
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 6,
+    borderRadius: Radius.sm,
   },
   planTagText: {
-    fontSize: 10,
-    fontWeight: '800',
+    ...Typography.labelSmall,
+    fontWeight: '700',
   },
-  planPriceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  planPriceText: {
-    fontSize: 16,
+  planFare: {
+    ...Typography.titleMedium,
     fontWeight: '800',
-    color: '#111C2D',
   },
   planTitle: {
-    fontSize: 15,
+    ...Typography.titleSmall,
     fontWeight: '700',
-    color: '#111C2D',
+    marginTop: 6,
   },
-  segmentIconsTrack: {
+  planMetricsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 12,
+    marginTop: 8,
+  },
+  metricPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  metricText: {
+    ...Typography.bodySmall,
+    fontWeight: '600',
+  },
+  breakdownCard: {
+    borderRadius: Radius.xl,
+  },
+  breakdownTitle: {
+    ...Typography.titleSmall,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  segmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
   },
   segIconBox: {
     width: 28,
     height: 28,
-    borderRadius: 8,
+    borderRadius: Radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F0F3FF',
-    borderWidth: 1,
   },
-  segConnectorLine: {
-    width: 14,
-    height: 2,
-    backgroundColor: '#D8E3FB',
-  },
-  planMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 2,
-  },
-  planMetaBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#F0F3FF',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  planMetaText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#3F4753',
-  },
-
-  /* Breakdown Card */
-  breakdownCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 18,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-    gap: 12,
-  },
-  breakdownHeader: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F3FF',
-    paddingBottom: 8,
-  },
-  breakdownTitle: {
-    fontSize: 14,
+  segName: {
+    ...Typography.bodySmall,
     fontWeight: '700',
-    color: '#111C2D',
   },
-  breakdownSub: {
-    fontSize: 11,
-    color: '#707884',
-    marginTop: 2,
+  segNotes: {
+    ...Typography.labelSmall,
+    fontSize: 10,
   },
-  stepRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  stepIndicatorCol: {
-    alignItems: 'center',
-    width: 16,
-  },
-  stepDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  stepTrackLine: {
-    flex: 1,
-    width: 2,
-    backgroundColor: '#E8EEFF',
-    marginVertical: 4,
-  },
-  stepContent: {
-    flex: 1,
-    paddingBottom: 8,
-  },
-  stepTitleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  stepLineName: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#111C2D',
-  },
-  stepDuration: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#707884',
-  },
-  stepSubDetail: {
-    fontSize: 11,
-    color: '#707884',
-    marginTop: 2,
-  },
-  stepNotes: {
-    fontSize: 11,
-    color: '#0096FF',
-    fontWeight: '600',
-    marginTop: 3,
-  },
-
-  /* QR Ticket */
-  qrCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 18,
-    padding: 18,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-    gap: 10,
-    borderWidth: 1,
-    borderColor: '#D8E3FB',
-  },
-  qrHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
-  },
-  qrHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  qrTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111C2D',
-  },
-  qrTimer: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#F44336',
-  },
-  qrVisualWrapper: {
-    padding: 12,
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E8EEFF',
-  },
-  qrStationHint: {
-    fontSize: 11,
-    color: '#707884',
-    textAlign: 'center',
-  },
-  qrGateVerified: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#E8F8EE',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
-  qrGateText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#00C06D',
-  },
-
-  /* Buy Ticket Button */
-  buyTicketBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#0096FF',
-    paddingVertical: 14,
-    borderRadius: 14,
-    shadowColor: '#0096FF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  buyTicketText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#ffffff',
+  segDur: {
+    ...Typography.labelSmall,
+    fontWeight: '800',
   },
 });

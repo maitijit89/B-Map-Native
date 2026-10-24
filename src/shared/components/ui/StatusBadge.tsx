@@ -21,7 +21,7 @@ export interface StatusBadgeProps {
   style?: StyleProp<ViewStyle>;
 }
 
-export const StatusBadge: React.FC<StatusBadgeProps> = ({
+export const StatusBadge: React.FC<StatusBadgeProps> = React.memo(({
   status = 'neutral',
   label,
   pulsing = false,
@@ -122,7 +122,9 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
       </Text>
     </View>
   );
-};
+});
+
+StatusBadge.displayName = 'StatusBadge';
 
 const styles = StyleSheet.create({
   container: {

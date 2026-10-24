@@ -6,13 +6,19 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Animated,
   Alert,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import * as Haptics from 'expo-haptics';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+  FadeInUp,
+  FadeInDown,
+} from 'react-native-reanimated';
 import {
   Mic,
   MicOff,
@@ -33,6 +39,7 @@ import {
   Badge,
   Button,
 } from '@/shared/components/ui';
+import { haptics } from '@/shared/utils/haptics';
 
 interface Message {
   id: string;
@@ -74,46 +81,32 @@ export default function AiCopilotModal() {
   ]);
   const [inputText, setInputText] = useState('');
   const [isListening, setIsListening] = useState(false);
-  const [pulseAnim] = useState(() => new Animated.Value(1));
 
-  const triggerHaptic = () => {
-    if (Platform.OS === 'ios' || Platform.OS === 'android') {
-      try {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } catch {
-        // Haptics unavailable
-      }
-    }
-  };
+  const pulseScale = useSharedValue(1);
 
   useEffect(() => {
-    let loop: Animated.CompositeAnimation | null = null;
     if (isListening) {
-      loop = Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.35,
-            duration: 800,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 800,
-            useNativeDriver: true,
-          }),
-        ])
+      pulseScale.value = withRepeat(
+        withSequence(
+          withTiming(1.35, { duration: 700 }),
+          withTiming(1, { duration: 700 })
+        ),
+        -1,
+        true
       );
-      loop.start();
     } else {
-      pulseAnim.setValue(1);
+      pulseScale.value = 1;
     }
-    return () => {
-      if (loop) loop.stop();
+  }, [isListening, pulseScale]);
+
+  const haloAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: pulseScale.value }],
     };
-  }, [isListening, pulseAnim]);
+  });
 
   const handleSendPrompt = (promptText?: string) => {
-    triggerHaptic();
+    haptics.light();
     const textToSend = promptText || inputText;
     if (!textToSend.trim()) return;
 
@@ -139,164 +132,180 @@ export default function AiCopilotModal() {
           text: 'Found top-rated vegetarian option along NH-48. Verified with clean restrooms, family dining, and FASTag parking bays.',
           timestamp: 'Now',
           actionCard: {
-            title: 'Mannat Haveli & Dhaba (NH-48)',
-            sub: 'Pure Vegetarian · 4.8★ (3,410 reviews) · 24/7 Open',
-            metrics: '28 km ahead · Adds +8 min to trip',
-            digiPin: '28J4-M1K9-7P',
-            extraTime: '+8 min',
+            title: 'Mannat Haveli Veg Dhaba',
+            sub: 'NH-48 km 58 (Manesar Corridor)',
+            metrics: '⭐ 4.6 · Clean Washrooms · Pure Veg',
+            digiPin: '28J4-K8M2-9P',
+            extraTime: '+4 min detour',
           },
         };
       } else if (lower.includes('fog') || lower.includes('weather') || lower.includes('yamuna')) {
         reply = {
           id: getNextMsgId(),
           sender: 'ai',
-          text: '⚠️ IMD has issued a YELLOW Fog Warning on Yamuna Expressway between km 45–95. Visibility is under 150m. Recommended speed capped at 60 km/h with fog lights active.',
+          text: 'Live weather sensor telemetry from Yamuna Expressway: Mild morning mist detected between km 40-75. Visibility 450m, speed limit temporarily capped at 80 km/h by Yamuna Authority.',
           timestamp: 'Now',
-          actionCard: {
-            title: 'IMD Highway Warning: Dense Fog Corridor',
-            sub: 'Valid until 09:00 AM IST · Yamuna Expressway',
-            metrics: '60 km/h advised · Fog Lamps Mandatory',
-          },
         };
-      } else if (lower.includes('ev') || lower.includes('charger')) {
+      } else if (lower.includes('charger') || lower.includes('ev') || lower.includes('charging')) {
         reply = {
           id: getNextMsgId(),
           sender: 'ai',
-          text: 'Found 150kW Ultra-Fast CCS2 Charger along your active route. 3 of 4 bays currently vacant with cafe amenities.',
+          text: 'Located an ultra-fast charging hub with live availability directly on your corridor trajectory.',
           timestamp: 'Now',
           actionCard: {
-            title: 'Tata Power EZ Charge (Jio-bp Hub)',
-            sub: 'CCS2 150kW · ₹16/kWh · 3 Bays Available',
-            metrics: '14.2 km ahead · Adds +3 min to detour',
+            title: 'Tata Power 150kW Hypercharger',
+            sub: 'Cyber City Hub B2 Basement',
+            metrics: '⚡ 4/6 Guns Free · ₹18/kWh',
             digiPin: '28J4-K8M2-9P',
-            extraTime: '+3 min',
+            extraTime: 'On Route',
           },
+        };
+      } else if (lower.includes('toll') || lower.includes('fastag')) {
+        reply = {
+          id: getNextMsgId(),
+          sender: 'ai',
+          text: 'Route from Central Delhi to Agra involves 3 FASTag plazas. Total estimated toll: ₹415. Your FASTag wallet balance is healthy (₹840 remaining).',
+          timestamp: 'Now',
         };
       } else {
         reply = {
           id: getNextMsgId(),
           sender: 'ai',
-          text: `Analyzing your query regarding "${textToSend}". Calculating optimal OSRM coordinates, checking NavIC constellation accuracy, and inspecting real-time NHAI corridor congestion.`,
+          text: `Understood! I'm monitoring "${textToSend}" against sovereign ISRO NavIC satellite feeds and NCR road sensors. You are on the optimal path with 0 active road hazards.`,
           timestamp: 'Now',
-          actionCard: {
-            title: 'Corridor Route Optimization',
-            sub: 'NH-48 Expressway to Agra via NE-4',
-            metrics: 'Total Toll: ₹435 · Duration: 2h 14m',
-          },
         };
       }
-      speechService.speak(reply.text);
+
       setMessages((prev) => [...prev, reply]);
-    }, 800);
+      haptics.selection();
+      speechService.speak(reply.text);
+    }, 600);
   };
 
   const handleVoiceToggle = () => {
-    triggerHaptic();
-    if (!isListening) {
+    haptics.medium();
+    if (isListening) {
+      setIsListening(false);
+      speechService.stop();
+    } else {
       setIsListening(true);
+      // Simulate speech recognition capture after 2.5 seconds
       setTimeout(() => {
         setIsListening(false);
-        handleSendPrompt('Find vegetarian dhaba with clean restrooms on NH-48');
+        const sampleVoiceInputs = [
+          'Find vegetarian dhaba with clean restrooms on NH-48',
+          'Find 150kW CCS2 EV fast charger along route',
+          'Check fog alerts on Yamuna Expressway',
+        ];
+        const randomPick = sampleVoiceInputs[Math.floor(Math.random() * sampleVoiceInputs.length)];
+        handleSendPrompt(randomPick);
       }, 2500);
-    } else {
-      setIsListening(false);
     }
   };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
-      {/* Header */}
+      {/* Top Header */}
       <Header
-        title="B-Map AI Voice Copilot"
-        subtitle="Natural Language Spatial Telematics"
+        title="AI Copilot Navigator"
         onBackPress={() => {
-          triggerHaptic();
+          haptics.light();
           router.back();
         }}
+        rightAction={
+          <Badge label="ISRO NavIC AI Engine" variant="primary" size="sm" />
+        }
       />
 
-      {/* Preset Quick Prompts Carousel */}
-      <View
-        style={[
-          styles.presetContainer,
-          {
-            backgroundColor: colors.surfaceContainerLowest,
-            borderBottomColor: colors.surfaceContainerHigh,
-          },
-        ]}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.presetTrack}>
-          {PRESET_PROMPTS.map((p, idx) => (
+      {/* Suggested Quick Prompts Carousel */}
+      <Animated.View
+        entering={FadeInDown.duration(280).springify().damping(16)}
+        style={[styles.presetContainer, { borderBottomColor: colors.surfaceContainerHigh }]}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.presetTrack}>
+          {PRESET_PROMPTS.map((prompt, idx) => (
             <Chip
               key={idx}
-              label={p}
-              icon={<Sparkles size={12} color={colors.primary} />}
-              onPress={() => handleSendPrompt(p)}
+              label={prompt}
+              icon={<Sparkles size={14} color={colors.primary} />}
+              onPress={() => handleSendPrompt(prompt)}
               size="sm"
             />
           ))}
         </ScrollView>
-      </View>
+      </Animated.View>
 
       {/* Chat Messages Log */}
-      <ScrollView style={styles.chatScroll} contentContainerStyle={styles.chatContent}>
+      <ScrollView
+        style={styles.chatScroll}
+        contentContainerStyle={styles.chatContent}
+        showsVerticalScrollIndicator={false}>
         {messages.map((msg) => (
-          <View
+          <Animated.View
             key={msg.id}
-            style={[
-              styles.msgRow,
-              msg.sender === 'user' ? styles.msgRowUser : styles.msgRowAi,
-            ]}>
-            <View
-              style={[
-                styles.avatarCircle,
-                msg.sender === 'user'
-                  ? { backgroundColor: colors.primary }
-                  : { backgroundColor: colors.surfaceContainerHigh },
-              ]}>
-              {msg.sender === 'user' ? (
-                <User size={15} color={colors.onPrimary} />
-              ) : (
-                <Bot size={16} color={colors.primary} />
-              )}
-            </View>
+            entering={FadeInUp.duration(300).springify().damping(16)}
+            style={[styles.msgRow, msg.sender === 'user' && styles.msgRowUser]}>
+            {msg.sender === 'ai' && (
+              <View
+                style={[
+                  styles.avatarBox,
+                  { backgroundColor: colors.primaryContainer },
+                ]}>
+                <Bot size={18} color={colors.onPrimary} />
+              </View>
+            )}
 
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1, alignItems: msg.sender === 'user' ? 'flex-end' : 'flex-start' }}>
               <View
                 style={[
                   styles.msgBubble,
-                  msg.sender === 'user'
-                    ? { backgroundColor: colors.primaryContainer }
-                    : {
-                        backgroundColor: colors.surfaceContainerLowest,
-                        borderColor: colors.surfaceContainerHigh,
-                      },
+                  msg.sender === 'ai'
+                    ? [
+                        styles.aiBubble,
+                        {
+                          backgroundColor: colors.surfaceContainerLowest,
+                          borderColor: colors.surfaceContainerHigh,
+                        },
+                      ]
+                    : [styles.userBubble, { backgroundColor: colors.primaryContainer }],
                 ]}>
                 <Text
                   style={[
                     styles.msgText,
                     {
-                      color:
-                        msg.sender === 'user'
-                          ? colors.onPrimary
-                          : colors.onSurface,
+                      color: msg.sender === 'ai' ? colors.onSurface : colors.onPrimary,
                     },
                   ]}>
                   {msg.text}
                 </Text>
+                <Text
+                  style={[
+                    styles.msgTime,
+                    {
+                      color: msg.sender === 'ai' ? colors.onSurfaceVariant : colors.onPrimary + '90',
+                    },
+                  ]}>
+                  {msg.timestamp}
+                </Text>
               </View>
 
-              {/* Action Card Attached to AI Message */}
+              {/* Contextual Action Card */}
               {msg.actionCard && (
-                <Card variant="elevated" padding="md" style={styles.actionCard}>
+                <Card
+                  variant="elevated"
+                  padding="md"
+                  style={styles.actionCardWrapper}>
                   <View style={styles.actionCardTop}>
-                    <View style={{ flex: 1, gap: 2 }}>
-                      <Text style={[styles.actionTitle, { color: colors.onSurface }]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.actionCardTitle, { color: colors.onSurface }]}>
                         {msg.actionCard.title}
                       </Text>
-                      <Text style={[styles.actionSub, { color: colors.onSurfaceVariant }]}>
+                      <Text style={[styles.actionCardSub, { color: colors.onSurfaceVariant }]}>
                         {msg.actionCard.sub}
                       </Text>
-                      <Text style={[styles.actionMetrics, { color: colors.secondary }]}>
+                      <Text style={[styles.actionCardMetrics, { color: colors.trafficGreen }]}>
                         {msg.actionCard.metrics}
                       </Text>
                     </View>
@@ -312,7 +321,7 @@ export default function AiCopilotModal() {
                       size="sm"
                       leftIcon={<Plus size={14} color={colors.primary} />}
                       onPress={() => {
-                        triggerHaptic();
+                        haptics.selection();
                         Alert.alert('Waypoint Added', 'Added stop along active corridor route.');
                       }}
                       style={styles.actionBtnFlex}
@@ -322,9 +331,9 @@ export default function AiCopilotModal() {
                       title="Navigate"
                       variant="primary"
                       size="sm"
-                      leftIcon={<Navigation size={14} color="#fff" />}
+                      leftIcon={<Navigation size={14} color={colors.onPrimary} />}
                       onPress={() => {
-                        triggerHaptic();
+                        haptics.medium();
                         router.push('/modal');
                       }}
                       style={styles.actionBtnFlex}
@@ -333,24 +342,34 @@ export default function AiCopilotModal() {
                 </Card>
               )}
             </View>
-          </View>
+
+            {msg.sender === 'user' && (
+              <View
+                style={[
+                  styles.avatarBox,
+                  { backgroundColor: colors.surfaceContainerHigh },
+                ]}>
+                <User size={18} color={colors.onSurface} />
+              </View>
+            )}
+          </Animated.View>
         ))}
       </ScrollView>
 
       {/* Voice Halo Feedback State */}
       {isListening && (
-        <View style={[styles.listeningBar, { backgroundColor: colors.primaryFixed }]}>
+        <View style={[styles.listeningBar, { backgroundColor: colors.primaryContainer }]}>
           <Animated.View
             style={[
               styles.listeningHalo,
               {
                 backgroundColor: colors.primary,
-                transform: [{ scale: pulseAnim }],
               },
+              haloAnimatedStyle,
             ]}
           />
-          <Mic size={18} color={colors.primary} />
-          <Text style={[styles.listeningText, { color: colors.onPrimaryFixedVariant }]}>
+          <Mic size={18} color={colors.onPrimary} />
+          <Text style={[styles.listeningText, { color: colors.onPrimary }]}>
             Listening in Hindi/English... Speak naturally
           </Text>
         </View>
@@ -429,12 +448,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   presetContainer: {
-    paddingVertical: 8,
+    paddingVertical: Spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   presetTrack: {
     paddingHorizontal: Spacing.md,
-    gap: 8,
+    gap: Spacing.sm,
   },
   chatScroll: {
     flex: 1,
@@ -447,58 +466,70 @@ const styles = StyleSheet.create({
   msgRow: {
     flexDirection: 'row',
     gap: 10,
+    width: '100%',
   },
   msgRowUser: {
-    flexDirection: 'row-reverse',
+    justifyContent: 'flex-end',
   },
-  msgRowAi: {
-    flexDirection: 'row',
-  },
-  avatarCircle: {
+  avatarBox: {
     width: 32,
     height: 32,
     borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 2,
   },
   msgBubble: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    maxWidth: '85%',
+    padding: 12,
     borderRadius: Radius.xl,
-    maxWidth: '92%',
+    gap: 4,
+  },
+  aiBubble: {
+    borderTopLeftRadius: 4,
     borderWidth: 1,
+    ...Shadows.xs,
+  },
+  userBubble: {
+    borderTopRightRadius: 4,
+    ...Shadows.xs,
   },
   msgText: {
     ...Typography.bodyMedium,
     lineHeight: 20,
   },
-  actionCard: {
+  msgTime: {
+    ...Typography.labelSmall,
+    fontSize: 9,
+    alignSelf: 'flex-end',
+  },
+  actionCardWrapper: {
     marginTop: 8,
-    gap: 10,
+    width: '100%',
+    gap: 12,
   },
   actionCardTop: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
     gap: 8,
   },
-  actionTitle: {
+  actionCardTitle: {
     ...Typography.titleSmall,
-    fontWeight: '700',
+    fontWeight: '800',
   },
-  actionSub: {
+  actionCardSub: {
     ...Typography.bodySmall,
-    fontSize: 11,
+    marginTop: 2,
   },
-  actionMetrics: {
+  actionCardMetrics: {
     ...Typography.labelSmall,
     fontWeight: '700',
-    marginTop: 2,
+    marginTop: 4,
   },
   actionBtnRow: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 4,
   },
   actionBtnFlex: {
     flex: 1,
@@ -506,17 +537,19 @@ const styles = StyleSheet.create({
   listeningBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 8,
+    gap: 10,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
     position: 'relative',
+    overflow: 'hidden',
   },
   listeningHalo: {
     position: 'absolute',
+    left: 12,
     width: 24,
     height: 24,
     borderRadius: 12,
-    opacity: 0.3,
+    opacity: 0.35,
   },
   listeningText: {
     ...Typography.labelSmall,
@@ -526,8 +559,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.md,
-    paddingVertical: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 10,
+    borderTopWidth: 1,
     gap: 8,
   },
   micToggleBtn: {
@@ -536,7 +569,6 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    ...Shadows.xs,
   },
   composerInput: {
     flex: 1,

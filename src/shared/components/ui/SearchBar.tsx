@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo, useCallback, memo } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,17 @@ import {
   StyleSheet,
   ViewStyle,
   StyleProp,
+  TextInputProps,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from 'react-native-reanimated';
 import { Search, X, Mic } from 'lucide-react-native';
 import { useThemeColors } from '../../hooks';
 import { Radius, Shadows, Spacing, Typography } from '../../constants/tokens';
+import { haptics } from '../../utils/haptics';
 
 export interface SearchBarProps {
   value?: string;
@@ -21,6 +28,8 @@ export interface SearchBarProps {
   autoFocus?: boolean;
   onClear?: () => void;
   onMicPress?: () => void;
+  onFocus?: TextInputProps['onFocus'];
+  onBlur?: TextInputProps['onBlur'];
   leadingIcon?: React.ReactNode;
   trailingAction?: React.ReactNode;
   variant?: 'floating' | 'flat' | 'outlined';
@@ -28,7 +37,13 @@ export interface SearchBarProps {
   accessibilityLabel?: string;
 }
 
-export const SearchBar: React.FC<SearchBarProps> = ({
+const SPRING_CONFIG = {
+  damping: 15,
+  stiffness: 300,
+  mass: 0.5,
+};
+
+export const SearchBar: React.FC<SearchBarProps> = memo(({
   value,
   onChangeText,
   placeholder = 'Search destinations, DigiPIN, places...',
@@ -37,6 +52,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   autoFocus = false,
   onClear,
   onMicPress,
+  onFocus,
+  onBlur,
   leadingIcon,
   trailingAction,
   variant = 'floating',
@@ -44,41 +61,81 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   accessibilityLabel,
 }) => {
   const colors = useThemeColors();
+  const [isFocused, setIsFocused] = useState(false);
+  const scale = useSharedValue(1);
 
-  const getContainerStyle = (): ViewStyle => {
+  const handlePressIn = useCallback(() => {
+    if (onPress) {
+      scale.value = withSpring(0.98, SPRING_CONFIG);
+      haptics.light();
+    }
+  }, [onPress, scale]);
+
+  const handlePressOut = useCallback(() => {
+    if (onPress) {
+      scale.value = withSpring(1, SPRING_CONFIG);
+    }
+  }, [onPress, scale]);
+
+  const handleFocus: TextInputProps['onFocus'] = useCallback((e) => {
+    setIsFocused(true);
+    onFocus?.(e);
+  }, [onFocus]);
+
+  const handleBlur: TextInputProps['onBlur'] = useCallback((e) => {
+    setIsFocused(false);
+    onBlur?.(e);
+  }, [onBlur]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const containerStyle = useMemo<ViewStyle>(() => {
+    const focusBorder = isFocused
+      ? { borderColor: colors.primary, borderWidth: 1.5 }
+      : {};
+
     switch (variant) {
       case 'flat':
         return {
           backgroundColor: colors.surfaceContainerLow,
+          ...focusBorder,
         };
       case 'outlined':
         return {
           backgroundColor: colors.surfaceContainerLowest,
           borderWidth: 1,
-          borderColor: colors.outlineVariant,
+          borderColor: isFocused ? colors.primary : colors.outlineVariant,
         };
       case 'floating':
       default:
         return {
           backgroundColor: colors.surfaceContainerLowest,
           borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.surfaceContainerHigh,
+          borderColor: isFocused ? colors.primary : colors.surfaceContainerHigh,
           ...Shadows.md,
+          ...focusBorder,
         };
     }
-  };
+  }, [variant, colors, isFocused]);
+
+  const handleClearPress = useCallback(() => {
+    haptics.light();
+    onClear?.();
+  }, [onClear]);
+
+  const handleMicPressInternal = useCallback(() => {
+    haptics.medium();
+    onMicPress?.();
+  }, [onMicPress]);
 
   const isClickableOnly = !editable || !!onPress;
 
   const content = (
-    <View
-      style={[
-        styles.container,
-        getContainerStyle(),
-        style,
-      ]}>
+    <Animated.View style={[styles.container, containerStyle, animatedStyle, style]}>
       <View style={styles.leading}>
-        {leadingIcon || <Search size={20} color={colors.primary} />}
+        {leadingIcon || <Search size={20} color={isFocused ? colors.primary : colors.onSurfaceVariant} />}
       </View>
 
       {isClickableOnly ? (
@@ -99,6 +156,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           placeholder={placeholder}
           placeholderTextColor={colors.outline}
           autoFocus={autoFocus}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
           style={[styles.input, { color: colors.onSurface }]}
           accessibilityLabel={accessibilityLabel || placeholder}
           returnKeyType="search"
@@ -108,7 +167,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       <View style={styles.trailing}>
         {value && onClear ? (
           <TouchableOpacity
-            onPress={onClear}
+            onPress={handleClearPress}
             activeOpacity={0.7}
             style={styles.actionBtn}
             accessibilityLabel="Clear search">
@@ -118,7 +177,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 
         {onMicPress ? (
           <TouchableOpacity
-            onPress={onMicPress}
+            onPress={handleMicPressInternal}
             activeOpacity={0.7}
             style={styles.actionBtn}
             accessibilityLabel="Voice search">
@@ -128,7 +187,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 
         {trailingAction}
       </View>
-    </View>
+    </Animated.View>
   );
 
   if (isClickableOnly && onPress) {
@@ -136,6 +195,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       <TouchableOpacity
         activeOpacity={0.9}
         onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
         accessibilityRole="search"
         accessibilityLabel={accessibilityLabel || placeholder}>
         {content}
@@ -144,7 +205,9 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   }
 
   return content;
-};
+});
+
+SearchBar.displayName = 'SearchBar';
 
 const styles = StyleSheet.create({
   container: {
@@ -152,7 +215,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: Radius.full,
     paddingHorizontal: Spacing.md,
-    height: 50,
+    height: 52,
   },
   leading: {
     marginRight: Spacing.sm,

@@ -5,11 +5,10 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import * as Haptics from 'expo-haptics';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
   Copy,
   Navigation,
@@ -27,6 +26,7 @@ import {
   Input,
   SectionHeader,
 } from '@/shared/components/ui';
+import { haptics } from '@/shared/utils/haptics';
 
 const PRESET_PLACES = [
   { name: 'Connaught Place, Delhi', lat: '28.6315', lon: '77.2167', digiPin: '28J4-C2M1-4K' },
@@ -50,18 +50,8 @@ export default function DigiPinExplorerModal() {
   const [activeDigiPin, setActiveDigiPin] = useState('28J4-K8M2-9P');
   const [activePlaceName, setActivePlaceName] = useState('Cyber Hub, Gurugram');
 
-  const triggerHaptic = () => {
-    if (Platform.OS === 'ios' || Platform.OS === 'android') {
-      try {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } catch {
-        // Haptics unavailable
-      }
-    }
-  };
-
   const handleSelectPreset = (p: typeof PRESET_PLACES[0]) => {
-    triggerHaptic();
+    haptics.selection();
     setLatInput(p.lat);
     setLonInput(p.lon);
     setActiveDigiPin(p.digiPin);
@@ -69,7 +59,7 @@ export default function DigiPinExplorerModal() {
   };
 
   const handleEncode = () => {
-    triggerHaptic();
+    haptics.selection();
     const lat = parseFloat(latInput);
     const lon = parseFloat(lonInput);
     if (isNaN(lat) || isNaN(lon)) {
@@ -83,7 +73,7 @@ export default function DigiPinExplorerModal() {
   };
 
   const handleCopy = () => {
-    triggerHaptic();
+    haptics.success();
     Alert.alert('Copied to Clipboard', `DigiPIN ${activeDigiPin} copied. Share with courier or emergency dispatch.`);
   };
 
@@ -94,48 +84,50 @@ export default function DigiPinExplorerModal() {
         title="National DigiPIN Explorer"
         subtitle="Govt of India / Dept of Posts 4m × 4m Grid"
         onBackPress={() => {
-          triggerHaptic();
+          haptics.light();
           router.back();
         }}
       />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Giant Active DigiPIN Display Card */}
-        <Card variant="elevated" padding="lg" style={styles.digiCard}>
-          <View style={styles.digiCardTop}>
-            <Badge label="SOVEREIGN POSTAL STANDARD" variant="primary" size="sm" showDot />
-            <Text style={[styles.gridPrecisionText, { color: colors.secondary }]}>
-              4m × 4m Centroid
-            </Text>
-          </View>
+        <Animated.View entering={FadeInDown.duration(350).springify().damping(16)}>
+          <Card variant="elevated" padding="lg" style={styles.digiCard}>
+            <View style={styles.digiCardTop}>
+              <Badge label="SOVEREIGN POSTAL STANDARD" variant="primary" size="sm" showDot />
+              <Text style={[styles.gridPrecisionText, { color: colors.secondary }]}>
+                4m × 4m Centroid
+              </Text>
+            </View>
 
-          <Text style={[styles.digiCodeBig, { color: colors.primary }]}>{activeDigiPin}</Text>
-          <Text style={[styles.digiPlaceName, { color: colors.onSurface }]}>{activePlaceName}</Text>
+            <Text style={[styles.digiCodeBig, { color: colors.primary }]}>{activeDigiPin}</Text>
+            <Text style={[styles.digiPlaceName, { color: colors.onSurface }]}>{activePlaceName}</Text>
 
-          <View style={styles.digiActionRow}>
-            <Button
-              title="Copy DigiPIN"
-              variant="outline"
-              size="md"
-              leftIcon={<Copy size={16} color={colors.primary} />}
-              onPress={handleCopy}
-              style={styles.actionBtnFlex}
-            />
+            <View style={styles.digiActionRow}>
+              <Button
+                title="Copy DigiPIN"
+                variant="outline"
+                size="md"
+                leftIcon={<Copy size={16} color={colors.primary} />}
+                onPress={handleCopy}
+                style={styles.actionBtnFlex}
+              />
 
-            <Button
-              title="Route to DigiPIN"
-              variant="primary"
-              size="md"
-              leftIcon={<Navigation size={16} color="#fff" />}
-              onPress={() => {
-                triggerHaptic();
-                router.back();
-                router.push('/modal');
-              }}
-              style={styles.actionBtnFlex}
-            />
-          </View>
-        </Card>
+              <Button
+                title="Route to DigiPIN"
+                variant="primary"
+                size="md"
+                leftIcon={<Navigation size={16} color="#fff" />}
+                onPress={() => {
+                  haptics.medium();
+                  router.back();
+                  router.push('/modal');
+                }}
+                style={styles.actionBtnFlex}
+              />
+            </View>
+          </Card>
+        </Animated.View>
 
         {/* Preset Popular Locations Carousel */}
         <SectionHeader

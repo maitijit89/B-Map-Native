@@ -6,19 +6,28 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withSequence,
+  withTiming,
+  FadeInDown,
+} from 'react-native-reanimated';
 import {
-  X,
   Phone,
-  Siren,
   ShieldAlert,
   Heart,
   Send,
   Radio,
 } from 'lucide-react-native';
+import { Radius, Shadows, Spacing, Typography } from '@/shared/constants/tokens';
+import { useThemeColors } from '@/shared/hooks';
+import { Header, Card, Button } from '@/shared/components/ui';
+import { haptics } from '@/shared/utils/haptics';
 
 const EMERGENCY_SERVICES = [
   {
@@ -52,29 +61,29 @@ const EMERGENCY_SERVICES = [
 ];
 
 export default function SosDistressModal() {
+  const colors = useThemeColors();
   const [countdown, setCountdown] = useState(5);
   const [isCountdownActive, setIsCountdownActive] = useState(true);
   const [beaconDispatched, setBeaconDispatched] = useState(false);
-  const [pulseAnim] = useState(() => new Animated.Value(1));
+
+  const radarPulse = useSharedValue(1);
 
   useEffect(() => {
-    const pulseLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.25,
-          duration: 700,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 700,
-          useNativeDriver: true,
-        }),
-      ])
+    radarPulse.value = withRepeat(
+      withSequence(
+        withTiming(1.3, { duration: 600 }),
+        withTiming(1, { duration: 600 })
+      ),
+      -1,
+      true
     );
-    pulseLoop.start();
-    return () => pulseLoop.stop();
-  }, [pulseAnim]);
+  }, [radarPulse]);
+
+  const radarAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: radarPulse.value }],
+    };
+  });
 
   useEffect(() => {
     if (!isCountdownActive) return;
@@ -85,8 +94,10 @@ export default function SosDistressModal() {
           clearInterval(timer);
           setIsCountdownActive(false);
           setBeaconDispatched(true);
+          haptics.heavy();
           return 0;
         }
+        haptics.warning();
         return prev - 1;
       });
     }, 1000);
@@ -95,12 +106,14 @@ export default function SosDistressModal() {
   }, [isCountdownActive]);
 
   const handleCancelCountdown = () => {
+    haptics.medium();
     setIsCountdownActive(false);
     setBeaconDispatched(false);
     Alert.alert('Auto-Dispatch Paused', 'Emergency dispatch canceled. You can still call emergency services directly.');
   };
 
   const handleCall = (service: typeof EMERGENCY_SERVICES[0]) => {
+    haptics.heavy();
     Alert.alert(
       `Dial ${service.code}?`,
       `Calling ${service.name}. Your exact DigiPIN coordinates (28J4-K8M2-9P) will be transmitted.`,
@@ -112,6 +125,7 @@ export default function SosDistressModal() {
   };
 
   const handleSendContactSms = () => {
+    haptics.heavy();
     Alert.alert(
       'Emergency Alert Broadcasted! 📲',
       'Distress SMS containing live GPS tracking link and 4m × 4m DigiPIN sent to Emergency Contact: Dr. Priya Sharma (+91 98111 22334).'
@@ -119,132 +133,135 @@ export default function SosDistressModal() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.surfaceDim }]} edges={['top', 'bottom']}>
       {/* Urgent Emergency Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <View style={styles.sirenIconBox}>
-            <Siren size={20} color="#ffffff" />
-          </View>
-          <View>
-            <Text style={styles.headerTitle}>112 EMERGENCY SOS</Text>
-            <Text style={styles.headerSub}>Govt of India National Emergency Response</Text>
-          </View>
-        </View>
-        <TouchableOpacity style={styles.closeBtn} onPress={() => router.back()} activeOpacity={0.8}>
-          <X size={20} color="#ffffff" />
-        </TouchableOpacity>
-      </View>
+      <Header
+        title="112 EMERGENCY SOS"
+        onBackPress={() => {
+          haptics.light();
+          router.back();
+        }}
+      />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Pulsing Countdown Radar Box */}
-        <View style={styles.countdownCard}>
-          <Animated.View
-            style={[
-              styles.radarHalo,
-              {
-                transform: [{ scale: pulseAnim }],
-              },
-            ]}
-          />
+        <Animated.View entering={FadeInDown.duration(350).springify().damping(16)}>
+          <View style={[styles.countdownCard, { backgroundColor: colors.surfaceContainer, borderColor: colors.error }]}>
+            <Animated.View style={[styles.radarHalo, radarAnimatedStyle]} />
 
-          <View style={styles.countdownCenter}>
-            <ShieldAlert size={36} color="#F44336" />
-            {isCountdownActive ? (
-              <>
-                <Text style={styles.countdownNumber}>{countdown}</Text>
-                <Text style={styles.countdownLabel}>Seconds until auto-dispatch to 112</Text>
-                <TouchableOpacity style={styles.cancelCountdownBtn} onPress={handleCancelCountdown}>
-                  <Text style={styles.cancelCountdownText}>CANCEL AUTO-DISPATCH</Text>
-                </TouchableOpacity>
-              </>
-            ) : beaconDispatched ? (
-              <>
-                <Text style={styles.dispatchedTitle}>DISTRESS BEACON DISPATCHED</Text>
-                <Text style={styles.dispatchedSub}>
-                  Coordinates & vehicle telemetry streamed to 112 National Control Room
-                </Text>
-              </>
-            ) : (
-              <>
-                <Text style={styles.pausedTitle}>Emergency Standby Active</Text>
-                <Text style={styles.pausedSub}>Tap any service below to connect immediately</Text>
-              </>
-            )}
+            <View style={styles.countdownCenter}>
+              <ShieldAlert size={36} color="#F44336" />
+              {isCountdownActive ? (
+                <>
+                  <Text style={[styles.countdownNumber, { color: colors.error }]}>{countdown}</Text>
+                  <Text style={[styles.countdownLabel, { color: colors.onSurface }]}>Seconds until auto-dispatch to 112</Text>
+                  <TouchableOpacity
+                    style={[styles.cancelCountdownBtn, { backgroundColor: colors.surfaceContainerHigh, borderColor: colors.outlineVariant }]}
+                    onPress={handleCancelCountdown}
+                    activeOpacity={0.8}>
+                    <Text style={[styles.cancelCountdownText, { color: colors.onSurface }]}>CANCEL AUTO-DISPATCH</Text>
+                  </TouchableOpacity>
+                </>
+              ) : beaconDispatched ? (
+                <>
+                  <Text style={[styles.dispatchedTitle, { color: colors.trafficGreen }]}>DISTRESS BEACON DISPATCHED</Text>
+                  <Text style={[styles.dispatchedSub, { color: colors.onSurfaceVariant }]}>
+                    Coordinates & vehicle telemetry streamed to 112 National Control Room
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Text style={[styles.pausedTitle, { color: colors.onSurface }]}>Emergency Standby Active</Text>
+                  <Text style={[styles.pausedSub, { color: colors.onSurfaceVariant }]}>Tap any service below to connect immediately</Text>
+                </>
+              )}
+            </View>
           </View>
-        </View>
+        </Animated.View>
 
         {/* Live GPS & DigiPIN Coordinates Card */}
-        <View style={styles.telematicsCard}>
-          <View style={styles.telematicsHeader}>
-            <Radio size={16} color="#0096FF" />
-            <Text style={styles.telematicsTitle}>Live Emergency Telematics Broadcast</Text>
-            <View style={styles.pulsingGreen} />
-          </View>
-
-          <View style={styles.telematicsGrid}>
-            <View style={styles.telematicsCol}>
-              <Text style={styles.telematicsLabel}>LOCATION</Text>
-              <Text style={styles.telematicsVal}>NH-48 km 42.4, Gurugram</Text>
+        <Animated.View entering={FadeInDown.delay(100).duration(350).springify().damping(16)}>
+          <Card variant="flat" padding="md" style={[styles.telematicsCard, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant }]}>
+            <View style={styles.telematicsHeader}>
+              <Radio size={16} color={colors.primary} />
+              <Text style={[styles.telematicsTitle, { color: colors.primary }]}>Live Emergency Telematics Broadcast</Text>
+              <View style={[styles.pulsingGreen, { backgroundColor: colors.trafficGreen }]} />
             </View>
-            <View style={styles.telematicsCol}>
-              <Text style={styles.telematicsLabel}>DIGIPIN (4m×4m)</Text>
-              <Text style={[styles.telematicsVal, { fontFamily: 'monospace', color: '#0096FF' }]}>
-                28J4-K8M2-9P
+
+            <View style={styles.telematicsGrid}>
+              <View style={styles.telematicsCol}>
+                <Text style={[styles.telematicsLabel, { color: colors.onSurfaceVariant }]}>LOCATION</Text>
+                <Text style={[styles.telematicsVal, { color: colors.onSurface }]}>NH-48 km 42.4, Gurugram</Text>
+              </View>
+              <View style={styles.telematicsCol}>
+                <Text style={[styles.telematicsLabel, { color: colors.onSurfaceVariant }]}>DIGIPIN (4m×4m)</Text>
+                <Text style={[styles.telematicsVal, { color: colors.primary, fontFamily: 'monospace' }]}>
+                  28J4-K8M2-9P
+                </Text>
+              </View>
+            </View>
+
+            <View style={[styles.vehicleRow, { borderTopColor: colors.outlineVariant }]}>
+              <Text style={[styles.vehicleInfo, { color: colors.onSurfaceVariant }]}>
+                Vehicle: Tata Nexon EV Max (DL 01 AB 1234) · Speed: 0 km/h · Heading: 185°
               </Text>
             </View>
-          </View>
-
-          <View style={styles.vehicleRow}>
-            <Text style={styles.vehicleInfo}>
-              Vehicle: Tata Nexon EV Max (DL 01 AB 1234) · Speed: 0 km/h · Heading: 185°
-            </Text>
-          </View>
-        </View>
+          </Card>
+        </Animated.View>
 
         {/* One-Touch Emergency Call Helplines */}
-        <Text style={styles.sectionTitle}>Direct Official Helplines</Text>
-        {EMERGENCY_SERVICES.map((serv) => (
-          <TouchableOpacity
+        <Text style={[styles.sectionTitle, { color: colors.onSurface }]}>Direct Official Helplines</Text>
+        {EMERGENCY_SERVICES.map((serv, idx) => (
+          <Animated.View
             key={serv.code}
-            style={[styles.serviceCard, { borderLeftColor: serv.color }]}
-            onPress={() => handleCall(serv)}
-            activeOpacity={0.8}>
-            <View style={{ flex: 1 }}>
-              <View style={styles.serviceHeaderRow}>
-                <Text style={styles.serviceName}>{serv.name}</Text>
-                <View style={[styles.codeBadge, { backgroundColor: serv.color }]}>
-                  <Text style={styles.codeBadgeText}>{serv.code}</Text>
+            entering={FadeInDown.delay(150 + idx * 70).duration(350).springify().damping(16)}>
+            <TouchableOpacity
+              style={[styles.serviceCard, { borderLeftColor: serv.color, backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant }]}
+              onPress={() => handleCall(serv)}
+              activeOpacity={0.8}>
+              <View style={{ flex: 1 }}>
+                <View style={styles.serviceHeaderRow}>
+                  <Text style={[styles.serviceName, { color: colors.onSurface }]}>{serv.name}</Text>
+                  <View style={[styles.codeBadge, { backgroundColor: serv.color }]}>
+                    <Text style={styles.codeBadgeText}>{serv.code}</Text>
+                  </View>
                 </View>
+                <Text style={[styles.serviceSub, { color: colors.onSurfaceVariant }]}>{serv.sub}</Text>
+                <Text style={[styles.serviceDesc, { color: colors.outline }]}>{serv.desc}</Text>
               </View>
-              <Text style={styles.serviceSub}>{serv.sub}</Text>
-              <Text style={styles.serviceDesc}>{serv.desc}</Text>
-            </View>
 
-            <View style={[styles.callBtnCircle, { backgroundColor: serv.color }]}>
-              <Phone size={18} color="#ffffff" />
-            </View>
-          </TouchableOpacity>
+              <View style={[styles.callBtnCircle, { backgroundColor: serv.color }]}>
+                <Phone size={18} color="#ffffff" />
+              </View>
+            </TouchableOpacity>
+          </Animated.View>
         ))}
 
         {/* Emergency Medical & ICE Contact Card */}
-        <View style={styles.iceCard}>
-          <View style={styles.iceHeader}>
-            <Heart size={16} color="#F44336" />
-            <Text style={styles.iceTitle}>ICE (In Case of Emergency) Profile</Text>
-          </View>
+        <Animated.View entering={FadeInDown.delay(450).duration(350).springify().damping(16)}>
+          <Card variant="flat" padding="md" style={[styles.iceCard, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant }]}>
+            <View style={styles.iceHeader}>
+              <Heart size={16} color={colors.error} />
+              <Text style={[styles.iceTitle, { color: colors.error }]}>ICE (In Case of Emergency) Profile</Text>
+            </View>
 
-          <View style={styles.iceDetails}>
-            <Text style={styles.iceItem}>• Blood Group: <Text style={styles.iceBold}>O+ Positive</Text></Text>
-            <Text style={styles.iceItem}>• Emergency Contact: <Text style={styles.iceBold}>Dr. Priya Sharma (+91 98111 22334)</Text></Text>
-            <Text style={styles.iceItem}>• Organ Donor Card: <Text style={styles.iceBold}>Registered (ABHA Linked)</Text></Text>
-          </View>
+            <View style={styles.iceDetails}>
+              <Text style={[styles.iceItem, { color: colors.onSurfaceVariant }]}>• Blood Group: <Text style={[styles.iceBold, { color: colors.onSurface }]}>O+ Positive</Text></Text>
+              <Text style={[styles.iceItem, { color: colors.onSurfaceVariant }]}>• Emergency Contact: <Text style={[styles.iceBold, { color: colors.onSurface }]}>Dr. Priya Sharma (+91 98111 22334)</Text></Text>
+              <Text style={[styles.iceItem, { color: colors.onSurfaceVariant }]}>• Organ Donor Card: <Text style={[styles.iceBold, { color: colors.onSurface }]}>Registered (ABHA Linked)</Text></Text>
+            </View>
 
-          <TouchableOpacity style={styles.sendIceBtn} onPress={handleSendContactSms} activeOpacity={0.85}>
-            <Send size={15} color="#fff" />
-            <Text style={styles.sendIceBtnText}>Send Live SOS SMS to ICE Contact</Text>
-          </TouchableOpacity>
-        </View>
+            <Button
+              title="Send Live SOS SMS to ICE Contact"
+              variant="danger"
+              size="md"
+              fullWidth
+              leftIcon={<Send size={15} color="#fff" />}
+              onPress={handleSendContactSms}
+              style={{ marginTop: 10 }}
+            />
+          </Card>
+        </Animated.View>
 
         <View style={{ height: 24 }} />
       </ScrollView>
@@ -253,48 +270,17 @@ export default function SosDistressModal() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0F172A' },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#1E293B',
-    borderBottomWidth: 1,
-    borderBottomColor: '#334155',
-  },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  sirenIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F44336',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: { fontSize: 16, fontWeight: '900', color: '#ffffff', letterSpacing: 0.5 },
-  headerSub: { fontSize: 10, color: '#94A3B8', marginTop: 1 },
-  closeBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  scroll: { padding: 16, gap: 14 },
+  container: { flex: 1 },
+  scroll: { padding: Spacing.md, gap: Spacing.md },
 
   countdownCard: {
-    backgroundColor: '#1E293B',
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: Radius.xxl,
+    padding: Spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#EF4444',
     overflow: 'hidden',
+    ...Shadows.lg,
   },
   radarHalo: {
     position: 'absolute',
@@ -304,76 +290,57 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(239, 68, 68, 0.15)',
   },
   countdownCenter: { alignItems: 'center', zIndex: 1, gap: 6 },
-  countdownNumber: { fontSize: 54, fontWeight: '900', color: '#EF4444' },
-  countdownLabel: { fontSize: 12, fontWeight: '700', color: '#E2E8F0', textAlign: 'center' },
+  countdownNumber: { fontSize: 54, fontWeight: '900' },
+  countdownLabel: { fontSize: 12, fontWeight: '700', textAlign: 'center' },
   cancelCountdownBtn: {
-    backgroundColor: '#334155',
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 12,
+    borderRadius: Radius.md,
     marginTop: 8,
     borderWidth: 1,
-    borderColor: '#475569',
   },
-  cancelCountdownText: { fontSize: 11, fontWeight: '800', color: '#F1F5F9' },
-  dispatchedTitle: { fontSize: 16, fontWeight: '900', color: '#00C06D', marginTop: 8 },
-  dispatchedSub: { fontSize: 11, color: '#94A3B8', textAlign: 'center', marginTop: 2 },
-  pausedTitle: { fontSize: 16, fontWeight: '800', color: '#F1F5F9', marginTop: 8 },
-  pausedSub: { fontSize: 11, color: '#94A3B8', textAlign: 'center', marginTop: 2 },
+  cancelCountdownText: { ...Typography.labelSmall, fontWeight: '800' },
+  dispatchedTitle: { ...Typography.titleMedium, fontWeight: '900', marginTop: 8 },
+  dispatchedSub: { ...Typography.bodySmall, textAlign: 'center', marginTop: 2 },
+  pausedTitle: { ...Typography.titleMedium, fontWeight: '800', marginTop: 8 },
+  pausedSub: { ...Typography.bodySmall, textAlign: 'center', marginTop: 2 },
 
   telematicsCard: {
-    backgroundColor: '#1E293B',
-    borderRadius: 16,
-    padding: 14,
     borderWidth: 1,
-    borderColor: '#334155',
   },
   telematicsHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
-  telematicsTitle: { fontSize: 12, fontWeight: '700', color: '#38BDF8', flex: 1 },
-  pulsingGreen: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#00C06D' },
+  telematicsTitle: { ...Typography.labelSmall, fontWeight: '700', flex: 1 },
+  pulsingGreen: { width: 8, height: 8, borderRadius: 4 },
   telematicsGrid: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
   telematicsCol: { flex: 1 },
-  telematicsLabel: { fontSize: 9, fontWeight: '700', color: '#64748B' },
-  telematicsVal: { fontSize: 12, fontWeight: '700', color: '#F1F5F9', marginTop: 2 },
-  vehicleRow: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#334155' },
-  vehicleInfo: { fontSize: 10, color: '#94A3B8' },
+  telematicsLabel: { fontSize: 9, fontWeight: '700' },
+  telematicsVal: { ...Typography.labelMedium, fontWeight: '700', marginTop: 2 },
+  vehicleRow: { marginTop: 8, paddingTop: 8, borderTopWidth: 1 },
+  vehicleInfo: { ...Typography.bodySmall, fontSize: 10 },
 
-  sectionTitle: { fontSize: 14, fontWeight: '700', color: '#F1F5F9', marginTop: 4 },
+  sectionTitle: { ...Typography.titleSmall, fontWeight: '700', marginTop: 4 },
 
   serviceCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1E293B',
-    borderRadius: 14,
-    padding: 14,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
     borderLeftWidth: 4,
     borderWidth: 1,
-    borderColor: '#334155',
     gap: 12,
   },
   serviceHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  serviceName: { fontSize: 13, fontWeight: '800', color: '#F1F5F9', flex: 1 },
-  codeBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  serviceName: { ...Typography.labelLarge, fontWeight: '800', flex: 1 },
+  codeBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: Radius.xs },
   codeBadgeText: { fontSize: 10, fontWeight: '900', color: '#ffffff' },
-  serviceSub: { fontSize: 10, color: '#94A3B8', marginTop: 2 },
-  serviceDesc: { fontSize: 10, color: '#64748B', marginTop: 4 },
+  serviceSub: { ...Typography.bodySmall, marginTop: 2 },
+  serviceDesc: { ...Typography.bodySmall, fontSize: 10, marginTop: 4 },
   callBtnCircle: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
 
-  iceCard: { backgroundColor: '#1E293B', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#334155' },
+  iceCard: { borderWidth: 1 },
   iceHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
-  iceTitle: { fontSize: 12, fontWeight: '700', color: '#EF4444' },
+  iceTitle: { ...Typography.labelMedium, fontWeight: '700' },
   iceDetails: { gap: 4 },
-  iceItem: { fontSize: 11, color: '#94A3B8' },
-  iceBold: { color: '#F1F5F9', fontWeight: '700' },
-  sendIceBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: '#EF4444',
-    paddingVertical: 10,
-    borderRadius: 12,
-    marginTop: 10,
-  },
-  sendIceBtnText: { fontSize: 12, fontWeight: '800', color: '#ffffff' },
+  iceItem: { ...Typography.bodySmall },
+  iceBold: { fontWeight: '700' },
 });

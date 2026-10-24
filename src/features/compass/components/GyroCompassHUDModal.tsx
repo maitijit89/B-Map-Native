@@ -4,11 +4,9 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import * as Haptics from 'expo-haptics';
 import { X, Compass, Navigation2, ShieldCheck, MapPin } from 'lucide-react-native';
 import Animated, {
   useSharedValue,
@@ -18,6 +16,7 @@ import Animated, {
 
 import { useCompass, useLocation } from '@/shared/hooks';
 import { DynamicCompassIcon } from '@/shared/components/ui';
+import { haptics } from '@/shared/utils/haptics';
 
 function getCardinalDirection(deg: number): string {
   const directions = [
@@ -62,23 +61,13 @@ export const GyroCompassHUDModal: React.FC = () => {
     transform: [{ rotate: `${dialRotation.value}deg` }],
   }));
 
-  const triggerHaptic = () => {
-    if (Platform.OS === 'ios' || Platform.OS === 'android') {
-      try {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      } catch {
-        // Haptics unavailable
-      }
-    }
-  };
-
   const handleClose = () => {
-    triggerHaptic();
+    haptics.light();
     router.back();
   };
 
   const toggleMode = () => {
-    triggerHaptic();
+    haptics.selection();
     setMode((prev) => (prev === 'north' ? 'heading' : 'north'));
   };
 

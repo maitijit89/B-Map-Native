@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,42 +6,31 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import * as Haptics from 'expo-haptics';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
   Satellite,
   Shield,
-  Leaf,
   Phone,
   Camera,
-  Radio,
   ThumbsUp,
   ThumbsDown,
-  Car,
-  Truck,
-  Bus,
-  Signal,
-  Waves,
   Siren,
   Heart,
   TriangleAlert,
-  CreditCard,
-  ChevronRight,
 } from 'lucide-react-native';
 import { useThemeColors } from '@/shared/hooks';
-import { Radius, Shadows, Spacing, Typography } from '@/shared/constants/tokens';
+import { Radius, Spacing, Typography } from '@/shared/constants/tokens';
 import {
   Header,
   Card,
   Button,
-  Badge,
   StatusBadge,
   SectionHeader,
-  MetricCard,
 } from '@/shared/components/ui';
+import { haptics } from '@/shared/utils/haptics';
 
 const NAVIC_SATELLITES = [
   { id: 'IRNSS-1A', band: 'L5', signal: 42, status: 'Active', elevation: '55°' },
@@ -60,42 +49,24 @@ const INITIAL_HAZARD_REPORTS = [
 ];
 
 const SPEED_CAMERAS = [
-  { location: 'NH-48 km 36.2', limit: '120 km/h', distance: '2.4 km', type: 'Fixed Radar' },
-  { location: 'Sohna Road Elevated', limit: '80 km/h', distance: '5.1 km', type: 'Interceptor Zone' },
-  { location: 'Golf Course Extension', limit: '60 km/h', distance: '0.8 km', type: 'Red Light Camera' },
-];
-
-const VEHICLE_CLASSES = [
-  { label: 'Car / Jeep', class: 'Class 4', icon: Car, fee: '₹435', desc: 'Standard Passenger' },
-  { label: 'LCV / Mini-Bus', class: 'Class 5', icon: Truck, fee: '₹700', desc: 'Light Commercial' },
-  { label: 'Bus / Heavy Truck', class: 'Class 6', icon: Bus, fee: '₹1,460', desc: 'Commercial Axle' },
+  { id: 'sc_1', location: 'NH-48 km 36.2', limit: '120 km/h', distance: '2.4 km', type: 'Fixed Radar' },
+  { id: 'sc_2', location: 'Sohna Road Elevated', limit: '80 km/h', distance: '5.1 km', type: 'Interceptor Zone' },
+  { id: 'sc_3', location: 'Golf Course Extension', limit: '60 km/h', distance: '0.8 km', type: 'Red Light Camera' },
 ];
 
 export default function ServicesScreen() {
   const colors = useThemeColors();
 
-  const [selectedVehicle, setSelectedVehicle] = useState(0);
   const [hazards, setHazards] = useState(INITIAL_HAZARD_REPORTS);
   const [votedMap, setVotedMap] = useState<Record<number, 'up' | 'down'>>({});
 
-  const triggerHaptic = () => {
-    if (Platform.OS === 'ios' || Platform.OS === 'android') {
-      try {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } catch {
-        // Haptics unavailable
-      }
-    }
-  };
-
-  const handleVote = (id: number, direction: 'up' | 'down') => {
-    triggerHaptic();
+  const handleVote = useCallback((id: number, direction: 'up' | 'down') => {
+    haptics.selection();
     setHazards((prev) =>
       prev.map((h) => {
         if (h.id === id) {
           const currentVote = votedMap[id];
           if (currentVote === direction) {
-            // unvote
             const nextMap = { ...votedMap };
             delete nextMap[id];
             setVotedMap(nextMap);
@@ -109,7 +80,7 @@ export default function ServicesScreen() {
         return h;
       })
     );
-  };
+  }, [votedMap]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
@@ -122,432 +93,248 @@ export default function ServicesScreen() {
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* NavIC Satellite Status */}
-        <Card variant="elevated" padding="md" style={styles.cardContainer}>
-          <View style={styles.cardHeader}>
-            <View style={styles.headerLeftCluster}>
-              <View style={[styles.iconContainer, { backgroundColor: colors.primaryContainer }]}>
-                <Satellite size={18} color={colors.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.cardTitle, { color: colors.onSurface }]}>ISRO NavIC Status</Text>
-                <Text style={[styles.cardSubtitle, { color: colors.onSurfaceVariant }]}>
-                  Dual-Band L5 + S-Band Constellation
-                </Text>
-              </View>
-            </View>
-            <TouchableOpacity
-              style={[
-                styles.navicDopBadge,
-                {
-                  backgroundColor: colors.primaryFixed,
-                },
-              ]}
-              onPress={() => {
-                triggerHaptic();
-                router.push('/digipin-explorer');
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="DigiPIN and HDOP Explorer"
-              activeOpacity={0.8}>
-              <Text style={[styles.navicDopLabel, { color: colors.onPrimaryFixedVariant }]}>
-                DigiPIN / HDOP
-              </Text>
-              <Text style={[styles.navicDopValue, { color: colors.primary }]}>0.8</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={[styles.navicAccuracyRow, { backgroundColor: colors.surfaceContainerLow }]}>
-            <View style={styles.accItem}>
-              <Text style={[styles.accValue, { color: colors.onSurface }]}>0.6m</Text>
-              <Text style={[styles.accLabel, { color: colors.onSurfaceVariant }]}>Position Accuracy</Text>
-            </View>
-            <View style={[styles.accDivider, { backgroundColor: colors.outlineVariant }]} />
-            <View style={styles.accItem}>
-              <Text style={[styles.accValue, { color: colors.onSurface }]}>5/7</Text>
-              <Text style={[styles.accLabel, { color: colors.onSurfaceVariant }]}>Satellites Locked</Text>
-            </View>
-            <View style={[styles.accDivider, { backgroundColor: colors.outlineVariant }]} />
-            <View style={styles.accItem}>
-              <StatusBadge status="success" label="3D Fix" size="sm" pulsing={true} />
-              <Text style={[styles.accLabel, { color: colors.onSurfaceVariant, marginTop: 4 }]}>Fix Quality</Text>
-            </View>
-          </View>
-
-          {NAVIC_SATELLITES.map((sat, i) => (
-            <View
-              key={i}
-              style={[
-                styles.satRow,
-                { borderBottomColor: colors.surfaceContainerHigh },
-              ]}>
-              <Text style={[styles.satId, { color: colors.onSurface }]}>{sat.id}</Text>
-              <View style={[styles.satBandBadge, { backgroundColor: colors.surfaceContainerLow }]}>
-                <Text style={[styles.satBandText, { color: colors.primary }]}>{sat.band}</Text>
-              </View>
-              <View style={[styles.satSignalBar, { backgroundColor: colors.surfaceContainerHigh }]}>
-                <View
-                  style={[
-                    styles.satSignalFill,
-                    {
-                      width: `${sat.signal * 2}%`,
-                      backgroundColor: sat.signal > 40 ? colors.trafficGreen : colors.trafficOrange,
-                    },
-                  ]}
-                />
-              </View>
-              <Text style={[styles.satSignalVal, { color: colors.onSurface }]}>{sat.signal} dB</Text>
-              <Text style={[styles.satElev, { color: colors.onSurfaceVariant }]}>{sat.elevation}</Text>
-            </View>
-          ))}
-        </Card>
-
-        {/* SOS Emergency Console */}
-        <Card variant="elevated" padding="md" style={styles.cardContainer}>
-          <View style={styles.cardHeader}>
-            <View style={styles.headerLeftCluster}>
-              <View style={[styles.iconContainer, { backgroundColor: colors.errorContainer }]}>
-                <Siren size={18} color={colors.error} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.cardTitle, { color: colors.onSurface }]}>
-                  Emergency SOS Console
-                </Text>
-                <Text style={[styles.cardSubtitle, { color: colors.onSurfaceVariant }]}>
-                  Instant distress beacon with live coordinates
-                </Text>
-              </View>
-            </View>
-          </View>
-          <Text style={[styles.sosDescription, { color: colors.onSurfaceVariant }]}>
-            One-touch broadcast coordinates, vehicle details & active route to emergency responders.
-          </Text>
-
-          <View style={styles.sosButtonsRow}>
-            <Button
-              title="112 Emergency"
-              variant="danger"
-              size="sm"
-              leftIcon={<Phone size={14} color="#fff" />}
-              onPress={() => {
-                triggerHaptic();
-                router.push('/sos-distress');
-              }}
-              style={styles.sosFlexBtn}
-            />
-            <Button
-              title="Patrol"
-              variant="outline"
-              size="sm"
-              leftIcon={<Shield size={14} color={colors.primary} />}
-              onPress={() => {
-                triggerHaptic();
-                Alert.alert('Highway Patrol', 'Contacting NHAI Highway Patrol for roadside assistance.');
-              }}
-              style={styles.sosFlexBtn}
-            />
-            <Button
-              title="Ambulance"
-              variant="secondary"
-              size="sm"
-              leftIcon={<Heart size={14} color={colors.onSecondary} />}
-              onPress={() => {
-                triggerHaptic();
-                Alert.alert('Ambulance Dispatch', 'Requesting nearest medical team. Real-time GPS coordinates shared.');
-              }}
-              style={styles.sosFlexBtn}
-            />
-          </View>
-        </Card>
-
-        {/* FASTag Highway Calculator */}
-        <Card variant="elevated" padding="md" style={styles.cardContainer}>
-          <View style={styles.cardHeader}>
-            <View style={styles.headerLeftCluster}>
-              <View style={[styles.iconContainer, { backgroundColor: colors.primaryContainer }]}>
-                <CreditCard size={18} color={colors.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.cardTitle, { color: colors.onSurface }]}>
-                  FASTag Highway Calculator
-                </Text>
-                <Text style={[styles.cardSubtitle, { color: colors.onSurfaceVariant }]}>
-                  NH-48 · Yamuna Expressway Corridor
-                </Text>
-              </View>
-            </View>
-            <Badge label="NHAI Verified" variant="primary" size="sm" />
-          </View>
-
-          {/* Vehicle Class Selector */}
-          <View style={styles.vehicleClassRow}>
-            {VEHICLE_CLASSES.map((vc, idx) => {
-              const IconComp = vc.icon;
-              const isSelected = selectedVehicle === idx;
-              return (
-                <TouchableOpacity
-                  key={idx}
-                  style={[
-                    styles.vehicleClassChip,
-                    {
-                      backgroundColor: isSelected
-                        ? colors.primaryContainer
-                        : colors.surfaceContainerLow,
-                      borderColor: isSelected
-                        ? colors.primary
-                        : colors.surfaceContainerHigh,
-                    },
-                  ]}
-                  onPress={() => {
-                    triggerHaptic();
-                    setSelectedVehicle(idx);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: isSelected }}
-                  accessibilityLabel={`Vehicle class ${vc.label}`}
-                  activeOpacity={0.8}>
-                  <IconComp
-                    size={18}
-                    color={isSelected ? colors.primary : colors.onSurfaceVariant}
-                  />
-                  <Text
-                    style={[
-                      styles.vehicleClassLabel,
-                      {
-                        color: isSelected ? colors.primary : colors.onSurface,
-                        fontWeight: isSelected ? '700' : '600',
-                      },
-                    ]}>
-                    {vc.label}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.vehicleClassBadge,
-                      {
-                        color: isSelected ? colors.primary : colors.onSurfaceVariant,
-                      },
-                    ]}>
-                    {vc.class}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* Toll Fee Result Banner */}
-          <Card
-            variant="outlined"
-            padding="sm"
-            onPress={() => {
-              triggerHaptic();
-              router.push('/vehicle-fleet');
-            }}
-            accessibilityLabel="Manage FASTag fleet">
-            <View style={styles.tollResultBannerInner}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.tollResultLabel, { color: colors.onSurfaceVariant }]}>
-                  Calculated Corridor Toll
-                </Text>
-                <Text style={[styles.tollResultDesc, { color: colors.onSurface }]}>
-                  {VEHICLE_CLASSES[selectedVehicle].desc} across 3 NHAI Plazas
-                </Text>
-              </View>
-              <View style={styles.tollFeeRow}>
-                <Text style={[styles.tollResultFee, { color: colors.primary }]}>
-                  {VEHICLE_CLASSES[selectedVehicle].fee}
-                </Text>
-                <ChevronRight size={18} color={colors.primary} />
-              </View>
-            </View>
-          </Card>
-        </Card>
-
-        {/* ADAS Speed Camera Alerts */}
-        <SectionHeader
-          title="ADAS Speed Camera Alerts"
-          subtitle="Live radar & interceptor detection"
-        />
-        {SPEED_CAMERAS.map((cam, i) => (
-          <Card key={i} variant="outlined" padding="md" style={styles.cameraCard}>
-            <View style={styles.cameraLeft}>
-              <View style={[styles.cameraIconBox, { backgroundColor: colors.errorContainer }]}>
-                <Camera size={16} color={colors.error} />
-              </View>
-              <View>
-                <Text style={[styles.cameraLocation, { color: colors.onSurface }]}>
-                  {cam.location}
-                </Text>
-                <Text style={[styles.cameraType, { color: colors.onSurfaceVariant }]}>
-                  {cam.type}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.cameraRight}>
-              <Badge label={cam.limit} variant="error" size="sm" />
-              <Text style={[styles.cameraDistance, { color: colors.onSurfaceVariant }]}>
-                {cam.distance}
-              </Text>
-            </View>
-          </Card>
-        ))}
-
-        {/* Hazard Community Reports */}
-        <SectionHeader
-          title="Community Hazard Reports"
-          subtitle="Crowdsourced · Trust-Score Verified"
-          actionText="Report"
-          actionIcon={<TriangleAlert size={14} color={colors.primary} />}
-          onActionPress={() => {
-            triggerHaptic();
-            router.push('/hazard-report');
-          }}
-        />
-
-        {hazards.map((hazard) => {
-          const badgeVariant =
-            hazard.severity === 'high' ? 'error' : hazard.severity === 'medium' ? 'warning' : 'neutral';
-          return (
-            <Card key={hazard.id} variant="outlined" padding="md" style={styles.hazardCard}>
-              <View style={styles.hazardLeft}>
-                <View style={[styles.hazardDot, { backgroundColor: hazard.color }]} />
+        <Animated.View entering={FadeInDown.duration(280).springify().damping(18)}>
+          <Card variant="elevated" padding="md" style={styles.cardContainer}>
+            <View style={styles.cardHeader}>
+              <View style={styles.headerLeftCluster}>
+                <View style={[styles.iconContainer, { backgroundColor: colors.primaryContainer }]}>
+                  <Satellite size={18} color={colors.primary} />
+                </View>
                 <View style={{ flex: 1 }}>
-                  <View style={styles.hazardTitleRow}>
-                    <Text style={[styles.hazardType, { color: colors.onSurface }]}>
-                      {hazard.type}
-                    </Text>
-                    <Badge label={hazard.severity} variant={badgeVariant} size="sm" />
-                  </View>
-                  <Text style={[styles.hazardLocation, { color: colors.onSurfaceVariant }]}>
-                    {hazard.location}
+                  <Text style={[styles.cardTitle, { color: colors.onSurface }]}>ISRO NavIC Status</Text>
+                  <Text style={[styles.cardSubtitle, { color: colors.onSurfaceVariant }]}>
+                    Dual-Band L5 + S-Band Constellation
                   </Text>
-                  <Text style={[styles.hazardTime, { color: colors.outline }]}>{hazard.time}</Text>
                 </View>
               </View>
-              <View style={styles.hazardVotes}>
-                <TouchableOpacity
+              <TouchableOpacity
+                style={[styles.navicDopBadge, { backgroundColor: colors.primaryFixed }]}
+                onPress={() => {
+                  haptics.light();
+                  router.push('/digipin-explorer');
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="DigiPIN and HDOP Explorer"
+                activeOpacity={0.8}>
+                <Text style={[styles.navicDopLabel, { color: colors.onPrimaryFixedVariant }]}>
+                  DigiPIN / HDOP
+                </Text>
+                <Text style={[styles.navicDopValue, { color: colors.primary }]}>0.8</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={[styles.navicAccuracyRow, { backgroundColor: colors.surfaceContainerLow }]}>
+              <View style={styles.accItem}>
+                <Text style={[styles.accValue, { color: colors.onSurface }]}>0.6m</Text>
+                <Text style={[styles.accLabel, { color: colors.onSurfaceVariant }]}>Position Accuracy</Text>
+              </View>
+              <View style={[styles.accDivider, { backgroundColor: colors.outlineVariant }]} />
+              <View style={styles.accItem}>
+                <Text style={[styles.accValue, { color: colors.onSurface }]}>5/7</Text>
+                <Text style={[styles.accLabel, { color: colors.onSurfaceVariant }]}>Satellites Locked</Text>
+              </View>
+              <View style={[styles.accDivider, { backgroundColor: colors.outlineVariant }]} />
+              <View style={styles.accItem}>
+                <StatusBadge status="success" label="3D Fix" size="sm" pulsing={true} />
+                <Text style={[styles.accLabel, { color: colors.onSurfaceVariant, marginTop: 4 }]}>Fix Quality</Text>
+              </View>
+            </View>
+
+            {NAVIC_SATELLITES.map((sat, idx) => (
+              <View
+                key={sat.id}
+                style={[
+                  styles.satRow,
+                  {
+                    borderBottomColor: colors.surfaceContainerHigh,
+                    borderBottomWidth: idx < NAVIC_SATELLITES.length - 1 ? 1 : 0,
+                  },
+                ]}
+                accessible
+                accessibilityLabel={`Satellite ${sat.id}, ${sat.band} band, ${sat.signal} decibels, ${sat.elevation} elevation, ${sat.status}`}>
+                <Text style={[styles.satId, { color: colors.onSurface }]}>{sat.id}</Text>
+                <View style={[styles.satBandBadge, { backgroundColor: colors.surfaceContainerLow }]}>
+                  <Text style={[styles.satBandText, { color: colors.primary }]}>{sat.band}</Text>
+                </View>
+                <View style={[styles.satSignalBar, { backgroundColor: colors.surfaceContainerHigh }]}>
+                  <View
+                    style={[
+                      styles.satSignalFill,
+                      {
+                        width: `${sat.signal * 2}%`,
+                        backgroundColor: sat.signal > 40 ? colors.trafficGreen : colors.trafficOrange,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text style={[styles.satSignalVal, { color: colors.onSurface }]}>{sat.signal} dB</Text>
+                <Text style={[styles.satElev, { color: colors.onSurfaceVariant }]}>{sat.elevation}</Text>
+              </View>
+            ))}
+          </Card>
+        </Animated.View>
+
+        {/* SOS Emergency Console */}
+        <Animated.View entering={FadeInDown.delay(60).duration(280).springify().damping(18)}>
+          <Card variant="elevated" padding="md" style={styles.cardContainer}>
+            <View style={styles.cardHeader}>
+              <View style={styles.headerLeftCluster}>
+                <View style={[styles.iconContainer, { backgroundColor: colors.errorContainer }]}>
+                  <Siren size={18} color={colors.error} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.cardTitle, { color: colors.onSurface }]}>
+                    Emergency SOS Console
+                  </Text>
+                  <Text style={[styles.cardSubtitle, { color: colors.onSurfaceVariant }]}>
+                    Instant distress beacon with live coordinates
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <Text style={[styles.sosDescription, { color: colors.onSurfaceVariant }]}>
+              One-touch broadcast coordinates, vehicle details & active route to emergency responders.
+            </Text>
+
+            <View style={styles.sosButtonsRow}>
+              <Button
+                title="112 Emergency"
+                variant="danger"
+                size="sm"
+                leftIcon={<Phone size={14} color="#fff" />}
+                onPress={() => {
+                  haptics.heavy();
+                  router.push('/sos-distress');
+                }}
+                style={styles.sosFlexBtn}
+              />
+              <Button
+                title="Patrol"
+                variant="outline"
+                size="sm"
+                leftIcon={<Shield size={14} color={colors.primary} />}
+                onPress={() => {
+                  haptics.light();
+                  Alert.alert('Highway Patrol', 'Contacting NHAI Highway Patrol for roadside assistance.');
+                }}
+                style={styles.sosFlexBtn}
+              />
+              <Button
+                title="Ambulance"
+                variant="secondary"
+                size="sm"
+                leftIcon={<Heart size={14} color={colors.onSecondary} />}
+                onPress={() => {
+                  haptics.light();
+                  Alert.alert('Ambulance Dispatch', 'Requesting nearest medical team. Real-time GPS coordinates shared.');
+                }}
+                style={styles.sosFlexBtn}
+              />
+            </View>
+          </Card>
+        </Animated.View>
+
+        {/* Real-Time Community Hazards */}
+        <Animated.View entering={FadeInDown.delay(100).duration(280).springify().damping(18)}>
+          <SectionHeader
+            title="Community Hazard Reports"
+            subtitle="Crowdsourced Highway Telematics"
+            actionText="+ Report"
+            actionIcon={<TriangleAlert size={14} color={colors.primary} />}
+            onActionPress={() => {
+              haptics.medium();
+              router.push('/hazard-report');
+            }}
+          />
+
+          <Card variant="flat" padding="md" style={styles.cardContainer}>
+            {hazards.map((h, idx) => {
+              const isUpvoted = votedMap[h.id] === 'up';
+              const isDownvoted = votedMap[h.id] === 'down';
+              return (
+                <View
+                  key={h.id}
                   style={[
-                    styles.voteBtn,
-                    votedMap[hazard.id] === 'up' && { backgroundColor: colors.secondaryContainer },
-                  ]}
-                  onPress={() => handleVote(hazard.id, 'up')}
-                  accessibilityRole="button"
-                  accessibilityLabel="Confirm hazard">
-                  <ThumbsUp size={14} color={colors.secondary} />
-                </TouchableOpacity>
-                <Text style={[styles.voteCount, { color: colors.onSurface }]}>{hazard.upvotes}</Text>
-                <TouchableOpacity
-                  style={[
-                    styles.voteBtn,
-                    votedMap[hazard.id] === 'down' && { backgroundColor: colors.surfaceContainerHigh },
-                  ]}
-                  onPress={() => handleVote(hazard.id, 'down')}
-                  accessibilityRole="button"
-                  accessibilityLabel="Mark hazard resolved">
-                  <ThumbsDown size={14} color={colors.onSurfaceVariant} />
-                </TouchableOpacity>
-              </View>
-            </Card>
-          );
-        })}
+                    styles.hazardRow,
+                    {
+                      borderBottomColor: colors.surfaceContainerHigh,
+                      borderBottomWidth: idx < hazards.length - 1 ? 1 : 0,
+                    },
+                  ]}>
+                  <View style={[styles.severityDot, { backgroundColor: h.color }]} />
+                  <View style={{ flex: 1, marginLeft: 8 }}>
+                    <Text style={[styles.hazardType, { color: colors.onSurface }]}>{h.type}</Text>
+                    <Text style={[styles.hazardLocation, { color: colors.onSurfaceVariant }]}>
+                      {h.location} · {h.time}
+                    </Text>
+                  </View>
+                  <View style={styles.voteControls}>
+                    <TouchableOpacity
+                      onPress={() => handleVote(h.id, 'up')}
+                      style={[
+                        styles.voteBtn,
+                        { backgroundColor: isUpvoted ? colors.primaryContainer : colors.surfaceContainerLow },
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Upvote hazard report">
+                      <ThumbsUp size={12} color={isUpvoted ? colors.primary : colors.onSurfaceVariant} />
+                    </TouchableOpacity>
 
-        {/* Eco-Routing Dashboard */}
-        <Card variant="elevated" padding="md" style={styles.cardContainer}>
-          <View style={styles.cardHeader}>
-            <View style={styles.headerLeftCluster}>
-              <View style={[styles.iconContainer, { backgroundColor: colors.surfaceContainerLow }]}>
-                <Leaf size={18} color={colors.trafficGreen} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.cardTitle, { color: colors.onSurface }]}>
-                  Eco-Routing & EV Energy
-                </Text>
-                <Text style={[styles.cardSubtitle, { color: colors.onSurfaceVariant }]}>
-                  Fleet carbon footprint and battery optimization
-                </Text>
-              </View>
-            </View>
-          </View>
-          <View style={styles.ecoGrid}>
-            <MetricCard
-              label="CO₂ Saved"
-              value="12.4"
-              unit="kg"
-              trend={{ value: '+2.1 kg', positive: true }}
-              style={styles.ecoGridItem}
-            />
-            <MetricCard
-              label="EV Battery"
-              value="78"
-              unit="%"
-              style={styles.ecoGridItem}
-            />
-          </View>
-          <View style={styles.ecoGrid}>
-            <MetricCard
-              label="Range"
-              value="186"
-              unit="km"
-              style={styles.ecoGridItem}
-            />
-            <MetricCard
-              label="Regen Braking"
-              value="+18"
-              unit="km"
-              trend={{ value: '+3 km', positive: true }}
-              style={styles.ecoGridItem}
-            />
-          </View>
-        </Card>
+                    <Text style={[styles.upvoteCount, { color: colors.onSurface }]}>{h.upvotes}</Text>
 
-        {/* V2X Connected Vehicle */}
-        <Card variant="elevated" padding="md" style={styles.cardContainer}>
-          <View style={styles.cardHeader}>
-            <View style={styles.headerLeftCluster}>
-              <View style={[styles.iconContainer, { backgroundColor: colors.primaryContainer }]}>
-                <Radio size={18} color={colors.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.cardTitle, { color: colors.onSurface }]}>
-                  V2X Connected Vehicle
-                </Text>
-                <Text style={[styles.cardSubtitle, { color: colors.onSurfaceVariant }]}>
-                  Short-range vehicular mesh (DSRC/C-V2X)
-                </Text>
-              </View>
-            </View>
-            <StatusBadge status="success" label="Active" size="sm" pulsing={true} />
-          </View>
-          <Text style={[styles.sosDescription, { color: colors.onSurfaceVariant }]}>
-            Broadcasting sovereign collision avoidance, braking events, and hazard alerts to nodes within 500m.
-          </Text>
-          <View style={styles.v2xStatsRow}>
-            <View style={[styles.v2xStatChip, { backgroundColor: colors.surfaceContainerLow }]}>
-              <Signal size={14} color={colors.primary} />
-              <Text style={[styles.v2xStatText, { color: colors.onSurface }]}>
-                4 vehicles in range
-              </Text>
-            </View>
-            <View style={[styles.v2xStatChip, { backgroundColor: colors.surfaceContainerLow }]}>
-              <Waves size={14} color={colors.trafficGreen} />
-              <Text style={[styles.v2xStatText, { color: colors.onSurface }]}>12 events/min</Text>
-            </View>
-          </View>
-        </Card>
+                    <TouchableOpacity
+                      onPress={() => handleVote(h.id, 'down')}
+                      style={[
+                        styles.voteBtn,
+                        { backgroundColor: isDownvoted ? colors.errorContainer : colors.surfaceContainerLow },
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Downvote hazard report">
+                      <ThumbsDown size={12} color={isDownvoted ? colors.error : colors.onSurfaceVariant} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })}
+          </Card>
+        </Animated.View>
 
-        {/* Report a Hazard CTA Button */}
-        <Button
-          title="Report Road Hazard"
-          variant="primary"
-          size="lg"
-          fullWidth
-          leftIcon={<TriangleAlert size={18} color="#fff" />}
-          onPress={() => {
-            triggerHaptic();
-            router.push('/hazard-report');
-          }}
-          style={styles.reportButton}
-        />
+        {/* ADAS Speed Camera Radar */}
+        <Animated.View entering={FadeInDown.delay(150).duration(280).springify().damping(18)}>
+          <SectionHeader
+            title="ADAS Speed Camera Radar"
+            subtitle="Fixed Speed Guns & Interceptor Zones"
+          />
 
-        <View style={{ height: 40 }} />
+          <Card variant="flat" padding="md" style={styles.cardContainer}>
+            {SPEED_CAMERAS.map((cam, idx) => (
+              <View
+                key={cam.id}
+                style={[
+                  styles.cameraRow,
+                  {
+                    borderBottomColor: colors.surfaceContainerHigh,
+                    borderBottomWidth: idx < SPEED_CAMERAS.length - 1 ? 1 : 0,
+                  },
+                ]}
+                accessible
+                accessibilityLabel={`Speed radar at ${cam.location}, speed limit ${cam.limit}, ${cam.distance} away`}>
+                <View style={[styles.cameraIconBox, { backgroundColor: colors.surfaceContainerLow }]}>
+                  <Camera size={16} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={[styles.cameraLoc, { color: colors.onSurface }]}>{cam.location}</Text>
+                  <Text style={[styles.cameraType, { color: colors.onSurfaceVariant }]}>
+                    {cam.type} · {cam.distance}
+                  </Text>
+                </View>
+                <View style={[styles.limitBadge, { backgroundColor: colors.errorContainer }]}>
+                  <Text style={[styles.limitText, { color: colors.onErrorContainer }]}>{cam.limit}</Text>
+                </View>
+              </View>
+            ))}
+          </Card>
+        </Animated.View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -558,11 +345,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scroll: {
-    padding: Spacing.md,
-    gap: 14,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: 100,
+    gap: Spacing.md,
   },
   cardContainer: {
-    gap: 12,
+    borderRadius: Radius.xl,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -576,8 +364,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   iconContainer: {
-    width: 34,
-    height: 34,
+    width: 36,
+    height: 36,
     borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -588,29 +376,28 @@ const styles = StyleSheet.create({
   },
   cardSubtitle: {
     ...Typography.bodySmall,
-    fontSize: 11,
-    marginTop: 1,
   },
   navicDopBadge: {
-    alignItems: 'center',
+    alignItems: 'flex-end',
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: Radius.sm,
+    paddingVertical: 4,
+    borderRadius: Radius.md,
   },
   navicDopLabel: {
+    ...Typography.labelSmall,
     fontSize: 9,
-    fontWeight: '700',
   },
   navicDopValue: {
-    fontSize: 12,
+    ...Typography.titleSmall,
     fontWeight: '800',
   },
   navicAccuracyRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    paddingVertical: Spacing.sm,
-    borderRadius: Radius.md,
+    paddingVertical: 10,
+    borderRadius: Radius.lg,
+    marginVertical: 12,
   },
   accItem: {
     alignItems: 'center',
@@ -620,24 +407,24 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   accLabel: {
-    fontSize: 9,
-    marginTop: 2,
+    ...Typography.labelSmall,
+    fontSize: 10,
   },
   accDivider: {
     width: 1,
-    height: 18,
+    height: 24,
   },
   satRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
     gap: 8,
-    paddingVertical: 6,
-    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   satId: {
-    ...Typography.bodySmall,
+    ...Typography.labelSmall,
     fontWeight: '700',
-    width: 76,
+    width: 70,
   },
   satBandBadge: {
     paddingHorizontal: 6,
@@ -645,8 +432,9 @@ const styles = StyleSheet.create({
     borderRadius: Radius.xs,
   },
   satBandText: {
-    fontSize: 9,
-    fontWeight: '800',
+    ...Typography.labelSmall,
+    fontSize: 10,
+    fontWeight: '700',
   },
   satSignalBar: {
     flex: 1,
@@ -659,86 +447,70 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   satSignalVal: {
-    fontSize: 10,
+    ...Typography.labelSmall,
     fontWeight: '600',
-    width: 44,
+    width: 38,
     textAlign: 'right',
   },
   satElev: {
+    ...Typography.labelSmall,
     fontSize: 10,
-    width: 32,
+    width: 30,
     textAlign: 'right',
   },
   sosDescription: {
     ...Typography.bodySmall,
-    fontSize: 12,
-    lineHeight: 16,
+    marginTop: 8,
+    marginBottom: 12,
   },
   sosButtonsRow: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 2,
   },
   sosFlexBtn: {
     flex: 1,
   },
-  vehicleClassRow: {
+  hazardRow: {
     flexDirection: 'row',
-    gap: 8,
-  },
-  vehicleClassChip: {
-    flex: 1,
     alignItems: 'center',
     paddingVertical: 10,
-    borderRadius: Radius.lg,
-    borderWidth: 1.5,
-    gap: 4,
+    borderBottomWidth: 1,
   },
-  vehicleClassLabel: {
-    fontSize: 11,
+  severityDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  hazardType: {
+    ...Typography.titleSmall,
+    fontWeight: '700',
+  },
+  hazardLocation: {
+    ...Typography.bodySmall,
+  },
+  voteControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  voteBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  upvoteCount: {
+    ...Typography.labelSmall,
+    fontWeight: '700',
+    minWidth: 20,
     textAlign: 'center',
   },
-  vehicleClassBadge: {
-    fontSize: 9,
-    fontWeight: '700',
-  },
-  tollResultBannerInner: {
+  cameraRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: Spacing.xs,
-  },
-  tollResultLabel: {
-    ...Typography.labelSmall,
-    fontSize: 9,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  tollResultDesc: {
-    ...Typography.bodySmall,
-    fontSize: 11,
-    marginTop: 2,
-  },
-  tollFeeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginLeft: 8,
-  },
-  tollResultFee: {
-    ...Typography.titleMedium,
-    fontWeight: '800',
-  },
-  cameraCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    ...Shadows.xs,
-  },
-  cameraLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
   },
   cameraIconBox: {
     width: 32,
@@ -747,99 +519,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cameraLocation: {
-    ...Typography.bodyMedium,
-    fontWeight: '600',
-  },
-  cameraType: {
-    ...Typography.bodySmall,
-    fontSize: 10,
-  },
-  cameraRight: {
-    alignItems: 'flex-end',
-    gap: 4,
-  },
-  cameraDistance: {
-    ...Typography.bodySmall,
-    fontSize: 10,
-  },
-  hazardCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    ...Shadows.xs,
-  },
-  hazardLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  hazardDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  hazardTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  hazardType: {
+  cameraLoc: {
     ...Typography.titleSmall,
     fontWeight: '700',
   },
-  hazardLocation: {
+  cameraType: {
     ...Typography.bodySmall,
-    fontSize: 11,
-    marginTop: 1,
   },
-  hazardTime: {
-    fontSize: 9,
-    marginTop: 1,
-  },
-  hazardVotes: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginLeft: 8,
-  },
-  voteBtn: {
-    padding: 6,
+  limitBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: Radius.sm,
   },
-  voteCount: {
-    fontSize: 11,
-    fontWeight: '700',
-    minWidth: 18,
-    textAlign: 'center',
-  },
-  ecoGrid: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  ecoGridItem: {
-    flex: 1,
-  },
-  v2xStatsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 2,
-  },
-  v2xStatChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: Radius.sm,
-  },
-  v2xStatText: {
-    ...Typography.bodySmall,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  reportButton: {
-    marginTop: 6,
+  limitText: {
+    ...Typography.labelSmall,
+    fontWeight: '800',
   },
 });

@@ -49,25 +49,38 @@ const STORAGE_KEYS = {
   RESERVATIONS: '@bmap/reservations',
 };
 
+/**
+ * Ultra-fast StorageService with synchronous in-memory read caching and
+ * non-blocking asynchronous disk persistence.
+ */
 class StorageService {
+  private cache = new Map<string, any>();
+
   /**
-   * Save user preferences
+   * Save user preferences with synchronous memory lookup and async persistence.
    */
   async getPreferences(): Promise<UserPreferences> {
+    if (this.cache.has(STORAGE_KEYS.PREFERENCES)) {
+      return this.cache.get(STORAGE_KEYS.PREFERENCES);
+    }
     try {
       const json = await AsyncStorage.getItem(STORAGE_KEYS.PREFERENCES);
       if (json) {
-        return { ...DEFAULT_PREFERENCES, ...JSON.parse(json) };
+        const loaded = { ...DEFAULT_PREFERENCES, ...JSON.parse(json) };
+        this.cache.set(STORAGE_KEYS.PREFERENCES, loaded);
+        return loaded;
       }
     } catch (e) {
       console.warn('StorageService: Failed to load preferences', e);
     }
+    this.cache.set(STORAGE_KEYS.PREFERENCES, DEFAULT_PREFERENCES);
     return DEFAULT_PREFERENCES;
   }
 
   async savePreferences(preferences: Partial<UserPreferences>): Promise<UserPreferences> {
     const current = await this.getPreferences();
     const updated = { ...current, ...preferences };
+    this.cache.set(STORAGE_KEYS.PREFERENCES, updated);
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.PREFERENCES, JSON.stringify(updated));
     } catch (e) {
@@ -80,9 +93,14 @@ class StorageService {
    * Saved Places Management
    */
   async getSavedPlaces(): Promise<SavedPlaceItem[]> {
+    if (this.cache.has(STORAGE_KEYS.SAVED_PLACES)) {
+      return this.cache.get(STORAGE_KEYS.SAVED_PLACES);
+    }
     try {
       const json = await AsyncStorage.getItem(STORAGE_KEYS.SAVED_PLACES);
-      return json ? JSON.parse(json) : [];
+      const loaded = json ? JSON.parse(json) : [];
+      this.cache.set(STORAGE_KEYS.SAVED_PLACES, loaded);
+      return loaded;
     } catch (e) {
       console.warn('StorageService: Failed to load saved places', e);
       return [];
@@ -97,6 +115,7 @@ class StorageService {
       createdAt: new Date().toISOString(),
     };
     const updated = [newItem, ...current.filter((p) => p.name !== place.name)];
+    this.cache.set(STORAGE_KEYS.SAVED_PLACES, updated);
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.SAVED_PLACES, JSON.stringify(updated));
     } catch (e) {
@@ -108,6 +127,7 @@ class StorageService {
   async removeSavedPlace(id: string): Promise<SavedPlaceItem[]> {
     const current = await this.getSavedPlaces();
     const updated = current.filter((p) => p.id !== id);
+    this.cache.set(STORAGE_KEYS.SAVED_PLACES, updated);
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.SAVED_PLACES, JSON.stringify(updated));
     } catch (e) {
@@ -120,9 +140,14 @@ class StorageService {
    * Search History Management
    */
   async getSearchHistory(): Promise<string[]> {
+    if (this.cache.has(STORAGE_KEYS.SEARCH_HISTORY)) {
+      return this.cache.get(STORAGE_KEYS.SEARCH_HISTORY);
+    }
     try {
       const json = await AsyncStorage.getItem(STORAGE_KEYS.SEARCH_HISTORY);
-      return json ? JSON.parse(json) : [];
+      const loaded = json ? JSON.parse(json) : [];
+      this.cache.set(STORAGE_KEYS.SEARCH_HISTORY, loaded);
+      return loaded;
     } catch {
       return [];
     }
@@ -131,7 +156,11 @@ class StorageService {
   async addSearchQuery(query: string): Promise<string[]> {
     if (!query.trim()) return await this.getSearchHistory();
     const current = await this.getSearchHistory();
-    const updated = [query.trim(), ...current.filter((q) => q.toLowerCase() !== query.trim().toLowerCase())].slice(0, 15);
+    const updated = [
+      query.trim(),
+      ...current.filter((q) => q.toLowerCase() !== query.trim().toLowerCase()),
+    ].slice(0, 15);
+    this.cache.set(STORAGE_KEYS.SEARCH_HISTORY, updated);
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.SEARCH_HISTORY, JSON.stringify(updated));
     } catch (e) {
@@ -141,6 +170,7 @@ class StorageService {
   }
 
   async clearSearchHistory(): Promise<void> {
+    this.cache.set(STORAGE_KEYS.SEARCH_HISTORY, []);
     try {
       await AsyncStorage.removeItem(STORAGE_KEYS.SEARCH_HISTORY);
     } catch (e) {
@@ -152,15 +182,21 @@ class StorageService {
    * EV Vehicle Profile
    */
   async getEvProfile(): Promise<EvVehicleProfile | null> {
+    if (this.cache.has(STORAGE_KEYS.EV_PROFILE)) {
+      return this.cache.get(STORAGE_KEYS.EV_PROFILE);
+    }
     try {
       const json = await AsyncStorage.getItem(STORAGE_KEYS.EV_PROFILE);
-      return json ? JSON.parse(json) : null;
+      const loaded = json ? JSON.parse(json) : null;
+      this.cache.set(STORAGE_KEYS.EV_PROFILE, loaded);
+      return loaded;
     } catch {
       return null;
     }
   }
 
   async saveEvProfile(profile: EvVehicleProfile): Promise<void> {
+    this.cache.set(STORAGE_KEYS.EV_PROFILE, profile);
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.EV_PROFILE, JSON.stringify(profile));
     } catch (e) {

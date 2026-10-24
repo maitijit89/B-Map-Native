@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef } from 'react';
+import React, { useEffect, useId, useRef, memo } from 'react';
 import { StyleSheet, type ViewStyle } from 'react-native';
 import Svg, {
   Defs,
@@ -17,7 +17,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 
-import { useCompass } from '../../hooks/useCompass';
+import { compassService } from '../../services/CompassService';
 
 export interface DynamicCompassIconProps {
   /** Overall size of the icon (width & height in points). Default: 48 */
@@ -46,10 +46,10 @@ export interface DynamicCompassIconProps {
  * design language (vibrant royal blue squircle with a white navigation arrow
  * and forward-illuminating radar/light beam).
  *
- * When `dynamic` is true, the arrow & beam smoothly rotate in real-time
- * using the device's hardware magnetometer via react-native-reanimated.
+ * Performance-optimized: Compass subscriptions update Reanimated shared values
+ * directly without triggering React Virtual DOM re-renders or bridge churn.
  */
-export const DynamicCompassIcon: React.FC<DynamicCompassIconProps> = ({
+export const DynamicCompassIcon: React.FC<DynamicCompassIconProps> = memo(({
   size = 48,
   dynamic = true,
   mode = 'north',
@@ -61,37 +61,50 @@ export const DynamicCompassIcon: React.FC<DynamicCompassIconProps> = ({
   const rawId = useId();
   const id = rawId.replace(/[:]/g, '_');
 
-  const { heading: liveHeading, pitch, roll } = useCompass(dynamic ? 60 : 300, 0.25);
   const rotation = useSharedValue(0);
   const currentTargetRef = useRef(0);
   const pitchAnim = useSharedValue(0);
   const rollAnim = useSharedValue(0);
 
-  const currentHeading = overrideHeading ?? (dynamic ? liveHeading : 0);
-
+  // 1. If overrideHeading is provided, animate to it directly
   useEffect(() => {
-    // In 'north' mode, rotate by -heading so arrow points North.
-    // In 'heading' mode, rotate by +heading to match direction of travel.
-    const targetRotation = mode === 'north' ? -currentHeading : currentHeading;
+    if (overrideHeading === undefined) return;
 
-    // Shortest-arc angular distance to prevent wild spins across 0°/360°
+    const targetRotation = mode === 'north' ? -overrideHeading : overrideHeading;
     const diff = (((targetRotation - currentTargetRef.current) % 360) + 540) % 360 - 180;
-    const nextTarget = currentTargetRef.current + diff;
-    currentTargetRef.current = nextTarget;
+    currentTargetRef.current += diff;
 
-    rotation.value = withSpring(nextTarget, {
+    rotation.value = withSpring(currentTargetRef.current, {
       damping: 22,
       stiffness: 150,
       mass: 0.7,
     });
-  }, [currentHeading, mode, rotation]);
+  }, [overrideHeading, mode, rotation]);
 
+  // 2. If dynamic is active and no override is set, subscribe to centralized CompassService
   useEffect(() => {
-    if (tilt3D) {
-      pitchAnim.value = withSpring(-pitch * 0.45, { damping: 16, stiffness: 130 });
-      rollAnim.value = withSpring(roll * 0.45, { damping: 16, stiffness: 130 });
-    }
-  }, [tilt3D, pitch, roll, pitchAnim, rollAnim]);
+    if (!dynamic || overrideHeading !== undefined) return;
+
+    const unsubscribe = compassService.subscribe((compassData) => {
+      const liveHeading = compassData.heading;
+      const targetRotation = mode === 'north' ? -liveHeading : liveHeading;
+      const diff = (((targetRotation - currentTargetRef.current) % 360) + 540) % 360 - 180;
+      currentTargetRef.current += diff;
+
+      rotation.value = withSpring(currentTargetRef.current, {
+        damping: 22,
+        stiffness: 150,
+        mass: 0.7,
+      });
+
+      if (tilt3D) {
+        pitchAnim.value = withSpring(-compassData.pitch * 0.45, { damping: 16, stiffness: 130 });
+        rollAnim.value = withSpring(compassData.roll * 0.45, { damping: 16, stiffness: 130 });
+      }
+    });
+
+    return unsubscribe;
+  }, [dynamic, overrideHeading, mode, tilt3D, rotation, pitchAnim, rollAnim]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rotation.value}deg` }],
@@ -266,7 +279,7 @@ export const DynamicCompassIcon: React.FC<DynamicCompassIconProps> = ({
       </Animated.View>
     </Animated.View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -281,5 +294,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
+
+DynamicCompassIcon.displayName = 'DynamicCompassIcon';
 
 export default DynamicCompassIcon;

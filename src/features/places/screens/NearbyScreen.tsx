@@ -1,17 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   Alert,
   Linking,
-  Platform,
+  FlatList,
+  ListRenderItem,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import * as Haptics from 'expo-haptics';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
   Zap,
   Fuel,
@@ -26,28 +26,30 @@ import {
   Plug,
   CircleDot,
   Bus,
-  Radio,
-  ChevronRight,
   Phone,
   ShieldCheck,
 } from 'lucide-react-native';
 import { useThemeColors } from '@/shared/hooks';
-import { Radius, Shadows, Spacing, Typography } from '@/shared/constants/tokens';
+import { Radius, Spacing, Typography } from '@/shared/constants/tokens';
 import {
+  Header,
   Chip,
   Card,
   SectionHeader,
 } from '@/shared/components/ui';
+import { haptics } from '@/shared/utils/haptics';
 
 type NearbyCategory = 'ev' | 'fuel' | 'transit' | 'parking' | 'food' | 'pharmacy';
 
-const CATEGORIES: {
+interface CategoryItem {
   key: NearbyCategory;
   label: string;
   icon: typeof Zap;
   color: string;
   count: string;
-}[] = [
+}
+
+const CATEGORIES: CategoryItem[] = [
   { key: 'ev', label: 'EV Charge', icon: Zap, color: '#0096FF', count: '42' },
   { key: 'fuel', label: 'Fuel', icon: Fuel, color: '#FF9800', count: '28' },
   { key: 'transit', label: 'Transit', icon: TrainFront, color: '#9C27B0', count: '12' },
@@ -58,6 +60,7 @@ const CATEGORIES: {
 
 const EV_STATIONS = [
   {
+    id: 'ev_1',
     name: 'Tata Power EZ Charge Hub',
     network: 'Tata Power',
     distance: '1.2 km',
@@ -69,6 +72,7 @@ const EV_STATIONS = [
     status: 'Open 24/7',
   },
   {
+    id: 'ev_2',
     name: 'Statiq Fast Charging',
     network: 'Statiq',
     distance: '2.4 km',
@@ -80,6 +84,7 @@ const EV_STATIONS = [
     status: 'Open 06:00-23:00',
   },
   {
+    id: 'ev_3',
     name: 'Jio-bp pulse Station',
     network: 'Jio-bp',
     distance: '3.8 km',
@@ -94,6 +99,7 @@ const EV_STATIONS = [
 
 const TRANSIT_ROUTES = [
   {
+    id: 'tr_1',
     type: 'Metro',
     line: 'Yellow Line',
     color: '#FFEB3B',
@@ -105,6 +111,7 @@ const TRANSIT_ROUTES = [
     network: 'DMRC',
   },
   {
+    id: 'tr_2',
     type: 'Metro',
     line: 'Rapid Metro',
     color: '#FF9800',
@@ -116,6 +123,7 @@ const TRANSIT_ROUTES = [
     network: 'GMRC',
   },
   {
+    id: 'tr_3',
     type: 'Bus',
     line: 'Route 412A',
     color: '#4CAF50',
@@ -130,6 +138,7 @@ const TRANSIT_ROUTES = [
 
 const FUEL_STATIONS = [
   {
+    id: 'fuel_1',
     name: 'Indian Oil (IOCL) — NH-48',
     distance: '0.8 km',
     petrol: '₹104.21/L',
@@ -138,6 +147,7 @@ const FUEL_STATIONS = [
     amenities: ['Air', 'Water', 'Restroom'],
   },
   {
+    id: 'fuel_2',
     name: 'Bharat Petroleum — Sec 29',
     distance: '1.5 km',
     petrol: '₹104.56/L',
@@ -146,6 +156,7 @@ const FUEL_STATIONS = [
     amenities: ['Air', 'Restroom', 'ATM'],
   },
   {
+    id: 'fuel_3',
     name: 'HP Station — MG Road',
     distance: '2.1 km',
     petrol: '₹103.97/L',
@@ -167,6 +178,7 @@ const AUTO_FARE = {
 
 const DINING_PLACES = [
   {
+    id: 'dining_1',
     name: 'Mannat Haveli Pure Veg Dhaba',
     cuisine: 'North Indian · Thali · Lassi',
     distance: '1.4 km',
@@ -177,6 +189,7 @@ const DINING_PLACES = [
     digiPin: '28J4-M1K9-7P',
   },
   {
+    id: 'dining_2',
     name: "Haldiram's Highway Hub",
     cuisine: 'Sweets · Chaat · South Indian',
     distance: '2.8 km',
@@ -187,6 +200,7 @@ const DINING_PLACES = [
     digiPin: '28J4-H2K3-4P',
   },
   {
+    id: 'dining_3',
     name: 'Amrik Sukhdev Landmark Dhaba',
     cuisine: 'Iconic Tandoori Parathas · White Butter',
     distance: '18.4 km',
@@ -200,6 +214,7 @@ const DINING_PLACES = [
 
 const PHARMACY_PLACES = [
   {
+    id: 'pharmacy_1',
     name: 'Apollo Pharmacy 24/7 Healthcare',
     type: '24/7 Chemist & Diagnostic',
     distance: '0.6 km',
@@ -210,6 +225,7 @@ const PHARMACY_PLACES = [
     digiPin: '28J4-A9B1-2C',
   },
   {
+    id: 'pharmacy_2',
     name: 'Fortis Hospital Emergency Pharmacy',
     type: 'Trauma & Emergency Dispensary',
     distance: '2.4 km',
@@ -220,6 +236,7 @@ const PHARMACY_PLACES = [
     digiPin: '28J4-F3G4-5H',
   },
   {
+    id: 'pharmacy_3',
     name: 'MedPlus 24x7 Chemist Hub',
     type: 'Generic & Branded Pharmacy',
     distance: '1.8 km',
@@ -235,22 +252,31 @@ export default function NearbyScreen() {
   const colors = useThemeColors();
   const [activeCategory, setActiveCategory] = useState<NearbyCategory>('ev');
 
-  const triggerHaptic = () => {
-    if (Platform.OS === 'ios' || Platform.OS === 'android') {
-      try {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } catch {
-        // Haptics unavailable
-      }
-    }
-  };
-
-  const handleCategoryChange = (key: NearbyCategory) => {
-    triggerHaptic();
+  const handleCategorySelect = useCallback((key: NearbyCategory) => {
+    haptics.selection();
     setActiveCategory(key);
-  };
+  }, []);
 
-  const renderEVCharging = () => (
+  const renderCategoryChip: ListRenderItem<CategoryItem> = useCallback(
+    ({ item }) => {
+      const IconComp = item.icon;
+      const isSelected = activeCategory === item.key;
+      return (
+        <Chip
+          label={`${item.label} (${item.count})`}
+          icon={<IconComp size={14} color={isSelected ? colors.onPrimaryContainer : item.color} />}
+          selected={isSelected}
+          onPress={() => handleCategorySelect(item.key)}
+          style={styles.categoryChip}
+        />
+      );
+    },
+    [activeCategory, colors, handleCategorySelect]
+  );
+
+  const categoryKeyExtractor = useCallback((item: CategoryItem) => item.key, []);
+
+  const renderEVContent = useCallback(() => (
     <View style={styles.sectionContainer}>
       <SectionHeader
         title="EV Charging Stations"
@@ -258,483 +284,402 @@ export default function NearbyScreen() {
         actionText="Filter"
         actionIcon={<Filter size={14} color={colors.primary} />}
         onActionPress={() => {
-          triggerHaptic();
+          haptics.light();
           Alert.alert('Filter EV Stations', 'Filter by CCS2, Type 2, fast charging speed (>50kW), or 24/7 access.');
         }}
       />
-
       {EV_STATIONS.map((station, idx) => (
-        <Card
-          key={idx}
-          variant="flat"
-          padding="md"
-          style={styles.card}
-          onPress={() => {
-            triggerHaptic();
-            router.push('/ev-station');
-          }}>
-          <View style={styles.cardHeader}>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.cardTitle, { color: colors.onSurface }]}>{station.name}</Text>
-              <Text style={[styles.cardSubtitle, { color: colors.onSurfaceVariant }]}>
-                {station.network} · {station.distance}
-              </Text>
-            </View>
-            <View
-              style={[
-                styles.availBadge,
-                {
-                  backgroundColor:
-                    station.available > 2
-                      ? colors.secondaryContainer
-                      : colors.tertiaryContainer,
-                },
-              ]}>
-              <CircleDot
-                size={10}
-                color={
-                  station.available > 2 ? colors.secondary : colors.tertiary
-                }
-              />
-              <Text
-                style={[
-                  styles.availBadgeText,
-                  {
-                    color:
-                      station.available > 2
-                        ? colors.onSecondaryContainer
-                        : colors.onTertiaryContainer,
-                  },
-                ]}>
-                {station.available}/{station.total} free
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.connectorsRow}>
-            {station.connectors.map((c, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.connectorChip,
-                  {
-                    backgroundColor: colors.surfaceContainerLow,
-                    borderColor: colors.surfaceContainerHigh,
-                  },
-                ]}>
-                <Plug size={10} color={colors.primary} />
-                <Text style={[styles.connectorText, { color: colors.onSurface }]}>{c}</Text>
+        <Animated.View
+          key={station.id}
+          entering={FadeInDown.delay(idx * 50).duration(260).springify().damping(18)}>
+          <Card
+            variant="flat"
+            padding="md"
+            style={styles.card}
+            onPress={() => {
+              haptics.light();
+              router.push('/ev-station');
+            }}>
+            <View style={styles.cardHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.cardTitle, { color: colors.onSurface }]}>{station.name}</Text>
+                <Text style={[styles.cardSubtitle, { color: colors.onSurfaceVariant }]}>
+                  {station.network} · {station.distance}
+                </Text>
               </View>
-            ))}
-          </View>
+              <View
+                style={[
+                  styles.availBadge,
+                  {
+                    backgroundColor:
+                      station.available > 2
+                        ? colors.secondaryContainer
+                        : colors.tertiaryContainer,
+                  },
+                ]}>
+                <CircleDot
+                  size={10}
+                  color={
+                    station.available > 2 ? colors.secondary : colors.tertiary
+                  }
+                />
+                <Text
+                  style={[
+                    styles.availBadgeText,
+                    {
+                      color:
+                        station.available > 2
+                          ? colors.onSecondaryContainer
+                          : colors.onTertiaryContainer,
+                    },
+                  ]}>
+                  {station.available}/{station.total} free
+                </Text>
+              </View>
+            </View>
 
-          <View style={[styles.cardFooter, { borderTopColor: colors.surfaceContainerHigh }]}>
-            <View style={styles.footerLeft}>
-              <Text style={[styles.priceHighlight, { color: colors.primary }]}>{station.price}</Text>
-              <Text style={[styles.statusText, { color: colors.onSurfaceVariant }]}>{station.status}</Text>
+            <View style={styles.connectorsRow}>
+              {station.connectors.map((c, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.connectorChip,
+                    {
+                      backgroundColor: colors.surfaceContainerLow,
+                      borderColor: colors.surfaceContainerHigh,
+                    },
+                  ]}>
+                  <Plug size={10} color={colors.primary} />
+                  <Text style={[styles.connectorText, { color: colors.onSurface }]}>{c}</Text>
+                </View>
+              ))}
             </View>
-            <View style={[styles.ratingPill, { backgroundColor: colors.surfaceContainerLow }]}>
-              <Star size={12} color="#FF9800" fill="#FF9800" />
-              <Text style={[styles.ratingText, { color: colors.onSurface }]}>{station.rating}</Text>
+
+            <View style={[styles.cardFooter, { borderTopColor: colors.surfaceContainerHigh }]}>
+              <View style={styles.footerLeft}>
+                <Text style={[styles.priceHighlight, { color: colors.primary }]}>{station.price}</Text>
+                <Text style={[styles.statusText, { color: colors.onSurfaceVariant }]}>{station.status}</Text>
+              </View>
+              <View style={[styles.ratingPill, { backgroundColor: colors.surfaceContainerLow }]}>
+                <Star size={12} color="#FF9800" fill="#FF9800" />
+                <Text style={[styles.ratingText, { color: colors.onSurface }]}>{station.rating}</Text>
+              </View>
             </View>
-          </View>
-        </Card>
+          </Card>
+        </Animated.View>
       ))}
     </View>
-  );
+  ), [colors]);
 
-  const renderTransit = () => (
+  const renderTransitContent = useCallback(() => (
     <View style={styles.sectionContainer}>
       <SectionHeader
         title="Public Transit"
         subtitle="Metro & DTC Bus Real-Time Telematics"
       />
-
       {TRANSIT_ROUTES.map((route, idx) => (
-        <Card
-          key={idx}
-          variant="flat"
-          padding="md"
-          style={styles.card}
-          onPress={() => {
-            triggerHaptic();
-            router.push('/transit-planner');
-          }}>
-          <View style={styles.cardHeader}>
-            <View style={[styles.transitLineBadge, { backgroundColor: route.color }]}>
-              {route.type === 'Metro' ? (
-                <TrainFront size={12} color="#111" />
-              ) : (
-                <Bus size={12} color="#fff" />
-              )}
+        <Animated.View
+          key={route.id}
+          entering={FadeInDown.delay(idx * 50).duration(260).springify().damping(18)}>
+          <Card
+            variant="flat"
+            padding="md"
+            style={styles.card}
+            onPress={() => {
+              haptics.light();
+              router.push('/transit-planner');
+            }}>
+            <View style={styles.cardHeader}>
+              <View style={[styles.transitLineBadge, { backgroundColor: route.color }]}>
+                {route.type === 'Metro' ? (
+                  <TrainFront size={12} color="#111" />
+                ) : (
+                  <Bus size={12} color="#fff" />
+                )}
+              </View>
+              <View style={{ flex: 1, marginLeft: 8 }}>
+                <Text style={[styles.cardTitle, { color: colors.onSurface }]}>{route.line}</Text>
+                <Text style={[styles.cardSubtitle, { color: colors.onSurfaceVariant }]}>
+                  {route.network}
+                </Text>
+              </View>
+              <Text style={[styles.priceHighlight, { color: colors.primary }]}>{route.fare}</Text>
             </View>
-            <View style={{ flex: 1, marginLeft: 8 }}>
-              <Text style={[styles.cardTitle, { color: colors.onSurface }]}>{route.line}</Text>
-              <Text style={[styles.cardSubtitle, { color: colors.onSurfaceVariant }]}>
-                {route.network}
+
+            <View style={[styles.transitRouteRow, { backgroundColor: colors.surfaceContainerLow }]}>
+              <View style={[styles.transitStopDot, { backgroundColor: colors.primary }]} />
+              <Text style={[styles.transitFrom, { color: colors.onSurface }]}>{route.from}</Text>
+              <View style={[styles.transitArrowLine, { backgroundColor: colors.outlineVariant }]} />
+              <Text style={[styles.transitTo, { color: colors.onSurface }]}>{route.to}</Text>
+              <View style={[styles.transitStopDot, { backgroundColor: colors.error }]} />
+            </View>
+
+            <View style={[styles.cardFooter, { borderTopColor: colors.surfaceContainerHigh }]}>
+              <View style={styles.metaRow}>
+                <Clock size={12} color={colors.onSurfaceVariant} />
+                <Text style={[styles.metaText, { color: colors.onSurfaceVariant }]}>
+                  {route.duration}
+                </Text>
+              </View>
+              <Text style={[styles.frequencyText, { color: colors.secondary }]}>
+                {route.frequency}
               </Text>
             </View>
-            <Text style={[styles.priceHighlight, { color: colors.primary }]}>{route.fare}</Text>
-          </View>
-
-          <View style={[styles.transitRouteRow, { backgroundColor: colors.surfaceContainerLow }]}>
-            <View style={[styles.transitStopDot, { backgroundColor: colors.primary }]} />
-            <Text style={[styles.transitFrom, { color: colors.onSurface }]}>{route.from}</Text>
-            <View style={[styles.transitArrowLine, { backgroundColor: colors.outlineVariant }]} />
-            <Text style={[styles.transitTo, { color: colors.onSurface }]}>{route.to}</Text>
-            <View style={[styles.transitStopDot, { backgroundColor: colors.error }]} />
-          </View>
-
-          <View style={[styles.cardFooter, { borderTopColor: colors.surfaceContainerHigh }]}>
-            <View style={styles.metaRow}>
-              <Clock size={12} color={colors.onSurfaceVariant} />
-              <Text style={[styles.metaText, { color: colors.onSurfaceVariant }]}>
-                {route.duration}
-              </Text>
-            </View>
-            <Text style={[styles.frequencyText, { color: colors.secondary }]}>
-              {route.frequency}
-            </Text>
-          </View>
-        </Card>
+          </Card>
+        </Animated.View>
       ))}
 
       {/* Auto-Rickshaw Fare Card */}
-      <Card variant="flat" padding="md" style={styles.fareCard}>
-        <Text style={[styles.cardTitle, { color: colors.onSurface, marginBottom: 8 }]}>
-          Official Auto-Rickshaw Fare Estimate
-        </Text>
-        <View style={styles.fareGrid}>
-          <View style={[styles.fareItem, { backgroundColor: colors.surfaceContainerLow }]}>
-            <Text style={[styles.fareLabel, { color: colors.onSurfaceVariant }]}>Base Fare</Text>
-            <Text style={[styles.fareValue, { color: colors.onSurface }]}>{AUTO_FARE.baseFare}</Text>
-          </View>
-          <View style={[styles.fareItem, { backgroundColor: colors.surfaceContainerLow }]}>
-            <Text style={[styles.fareLabel, { color: colors.onSurfaceVariant }]}>Per Km Rate</Text>
-            <Text style={[styles.fareValue, { color: colors.onSurface }]}>{AUTO_FARE.perKm}</Text>
-          </View>
-          <View style={[styles.fareItem, { backgroundColor: colors.surfaceContainerLow }]}>
-            <Text style={[styles.fareLabel, { color: colors.onSurfaceVariant }]}>Night (+50%)</Text>
-            <Text style={[styles.fareValue, { color: colors.onSurface }]}>
-              {AUTO_FARE.nightSurcharge}
-            </Text>
-          </View>
-          <View style={[styles.fareItem, { backgroundColor: colors.surfaceContainerLow }]}>
-            <Text style={[styles.fareLabel, { color: colors.onSurfaceVariant }]}>Waiting</Text>
-            <Text style={[styles.fareValue, { color: colors.onSurface }]}>
-              {AUTO_FARE.waitingCharge}
-            </Text>
-          </View>
-        </View>
-
-        <View
-          style={[
-            styles.fareEstimateRow,
-            {
-              backgroundColor: colors.primaryFixed,
-            },
-          ]}>
-          <View>
-            <Text style={[styles.fareEstLabel, { color: colors.onPrimaryFixedVariant }]}>
-              Estimated for {AUTO_FARE.distance}
-            </Text>
-            <Text style={[styles.fareAuthority, { color: colors.onPrimaryFixedVariant }]}>
-              {AUTO_FARE.authority}
-            </Text>
-          </View>
-          <Text style={[styles.fareEstValue, { color: colors.onPrimaryFixedVariant }]}>
-            {AUTO_FARE.estimatedFare}
+      <Animated.View entering={FadeInDown.delay(180).duration(260).springify().damping(18)}>
+        <Card variant="flat" padding="md" style={styles.fareCard}>
+          <Text style={[styles.cardTitle, { color: colors.onSurface, marginBottom: 8 }]}>
+            Official Auto-Rickshaw Fare Estimate
           </Text>
-        </View>
-      </Card>
-    </View>
-  );
+          <View style={styles.fareGrid}>
+            <View style={[styles.fareItem, { backgroundColor: colors.surfaceContainerLow }]}>
+              <Text style={[styles.fareLabel, { color: colors.onSurfaceVariant }]}>Base Fare</Text>
+              <Text style={[styles.fareValue, { color: colors.onSurface }]}>{AUTO_FARE.baseFare}</Text>
+            </View>
+            <View style={[styles.fareItem, { backgroundColor: colors.surfaceContainerLow }]}>
+              <Text style={[styles.fareLabel, { color: colors.onSurfaceVariant }]}>Per Km Rate</Text>
+              <Text style={[styles.fareValue, { color: colors.onSurface }]}>{AUTO_FARE.perKm}</Text>
+            </View>
+            <View style={[styles.fareItem, { backgroundColor: colors.surfaceContainerLow }]}>
+              <Text style={[styles.fareLabel, { color: colors.onSurfaceVariant }]}>Night (+50%)</Text>
+              <Text style={[styles.fareValue, { color: colors.onSurface }]}>
+                {AUTO_FARE.nightSurcharge}
+              </Text>
+            </View>
+            <View style={[styles.fareItem, { backgroundColor: colors.surfaceContainerLow }]}>
+              <Text style={[styles.fareLabel, { color: colors.onSurfaceVariant }]}>Waiting</Text>
+              <Text style={[styles.fareValue, { color: colors.onSurface }]}>
+                {AUTO_FARE.waitingCharge}
+              </Text>
+            </View>
+          </View>
 
-  const renderFuel = () => (
+          <View style={[styles.fareEstimateRow, { backgroundColor: colors.primaryFixed }]}>
+            <View>
+              <Text style={[styles.fareEstLabel, { color: colors.onPrimaryFixedVariant }]}>
+                Estimated for {AUTO_FARE.distance}
+              </Text>
+              <Text style={[styles.fareAuthority, { color: colors.onPrimaryFixedVariant }]}>
+                {AUTO_FARE.authority}
+              </Text>
+            </View>
+            <Text style={[styles.fareEstValue, { color: colors.onPrimaryFixedVariant }]}>
+              {AUTO_FARE.estimatedFare}
+            </Text>
+          </View>
+        </Card>
+      </Animated.View>
+    </View>
+  ), [colors]);
+
+  const renderFuelContent = useCallback(() => (
     <View style={styles.sectionContainer}>
       <SectionHeader
         title="Fuel Stations"
         subtitle="IOCL · BPCL · HPCL Real-Time Prices"
       />
-
       {FUEL_STATIONS.map((st, idx) => (
-        <Card
-          key={idx}
-          variant="flat"
-          padding="md"
-          style={styles.card}>
-          <View style={styles.cardHeader}>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.cardTitle, { color: colors.onSurface }]}>{st.name}</Text>
-              <Text style={[styles.cardSubtitle, { color: colors.onSurfaceVariant }]}>
-                {st.distance} away · {st.brand}
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={[styles.navMiniBtn, { backgroundColor: colors.primaryContainer }]}
-              onPress={() => {
-                triggerHaptic();
-                Alert.alert('Navigate', `Routing to ${st.name}`);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={`Route to ${st.name}`}>
-              <Navigation size={14} color={colors.onPrimary} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.fuelPricesRow}>
-            <View style={[styles.fuelPriceItem, { backgroundColor: colors.surfaceContainerLow }]}>
-              <Text style={[styles.fuelType, { color: colors.onSurfaceVariant }]}>Petrol</Text>
-              <Text style={[styles.fuelPrice, { color: colors.onSurface }]}>{st.petrol}</Text>
-            </View>
-            <View style={[styles.fuelPriceItem, { backgroundColor: colors.surfaceContainerLow }]}>
-              <Text style={[styles.fuelType, { color: colors.onSurfaceVariant }]}>Diesel</Text>
-              <Text style={[styles.fuelPrice, { color: colors.onSurface }]}>{st.diesel}</Text>
-            </View>
-          </View>
-
-          <View style={styles.amenitiesRow}>
-            {st.amenities.map((a, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.amenityChip,
-                  {
-                    backgroundColor: colors.surfaceContainerLow,
-                    borderColor: colors.surfaceContainerHigh,
-                  },
-                ]}>
-                <Text style={[styles.amenityText, { color: colors.onSurfaceVariant }]}>{a}</Text>
+        <Animated.View
+          key={st.id}
+          entering={FadeInDown.delay(idx * 50).duration(260).springify().damping(18)}>
+          <Card variant="flat" padding="md" style={styles.card}>
+            <View style={styles.cardHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.cardTitle, { color: colors.onSurface }]}>{st.name}</Text>
+                <Text style={[styles.cardSubtitle, { color: colors.onSurfaceVariant }]}>
+                  {st.distance} away · {st.brand}
+                </Text>
               </View>
-            ))}
-          </View>
-        </Card>
+              <TouchableOpacity
+                style={[styles.navMiniBtn, { backgroundColor: colors.primaryContainer }]}
+                onPress={() => {
+                  haptics.light();
+                  Alert.alert('Navigate', `Routing to ${st.name}`);
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel={`Route to ${st.name}`}>
+                <Navigation size={14} color={colors.onPrimary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.fuelPricesRow}>
+              <View style={[styles.fuelPriceItem, { backgroundColor: colors.surfaceContainerLow }]}>
+                <Text style={[styles.fuelType, { color: colors.onSurfaceVariant }]}>Petrol</Text>
+                <Text style={[styles.fuelPrice, { color: colors.onSurface }]}>{st.petrol}</Text>
+              </View>
+              <View style={[styles.fuelPriceItem, { backgroundColor: colors.surfaceContainerLow }]}>
+                <Text style={[styles.fuelType, { color: colors.onSurfaceVariant }]}>Diesel</Text>
+                <Text style={[styles.fuelPrice, { color: colors.onSurface }]}>{st.diesel}</Text>
+              </View>
+            </View>
+
+            <View style={styles.amenitiesRow}>
+              {st.amenities.map((a, i) => (
+                <View key={i} style={[styles.amenityChip, { backgroundColor: colors.surfaceContainerLow }]}>
+                  <Text style={[styles.amenityText, { color: colors.onSurfaceVariant }]}>{a}</Text>
+                </View>
+              ))}
+            </View>
+          </Card>
+        </Animated.View>
       ))}
     </View>
-  );
+  ), [colors]);
 
-  const renderParking = () => (
+  const renderDiningContent = useCallback(() => (
     <View style={styles.sectionContainer}>
       <SectionHeader
-        title="Smart Parking"
-        subtitle="BLE Beacon Trilateration & Live Bays"
+        title="Highway Dining & Dhabas"
+        subtitle="FSSAI Hygiene Rated · Clean Toilets"
       />
-
-      <Card
-        variant="flat"
-        padding="md"
-        style={styles.indoorParkingCard}
-        onPress={() => {
-          triggerHaptic();
-          router.push('/indoor-parking');
-        }}>
-        <View style={styles.cardHeader}>
-          <View style={[styles.indoorBadge, { backgroundColor: colors.primaryFixed }]}>
-            <Radio size={12} color={colors.primary} />
-            <Text style={[styles.indoorBadgeText, { color: colors.primary }]}>
-              BLE INDOOR TRILATERATION
-            </Text>
-          </View>
-          <Text style={[styles.priceHighlight, { color: colors.primary }]}>₹50/hr</Text>
-        </View>
-
-        <Text style={[styles.cardTitle, { color: colors.onSurface, marginTop: 4 }]}>
-          DLF Cyber Hub Parking Garage (B1/B2/B3)
-        </Text>
-        <Text style={[styles.cardSubtitle, { color: colors.onSurfaceVariant, marginTop: 2 }]}>
-          148 free bays · 12 EV chargers · 3 BLE beacons calibrated
-        </Text>
-
-        <View
-          style={[
-            styles.indoorActionRow,
-            {
-              backgroundColor: colors.surfaceContainerLow,
-            },
-          ]}>
-          <Text style={[styles.indoorActionText, { color: colors.primary }]}>
-            Open Multi-Level Floor Navigator
-          </Text>
-          <ChevronRight size={16} color={colors.primary} />
-        </View>
-      </Card>
-    </View>
-  );
-
-  const renderDining = () => (
-    <View style={styles.sectionContainer}>
-      <SectionHeader
-        title="Highway Dhabas & Restaurants"
-        subtitle="FSSAI 5★ Hygiene & Verified Restrooms"
-      />
-
       {DINING_PLACES.map((place, idx) => (
-        <Card
-          key={idx}
-          variant="flat"
-          padding="md"
-          style={styles.card}>
-          <View style={styles.cardHeader}>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.cardTitle, { color: colors.onSurface }]}>{place.name}</Text>
-              <Text style={[styles.cardSubtitle, { color: colors.onSurfaceVariant }]}>
-                {place.cuisine} · {place.distance}
-              </Text>
-            </View>
-            <View style={[styles.hygieneBadge, { backgroundColor: colors.secondaryContainer }]}>
-              <ShieldCheck size={12} color={colors.secondary} />
-              <Text style={[styles.hygieneText, { color: colors.onSecondaryContainer }]}>
-                {place.hygiene}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.tagsRow}>
-            {place.tags.map((t, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.tagChip,
-                  {
-                    backgroundColor: colors.surfaceContainerLow,
-                    borderColor: colors.surfaceContainerHigh,
-                  },
-                ]}>
-                <Text style={[styles.tagText, { color: colors.onSurface }]}>{t}</Text>
+        <Animated.View
+          key={place.id}
+          entering={FadeInDown.delay(idx * 50).duration(260).springify().damping(18)}>
+          <Card variant="flat" padding="md" style={styles.card}>
+            <View style={styles.cardHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.cardTitle, { color: colors.onSurface }]}>{place.name}</Text>
+                <Text style={[styles.cardSubtitle, { color: colors.onSurfaceVariant }]}>
+                  {place.cuisine}
+                </Text>
               </View>
-            ))}
-          </View>
-
-          <View style={[styles.cardFooter, { borderTopColor: colors.surfaceContainerHigh }]}>
-            <Text style={[styles.digiPinPill, { color: colors.primary }]}>
-              📍 DigiPIN: {place.digiPin}
-            </Text>
-            <View style={[styles.ratingPill, { backgroundColor: colors.surfaceContainerLow }]}>
-              <Star size={12} color="#FF9800" fill="#FF9800" />
-              <Text style={[styles.ratingText, { color: colors.onSurface }]}>{place.rating}</Text>
+              <View style={[styles.ratingPill, { backgroundColor: colors.surfaceContainerLow }]}>
+                <Star size={12} color="#FF9800" fill="#FF9800" />
+                <Text style={[styles.ratingText, { color: colors.onSurface }]}>{place.rating}</Text>
+              </View>
             </View>
-          </View>
-        </Card>
+
+            <View style={styles.amenitiesRow}>
+              {place.tags.map((t, i) => (
+                <View key={i} style={[styles.amenityChip, { backgroundColor: colors.surfaceContainerLow }]}>
+                  <Text style={[styles.amenityText, { color: colors.onSurfaceVariant }]}>{t}</Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={[styles.cardFooter, { borderTopColor: colors.surfaceContainerHigh }]}>
+              <Text style={[styles.statusText, { color: colors.secondary }]}>{place.hygiene}</Text>
+              <Text style={[styles.metaText, { color: colors.onSurfaceVariant }]}>{place.distance}</Text>
+            </View>
+          </Card>
+        </Animated.View>
       ))}
     </View>
-  );
+  ), [colors]);
 
-  const renderPharmacy = () => (
+  const renderPharmacyContent = useCallback(() => (
     <View style={styles.sectionContainer}>
       <SectionHeader
-        title="24/7 Pharmacies"
-        subtitle="Emergency Medical & Oxygen Supplies"
+        title="24/7 Pharmacies & Healthcare"
+        subtitle="Emergency Dispensaries · First Aid"
       />
-
-      {PHARMACY_PLACES.map((pharm, idx) => (
-        <Card
-          key={idx}
-          variant="flat"
-          padding="md"
-          style={styles.card}>
-          <View style={styles.cardHeader}>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.cardTitle, { color: colors.onSurface }]}>{pharm.name}</Text>
-              <Text style={[styles.cardSubtitle, { color: colors.onSurfaceVariant }]}>
-                {pharm.type} · {pharm.distance}
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={[styles.phoneBtn, { backgroundColor: colors.primaryFixed }]}
-              onPress={() => {
-                triggerHaptic();
-                Linking.openURL(`tel:${pharm.phone}`);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={`Call ${pharm.name}`}>
-              <Phone size={14} color={colors.primary} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.tagsRow}>
-            {pharm.amenities.map((a, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.tagChip,
-                  {
-                    backgroundColor: colors.surfaceContainerLow,
-                    borderColor: colors.surfaceContainerHigh,
-                  },
-                ]}>
-                <Text style={[styles.tagText, { color: colors.onSurface }]}>{a}</Text>
+      {PHARMACY_PLACES.map((ph, idx) => (
+        <Animated.View
+          key={ph.id}
+          entering={FadeInDown.delay(idx * 50).duration(260).springify().damping(18)}>
+          <Card variant="flat" padding="md" style={styles.card}>
+            <View style={styles.cardHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.cardTitle, { color: colors.onSurface }]}>{ph.name}</Text>
+                <Text style={[styles.cardSubtitle, { color: colors.onSurfaceVariant }]}>
+                  {ph.type} · {ph.distance}
+                </Text>
               </View>
-            ))}
-          </View>
+              <TouchableOpacity
+                style={[styles.navMiniBtn, { backgroundColor: colors.secondaryContainer }]}
+                onPress={() => {
+                  haptics.medium();
+                  Linking.openURL(`tel:${ph.phone}`);
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel={`Call ${ph.name}`}>
+                <Phone size={14} color={colors.onSecondaryContainer} />
+              </TouchableOpacity>
+            </View>
 
-          <View style={[styles.cardFooter, { borderTopColor: colors.surfaceContainerHigh }]}>
-            <Text style={[styles.statusOpen, { color: colors.secondary }]}>{pharm.status}</Text>
-            <Text style={[styles.digiPinPill, { color: colors.primary }]}>
-              📍 {pharm.digiPin}
-            </Text>
-          </View>
-        </Card>
+            <View style={styles.amenitiesRow}>
+              {ph.amenities.map((a, i) => (
+                <View key={i} style={[styles.amenityChip, { backgroundColor: colors.surfaceContainerLow }]}>
+                  <Text style={[styles.amenityText, { color: colors.onSurfaceVariant }]}>{a}</Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={[styles.cardFooter, { borderTopColor: colors.surfaceContainerHigh }]}>
+              <View style={styles.metaRow}>
+                <ShieldCheck size={12} color={colors.secondary} />
+                <Text style={[styles.statusText, { color: colors.secondary }]}>{ph.status}</Text>
+              </View>
+              <View style={[styles.ratingPill, { backgroundColor: colors.surfaceContainerLow }]}>
+                <Star size={12} color="#FF9800" fill="#FF9800" />
+                <Text style={[styles.ratingText, { color: colors.onSurface }]}>{ph.rating}</Text>
+              </View>
+            </View>
+          </Card>
+        </Animated.View>
       ))}
     </View>
-  );
+  ), [colors]);
+
+  const activeContent = useMemo(() => {
+    switch (activeCategory) {
+      case 'ev':
+        return renderEVContent();
+      case 'transit':
+        return renderTransitContent();
+      case 'fuel':
+        return renderFuelContent();
+      case 'food':
+        return renderDiningContent();
+      case 'pharmacy':
+        return renderPharmacyContent();
+      default:
+        return renderEVContent();
+    }
+  }, [
+    activeCategory,
+    renderEVContent,
+    renderTransitContent,
+    renderFuelContent,
+    renderDiningContent,
+    renderPharmacyContent,
+  ]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      {/* Header */}
-      <View
-        style={[
-          styles.header,
-          {
-            backgroundColor: colors.surfaceContainerLowest,
-            borderBottomColor: colors.surfaceContainerHigh,
-          },
-        ]}>
-        <Text style={[styles.title, { color: colors.onSurface }]}>Nearby Places</Text>
-        <Text style={[styles.subtitle, { color: colors.onSurfaceVariant }]}>
-          Verified Infrastructure · ISRO GIS Telematics
-        </Text>
-      </View>
+      <Header
+        title="Explore Nearby POIs"
+        subtitle="EV Fast Chargers · Public Transit · Dhabas · Pharmacies"
+        showBack={false}
+      />
 
-      {/* Category Carousel Track */}
-      <View
-        style={[
-          styles.categoryTrackWrapper,
-          {
-            backgroundColor: colors.surfaceContainerLowest,
-            borderBottomColor: colors.surfaceContainerHigh,
-          },
-        ]}>
-        <ScrollView
+      {/* Category Selection Bar using Virtualized FlatList */}
+      <Animated.View entering={FadeInDown.duration(280).springify().damping(18)} style={styles.categoryContainer}>
+        <FlatList
           horizontal
+          data={CATEGORIES}
+          renderItem={renderCategoryChip}
+          keyExtractor={categoryKeyExtractor}
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categoryTrack}>
-          {CATEGORIES.map((cat) => {
-            const IconComp = cat.icon;
-            const isSelected = activeCategory === cat.key;
-            return (
-              <Chip
-                key={cat.key}
-                label={cat.label}
-                selected={isSelected}
-                onPress={() => handleCategoryChange(cat.key)}
-                icon={<IconComp size={16} color={isSelected ? colors.onPrimaryContainer : colors.primary} />}
-                badgeCount={parseInt(cat.count, 10)}
-                size="md"
-              />
-            );
-          })}
-        </ScrollView>
-      </View>
+          contentContainerStyle={styles.categoryScroll}
+        />
+      </Animated.View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {activeCategory === 'ev' && renderEVCharging()}
-        {activeCategory === 'transit' && renderTransit()}
-        {activeCategory === 'fuel' && renderFuel()}
-        {activeCategory === 'parking' && renderParking()}
-        {activeCategory === 'food' && renderDining()}
-        {activeCategory === 'pharmacy' && renderPharmacy()}
-        <View style={{ height: 40 }} />
-      </ScrollView>
+      {/* Dynamic Main Body Content */}
+      <FlatList
+        data={[1]}
+        renderItem={() => activeContent}
+        keyExtractor={() => 'active_body'}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.contentContainer}
+      />
     </SafeAreaView>
   );
 }
@@ -743,96 +688,29 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    ...Shadows.xs,
+  categoryContainer: {
+    paddingVertical: Spacing.sm,
   },
-  title: {
-    ...Typography.titleLarge,
-    fontWeight: '800',
+  categoryScroll: {
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.xs + 2,
   },
-  subtitle: {
-    ...Typography.bodySmall,
-    marginTop: 2,
-    letterSpacing: 0.2,
+  categoryChip: {
+    marginRight: 4,
   },
-  categoryTrackWrapper: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingVertical: 8,
-  },
-  categoryTrack: {
-    paddingHorizontal: Spacing.md,
-    gap: 8,
-  },
-  categoryPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    ...Shadows.xs,
-  },
-  categoryPillText: {
-    ...Typography.labelMedium,
-    fontSize: 12,
-  },
-  categoryCountBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: Radius.full,
-  },
-  categoryCountText: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  scroll: {
-    padding: Spacing.md,
+  contentContainer: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: 100,
   },
   sectionContainer: {
-    gap: 12,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  sectionTitle: {
-    ...Typography.titleMedium,
-    fontWeight: '800',
-  },
-  sectionSub: {
-    ...Typography.bodySmall,
-    marginTop: 1,
-  },
-  filterBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-  },
-  filterText: {
-    ...Typography.labelSmall,
-    fontWeight: '700',
+    gap: Spacing.md,
   },
   card: {
-    borderRadius: Radius.xl,
-    padding: Spacing.md,
-    borderWidth: 1,
-    gap: 10,
-    ...Shadows.sm,
+    marginBottom: Spacing.sm,
   },
   cardHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
   },
   cardTitle: {
@@ -841,84 +719,88 @@ const styles = StyleSheet.create({
   },
   cardSubtitle: {
     ...Typography.bodySmall,
-    fontSize: 11,
     marginTop: 2,
   },
   availBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 3,
     borderRadius: Radius.full,
   },
   availBadgeText: {
-    fontSize: 10,
+    ...Typography.labelSmall,
     fontWeight: '700',
   },
   connectorsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
+    marginTop: 10,
   },
   connectorChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 3,
     borderRadius: Radius.sm,
     borderWidth: 1,
   },
   connectorText: {
-    fontSize: 10,
+    ...Typography.labelSmall,
+    fontSize: 11,
     fontWeight: '600',
   },
   cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
   },
   footerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
   priceHighlight: {
-    ...Typography.labelMedium,
+    ...Typography.titleMedium,
     fontWeight: '800',
   },
   statusText: {
     ...Typography.bodySmall,
-    fontSize: 10,
+    fontWeight: '600',
   },
   ratingPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: Radius.full,
   },
   ratingText: {
-    fontSize: 11,
+    ...Typography.labelSmall,
     fontWeight: '700',
   },
   transitLineBadge: {
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: Radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
   transitRouteRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    padding: Spacing.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     borderRadius: Radius.md,
+    marginTop: 10,
+    gap: 6,
   },
   transitStopDot: {
     width: 8,
@@ -927,15 +809,15 @@ const styles = StyleSheet.create({
   },
   transitFrom: {
     ...Typography.bodySmall,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   transitArrowLine: {
     flex: 1,
-    height: 1,
+    height: 1.5,
   },
   transitTo: {
     ...Typography.bodySmall,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   metaRow: {
     flexDirection: 'row',
@@ -944,53 +826,49 @@ const styles = StyleSheet.create({
   },
   metaText: {
     ...Typography.bodySmall,
-    fontSize: 11,
   },
   frequencyText: {
     ...Typography.labelSmall,
     fontWeight: '700',
   },
   fareCard: {
-    borderRadius: Radius.xl,
-    padding: Spacing.md,
-    borderWidth: 1,
-    gap: 10,
-    ...Shadows.sm,
+    marginTop: Spacing.xs,
   },
   fareGrid: {
     flexDirection: 'row',
-    gap: 6,
+    flexWrap: 'wrap',
+    gap: 8,
+    marginVertical: 10,
   },
   fareItem: {
     flex: 1,
-    padding: Spacing.sm,
+    minWidth: '45%',
+    padding: 8,
     borderRadius: Radius.md,
-    alignItems: 'center',
   },
   fareLabel: {
-    fontSize: 9,
-    fontWeight: '600',
-    textAlign: 'center',
+    ...Typography.labelSmall,
   },
   fareValue: {
-    ...Typography.labelMedium,
-    fontWeight: '800',
+    ...Typography.titleSmall,
+    fontWeight: '700',
     marginTop: 2,
   },
   fareEstimateRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: Spacing.md,
-    borderRadius: Radius.lg,
+    padding: 12,
+    borderRadius: Radius.md,
+    marginTop: 4,
   },
   fareEstLabel: {
-    fontSize: 11,
+    ...Typography.labelMedium,
     fontWeight: '700',
   },
   fareAuthority: {
-    fontSize: 9,
-    marginTop: 1,
+    ...Typography.bodySmall,
+    fontSize: 10,
   },
   fareEstValue: {
     ...Typography.titleMedium,
@@ -999,116 +877,41 @@ const styles = StyleSheet.create({
   navMiniBtn: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
   fuelPricesRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
+    marginTop: 10,
   },
   fuelPriceItem: {
     flex: 1,
-    padding: Spacing.sm,
+    padding: 8,
     borderRadius: Radius.md,
-    alignItems: 'center',
   },
   fuelType: {
-    fontSize: 10,
-    fontWeight: '600',
+    ...Typography.labelSmall,
   },
   fuelPrice: {
-    ...Typography.labelMedium,
+    ...Typography.titleMedium,
     fontWeight: '800',
     marginTop: 2,
   },
   amenitiesRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 6,
+    marginTop: 10,
   },
   amenityChip: {
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: Radius.sm,
-    borderWidth: 1,
   },
   amenityText: {
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  indoorParkingCard: {
-    borderRadius: Radius.xl,
-    padding: Spacing.md,
-    borderWidth: 1,
-    gap: 8,
-    ...Shadows.sm,
-  },
-  indoorBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: Radius.sm,
-  },
-  indoorBadgeText: {
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  indoorActionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: Spacing.md,
-    borderRadius: Radius.lg,
-    marginTop: 4,
-  },
-  indoorActionText: {
-    ...Typography.labelMedium,
-    fontWeight: '700',
-  },
-  hygieneBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: Radius.sm,
-  },
-  hygieneText: {
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  tagsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  tagChip: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: Radius.sm,
-    borderWidth: 1,
-  },
-  tagText: {
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  digiPinPill: {
-    fontSize: 10,
-    fontWeight: '700',
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-  },
-  phoneBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statusOpen: {
     ...Typography.labelSmall,
-    fontWeight: '700',
+    fontSize: 11,
   },
 });

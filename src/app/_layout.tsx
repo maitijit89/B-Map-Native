@@ -7,6 +7,7 @@ import 'react-native-reanimated';
 
 import { useColorScheme, ThemeProvider } from '@/shared/hooks';
 import { ErrorBoundary as GlobalErrorBoundary } from '@/shared/components';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -42,9 +43,11 @@ export default function RootLayout() {
   }
 
   return (
-    <GlobalErrorBoundary>
-      <RootLayoutNav />
-    </GlobalErrorBoundary>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <GlobalErrorBoundary>
+        <RootLayoutNav />
+      </GlobalErrorBoundary>
+    </GestureHandlerRootView>
   );
 }
 

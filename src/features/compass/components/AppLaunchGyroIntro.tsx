@@ -4,13 +4,12 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Platform,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn, FadeOut, ZoomIn } from 'react-native-reanimated';
 
 import { useCompass } from '@/shared/hooks';
 import { DynamicCompassIcon } from '@/shared/components/ui';
+import { haptics } from '@/shared/utils/haptics';
 
 interface AppLaunchGyroIntroProps {
   onDismiss: () => void;
@@ -30,13 +29,7 @@ export const AppLaunchGyroIntro: React.FC<AppLaunchGyroIntroProps> = ({ onDismis
   }, [onDismiss]);
 
   const handleDismiss = () => {
-    if (Platform.OS === 'ios' || Platform.OS === 'android') {
-      try {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } catch {
-        // Haptics unavailable
-      }
-    }
+    haptics.light();
     setVisible(false);
     onDismiss();
   };

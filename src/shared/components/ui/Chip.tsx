@@ -1,16 +1,24 @@
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import {
   Text,
-  TouchableOpacity,
   StyleSheet,
   View,
   ViewStyle,
   TextStyle,
   StyleProp,
   Platform,
+  Pressable,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from 'react-native-reanimated';
 import { useThemeColors } from '../../hooks';
 import { Radius, Spacing, Typography } from '../../constants/tokens';
+import { haptics } from '../../utils/haptics';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export type ChipVariant = 'filled' | 'outlined' | 'subtle' | 'filter';
 export type ChipSize = 'sm' | 'md';
@@ -29,7 +37,13 @@ export interface ChipProps {
   accessibilityLabel?: string;
 }
 
-export const Chip: React.FC<ChipProps> = ({
+const SPRING_CONFIG = {
+  damping: 14,
+  stiffness: 350,
+  mass: 0.5,
+};
+
+export const Chip: React.FC<ChipProps> = React.memo(({
   label,
   icon,
   selected = false,
@@ -43,8 +57,24 @@ export const Chip: React.FC<ChipProps> = ({
   accessibilityLabel,
 }) => {
   const colors = useThemeColors();
+  const scale = useSharedValue(1);
 
-  const getContainerStyle = (): ViewStyle => {
+  const handlePressIn = useCallback(() => {
+    if (disabled || !onPress) return;
+    scale.value = withSpring(0.93, SPRING_CONFIG);
+    haptics.selection();
+  }, [disabled, onPress, scale]);
+
+  const handlePressOut = useCallback(() => {
+    if (disabled || !onPress) return;
+    scale.value = withSpring(1, SPRING_CONFIG);
+  }, [disabled, onPress, scale]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const containerStyle = useMemo<ViewStyle>(() => {
     const isSm = size === 'sm';
     const basePaddingH = isSm ? Spacing.sm + 2 : Spacing.md;
     const basePaddingV = isSm ? 5 : 8;
@@ -88,55 +118,51 @@ export const Chip: React.FC<ChipProps> = ({
       borderRadius: Radius.full,
       opacity: disabled ? 0.5 : 1,
     };
-  };
+  }, [size, selected, variant, colors, disabled]);
 
-  const getTextColor = (): string => {
-    if (selected) {
-      return colors.onPrimaryContainer;
-    }
-    return colors.onSurface;
-  };
+  const textColor = useMemo(() => {
+    return selected ? colors.onPrimaryContainer : colors.onSurface;
+  }, [selected, colors]);
+
+  const badgeBgColor = useMemo(() => {
+    return selected ? colors.primary : colors.surfaceContainerHighest;
+  }, [selected, colors]);
+
+  const badgeTextColor = useMemo(() => {
+    return selected ? colors.onPrimary : colors.onSurfaceVariant;
+  }, [selected, colors]);
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.7}
+    <AnimatedPressable
       disabled={disabled || !onPress}
       onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
       accessibilityRole="button"
       accessibilityState={{ selected, disabled }}
       accessibilityLabel={accessibilityLabel || label}
-      style={[styles.container, getContainerStyle(), style]}>
+      style={[styles.container, containerStyle, animatedStyle, style]}>
       {icon ? <View style={styles.iconWrapper}>{icon}</View> : null}
       <Text
         style={[
           size === 'sm' ? styles.labelSm : styles.labelMd,
-          { color: getTextColor() },
+          { color: textColor },
           labelStyle,
         ]}>
         {label}
       </Text>
       {badgeCount !== undefined ? (
-        <View
-          style={[
-            styles.badge,
-            {
-              backgroundColor: selected
-                ? colors.primary
-                : colors.surfaceContainerHighest,
-            },
-          ]}>
-          <Text
-            style={[
-              styles.badgeText,
-              { color: selected ? colors.onPrimary : colors.onSurfaceVariant },
-            ]}>
+        <View style={[styles.badge, { backgroundColor: badgeBgColor }]}>
+          <Text style={[styles.badgeText, { color: badgeTextColor }]}>
             {badgeCount}
           </Text>
         </View>
       ) : null}
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
-};
+});
+
+Chip.displayName = 'Chip';
 
 const styles = StyleSheet.create({
   container: {

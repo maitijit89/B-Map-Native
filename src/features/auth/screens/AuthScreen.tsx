@@ -7,11 +7,11 @@ import {
   TouchableOpacity,
   Alert,
   Image,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import * as Haptics from 'expo-haptics';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { haptics } from '@/shared/utils/haptics';
 import {
   Mail,
   Lock,
@@ -40,13 +40,7 @@ const LOGO_URI =
 type AuthMode = 'login' | 'signup' | 'otp';
 
 const triggerHaptic = () => {
-  if (Platform.OS === 'ios' || Platform.OS === 'android') {
-    try {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } catch {
-      // Haptics unavailable
-    }
-  }
+  haptics.light();
 };
 
 export default function AuthScreen() {
@@ -176,22 +170,24 @@ export default function AuthScreen() {
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Brand Banner */}
-        <Card variant="elevated" padding="md" style={styles.brandCard}>
-          <Image source={{ uri: LOGO_URI }} style={styles.brandLogo} resizeMode="contain" />
-          <View style={{ flex: 1, gap: 4 }}>
-            <Badge label="ISRO NavIC Verified System" variant="primary" size="sm" />
-            <Text style={[styles.brandTitle, { color: colors.onSurface }]}>
-              B-Map Identity Portal
-            </Text>
-            <Text style={[styles.brandSub, { color: colors.onSurfaceVariant }]}>
-              {mode === 'otp'
-                ? 'Two-factor cryptographic verification'
-                : mode === 'signup'
-                ? 'Create your sovereign navigation account'
-                : 'Passwordless login with secure email OTP'}
-            </Text>
-          </View>
-        </Card>
+        <Animated.View entering={FadeInDown.duration(280).springify().damping(16)}>
+          <Card variant="elevated" padding="md" style={styles.brandCard}>
+            <Image source={{ uri: LOGO_URI }} style={styles.brandLogo} resizeMode="contain" />
+            <View style={{ flex: 1, gap: 4 }}>
+              <Badge label="ISRO NavIC Verified System" variant="primary" size="sm" />
+              <Text style={[styles.brandTitle, { color: colors.onSurface }]}>
+                B-Map Identity Portal
+              </Text>
+              <Text style={[styles.brandSub, { color: colors.onSurfaceVariant }]}>
+                {mode === 'otp'
+                  ? 'Two-factor cryptographic verification'
+                  : mode === 'signup'
+                  ? 'Create your sovereign navigation account'
+                  : 'Passwordless login with secure email OTP'}
+              </Text>
+            </View>
+          </Card>
+        </Animated.View>
 
         {/* Tab Switcher */}
         {mode !== 'otp' && (
@@ -445,7 +441,7 @@ export default function AuthScreen() {
           </View>
         </Card>
 
-        <View style={{ height: 28 }} />
+        <View style={{ height: Spacing.xl }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -466,12 +462,13 @@ const styles = StyleSheet.create({
   },
   scroll: {
     padding: Spacing.lg,
-    gap: 14,
+    paddingBottom: 100,
+    gap: Spacing.md,
   },
   brandCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: Spacing.md,
   },
   brandLogo: {
     width: 52,

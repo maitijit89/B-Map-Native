@@ -1,20 +1,154 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   Platform,
-  Animated,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
 import type { Tabs } from 'expo-router';
 import { useTheme, useThemeColors } from '../../hooks';
 import { Radius, Shadows, Spacing, Typography } from '../../constants/tokens';
+import { haptics } from '../../utils/haptics';
 
 export type TabBarProps = Parameters<NonNullable<React.ComponentProps<typeof Tabs>['tabBar']>>[0];
+
+const SPRING_CONFIG = {
+  damping: 14,
+  stiffness: 280,
+  mass: 0.5,
+};
+
+const TabItem = React.memo(({
+  route,
+  index,
+  isFocused,
+  options,
+  colors,
+  isDark,
+  onPress,
+}: {
+  route: any;
+  index: number;
+  isFocused: boolean;
+  options: any;
+  colors: any;
+  isDark: boolean;
+  onPress: () => void;
+}) => {
+  const scale = useSharedValue(isFocused ? 1.05 : 0.95);
+  const pillOpacity = useSharedValue(isFocused ? 1 : 0);
+
+  useEffect(() => {
+    scale.value = withSpring(isFocused ? 1.05 : 0.95, SPRING_CONFIG);
+    pillOpacity.value = withSpring(isFocused ? 1 : 0, SPRING_CONFIG);
+  }, [isFocused, scale, pillOpacity]);
+
+  const animatedContentStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: scale.value }],
+    };
+  });
+
+  const animatedPillStyle = useAnimatedStyle(() => {
+    return {
+      opacity: pillOpacity.value,
+      transform: [{ scaleX: pillOpacity.value }],
+    };
+  });
+
+  const animatedDotStyle = useAnimatedStyle(() => {
+    return {
+      opacity: pillOpacity.value,
+      transform: [{ scale: pillOpacity.value }],
+    };
+  });
+
+  const label =
+    options.tabBarLabel !== undefined
+      ? options.tabBarLabel
+      : options.title !== undefined
+      ? options.title
+      : route.name;
+
+  const iconColor = isFocused ? colors.primary : colors.onSurfaceVariant;
+
+  const renderIcon = () => {
+    if (options.tabBarIcon) {
+      return options.tabBarIcon({
+        focused: isFocused,
+        color: iconColor,
+        size: 22,
+      });
+    }
+    return null;
+  };
+
+  return (
+    <TouchableOpacity
+      key={route.key}
+      activeOpacity={0.8}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: isFocused }}
+      accessibilityLabel={
+        options.tabBarAccessibilityLabel || (typeof label === 'string' ? label : route.name)
+      }
+      testID={options.tabBarButtonTestID}
+      onPress={onPress}
+      style={styles.tabButton}>
+      <Animated.View style={[styles.tabContent, animatedContentStyle]}>
+        {/* Active indicator pill behind icon */}
+        <Animated.View
+          style={[
+            styles.activePill,
+            {
+              backgroundColor: isDark
+                ? 'rgba(0, 150, 255, 0.18)'
+                : 'rgba(0, 97, 167, 0.10)',
+            },
+            animatedPillStyle,
+          ]}
+        />
+
+        <View style={styles.iconContainer}>{renderIcon()}</View>
+
+        {typeof label === 'string' ? (
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.tabLabel,
+              {
+                color: isFocused ? colors.primary : colors.onSurfaceVariant,
+                fontWeight: isFocused ? '700' : '500',
+              },
+            ]}>
+            {label}
+          </Text>
+        ) : null}
+
+        {/* Active indicator dot under label */}
+        <Animated.View
+          style={[
+            styles.activeDot,
+            {
+              backgroundColor: colors.primary,
+            },
+            animatedDotStyle,
+          ]}
+        />
+      </Animated.View>
+    </TouchableOpacity>
+  );
+});
+
+TabItem.displayName = 'TabItem';
 
 export const AnimatedTabBar: React.FC<TabBarProps> = ({
   state,
@@ -25,140 +159,24 @@ export const AnimatedTabBar: React.FC<TabBarProps> = ({
   const { isDark } = useTheme();
   const colors = useThemeColors();
 
-  // Bottom padding: ensure proper distance from bottom edge across devices
   const bottomPadding = Math.max(insets.bottom, Platform.OS === 'ios' ? 24 : 12);
 
-  const handleTabPress = (route: typeof state.routes[0], isFocused: boolean) => {
-    if (Platform.OS === 'ios' || Platform.OS === 'android') {
-      try {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } catch {
-        // Haptics unavailable on web / unsupported env
+  const handleTabPress = useCallback(
+    (routeKey: string, routeName: string, isFocused: boolean) => {
+      haptics.selection();
+
+      const event = navigation.emit({
+        type: 'tabPress',
+        target: routeKey,
+        canPreventDefault: true,
+      });
+
+      if (!isFocused && !event.defaultPrevented) {
+        navigation.navigate(routeName);
       }
-    }
-
-    const event = navigation.emit({
-      type: 'tabPress',
-      target: route.key,
-      canPreventDefault: true,
-    });
-
-    if (!isFocused && !event.defaultPrevented) {
-      navigation.navigate(route.name);
-    }
-  };
-
-  const TabItem = ({
-    route,
-    index,
-  }: {
-    route: typeof state.routes[0];
-    index: number;
-  }) => {
-    const isFocused = state.index === index;
-    const { options } = descriptors[route.key];
-    const scaleAnim = useRef(new Animated.Value(isFocused ? 1 : 0.95)).current;
-    const pillAnim = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
-
-    useEffect(() => {
-      Animated.parallel([
-        Animated.spring(scaleAnim, {
-          toValue: isFocused ? 1.05 : 0.95,
-          useNativeDriver: true,
-          friction: 8,
-          tension: 70,
-        }),
-        Animated.spring(pillAnim, {
-          toValue: isFocused ? 1 : 0,
-          useNativeDriver: true,
-          friction: 9,
-          tension: 80,
-        }),
-      ]).start();
-    }, [isFocused, scaleAnim, pillAnim]);
-
-    const label =
-      options.tabBarLabel !== undefined
-        ? options.tabBarLabel
-        : options.title !== undefined
-        ? options.title
-        : route.name;
-
-    const iconColor = isFocused ? colors.primary : colors.onSurfaceVariant;
-
-    const renderIcon = () => {
-      if (options.tabBarIcon) {
-        return options.tabBarIcon({
-          focused: isFocused,
-          color: iconColor,
-          size: 22,
-        });
-      }
-      return null;
-    };
-
-    return (
-      <TouchableOpacity
-        key={route.key}
-        activeOpacity={0.8}
-        accessibilityRole="tab"
-        accessibilityState={{ selected: isFocused }}
-        accessibilityLabel={
-          options.tabBarAccessibilityLabel || (typeof label === 'string' ? label : route.name)
-        }
-        testID={options.tabBarButtonTestID}
-        onPress={() => handleTabPress(route, isFocused)}
-        style={styles.tabButton}>
-        <Animated.View
-          style={[
-            styles.tabContent,
-            { transform: [{ scale: scaleAnim }] },
-          ]}>
-          {/* Active indicator pill behind icon */}
-          <Animated.View
-            style={[
-              styles.activePill,
-              {
-                backgroundColor: isDark
-                  ? 'rgba(0, 150, 255, 0.18)'
-                  : 'rgba(0, 97, 167, 0.10)',
-                opacity: pillAnim,
-                transform: [{ scaleX: pillAnim }],
-              },
-            ]}
-          />
-
-          <View style={styles.iconContainer}>{renderIcon()}</View>
-
-          {typeof label === 'string' ? (
-            <Text
-              numberOfLines={1}
-              style={[
-                styles.tabLabel,
-                {
-                  color: isFocused ? colors.primary : colors.onSurfaceVariant,
-                  fontWeight: isFocused ? '700' : '500',
-                },
-              ]}>
-              {label}
-            </Text>
-          ) : null}
-
-          {/* Active indicator dot under label */}
-          <Animated.View
-            style={[
-              styles.activeDot,
-              {
-                backgroundColor: colors.primary,
-                opacity: pillAnim,
-                transform: [{ scale: pillAnim }],
-              },
-            ]}
-          />
-        </Animated.View>
-      </TouchableOpacity>
-    );
-  };
+    },
+    [navigation]
+  );
 
   const containerContent = (
     <View
@@ -176,9 +194,22 @@ export const AnimatedTabBar: React.FC<TabBarProps> = ({
         },
       ]}>
       <View style={styles.tabRow}>
-        {state.routes.map((route, index) => (
-          <TabItem key={route.key} route={route} index={index} />
-        ))}
+        {state.routes.map((route, index) => {
+          const isFocused = state.index === index;
+          const { options } = descriptors[route.key];
+          return (
+            <TabItem
+              key={route.key}
+              route={route}
+              index={index}
+              isFocused={isFocused}
+              options={options}
+              colors={colors}
+              isDark={isDark}
+              onPress={() => handleTabPress(route.key, route.name, isFocused)}
+            />
+          );
+        })}
       </View>
     </View>
   );

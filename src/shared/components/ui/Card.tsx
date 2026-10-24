@@ -1,14 +1,22 @@
-import React, { useState } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import {
   View,
-  TouchableOpacity,
   StyleSheet,
-  Animated,
   ViewStyle,
   StyleProp,
+  Pressable,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  FadeInDown,
+} from 'react-native-reanimated';
 import { useThemeColors } from '../../hooks';
 import { Radius, Shadows, Spacing } from '../../constants/tokens';
+import { haptics } from '../../utils/haptics';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export type CardVariant = 'elevated' | 'outlined' | 'flat' | 'glass';
 export type CardPadding = 'none' | 'sm' | 'md' | 'lg';
@@ -21,41 +29,49 @@ export interface CardProps {
   style?: StyleProp<ViewStyle>;
   activeOpacity?: number;
   accessibilityLabel?: string;
+  accessibilityRole?: 'button' | 'none';
+  accessibilityState?: { selected?: boolean; disabled?: boolean; checked?: boolean; busy?: boolean; expanded?: boolean };
+  entering?: boolean;
+  enteringDelay?: number;
 }
 
-export const Card: React.FC<CardProps> = ({
+const SPRING_CONFIG = {
+  damping: 14,
+  stiffness: 320,
+  mass: 0.5,
+};
+
+export const Card: React.FC<CardProps> = React.memo(({
   children,
   variant = 'elevated',
   padding = 'md',
   onPress,
   style,
-  activeOpacity = 0.85,
   accessibilityLabel,
+  accessibilityRole,
+  accessibilityState,
+  entering = false,
+  enteringDelay = 0,
 }) => {
   const colors = useThemeColors();
-  const [scaleAnim] = useState(() => new Animated.Value(1));
+  const scale = useSharedValue(1);
 
-  const handlePressIn = () => {
+  const handlePressIn = useCallback(() => {
     if (!onPress) return;
-    Animated.spring(scaleAnim, {
-      toValue: 0.98,
-      useNativeDriver: true,
-      speed: 30,
-      bounciness: 4,
-    }).start();
-  };
+    scale.value = withSpring(0.97, SPRING_CONFIG);
+    haptics.light();
+  }, [onPress, scale]);
 
-  const handlePressOut = () => {
+  const handlePressOut = useCallback(() => {
     if (!onPress) return;
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      speed: 30,
-      bounciness: 4,
-    }).start();
-  };
+    scale.value = withSpring(1, SPRING_CONFIG);
+  }, [onPress, scale]);
 
-  const getVariantStyle = (): ViewStyle => {
+  const animatedScaleStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const variantStyle = useMemo<ViewStyle>(() => {
     switch (variant) {
       case 'outlined':
         return {
@@ -83,38 +99,61 @@ export const Card: React.FC<CardProps> = ({
           ...Shadows.sm,
         };
     }
-  };
+  }, [variant, colors]);
 
-  const content = (
-    <View
-      style={[
-        styles.base,
-        getVariantStyle(),
-        paddingStyles[padding],
-        style,
-      ]}>
-      {children}
-    </View>
-  );
+  const enteringAnimation = useMemo(() => {
+    return entering
+      ? FadeInDown.delay(enteringDelay).duration(320).springify().damping(15)
+      : undefined;
+  }, [entering, enteringDelay]);
 
   if (onPress) {
     return (
-      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-        <TouchableOpacity
-          activeOpacity={activeOpacity}
-          onPress={onPress}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-          accessibilityRole="button"
-          accessibilityLabel={accessibilityLabel}>
-          {content}
-        </TouchableOpacity>
+      <AnimatedPressable
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        accessibilityRole={accessibilityRole || 'button'}
+        accessibilityLabel={accessibilityLabel}
+        accessibilityState={accessibilityState}
+        entering={enteringAnimation}
+        style={[
+          styles.base,
+          variantStyle,
+          paddingStyles[padding],
+          animatedScaleStyle,
+          style,
+        ]}>
+        {children}
+      </AnimatedPressable>
+    );
+  }
+
+  if (entering) {
+    return (
+      <Animated.View
+        entering={enteringAnimation}
+        accessibilityLabel={accessibilityLabel}
+        accessibilityRole={accessibilityRole}
+        accessibilityState={accessibilityState}
+        style={[styles.base, variantStyle, paddingStyles[padding], style]}>
+        {children}
       </Animated.View>
     );
   }
 
-  return content;
-};
+  return (
+    <View
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole={accessibilityRole}
+      accessibilityState={accessibilityState}
+      style={[styles.base, variantStyle, paddingStyles[padding], style]}>
+      {children}
+    </View>
+  );
+});
+
+Card.displayName = 'Card';
 
 const styles = StyleSheet.create({
   base: {

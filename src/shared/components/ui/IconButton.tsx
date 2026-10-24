@@ -1,13 +1,20 @@
-import React, { useState } from 'react';
+import React, { useMemo, useCallback, memo } from 'react';
 import {
-  TouchableOpacity,
   StyleSheet,
-  Animated,
   ViewStyle,
   StyleProp,
+  Pressable,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from 'react-native-reanimated';
 import { useThemeColors } from '../../hooks';
 import { Radius, Shadows } from '../../constants/tokens';
+import { haptics } from '../../utils/haptics';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export type IconButtonVariant =
   | 'default'
@@ -28,7 +35,13 @@ export interface IconButtonProps {
   style?: StyleProp<ViewStyle>;
 }
 
-export const IconButton: React.FC<IconButtonProps> = ({
+const SPRING_CONFIG = {
+  damping: 14,
+  stiffness: 350,
+  mass: 0.5,
+};
+
+export const IconButton: React.FC<IconButtonProps> = memo(({
   icon,
   onPress,
   variant = 'default',
@@ -38,28 +51,23 @@ export const IconButton: React.FC<IconButtonProps> = ({
   style,
 }) => {
   const colors = useThemeColors();
-  const [scaleAnim] = useState(() => new Animated.Value(1));
+  const scale = useSharedValue(1);
 
-  const handlePressIn = () => {
+  const handlePressIn = useCallback(() => {
     if (disabled) return;
-    Animated.spring(scaleAnim, {
-      toValue: 0.92,
-      useNativeDriver: true,
-      speed: 35,
-      bounciness: 4,
-    }).start();
-  };
+    scale.value = withSpring(0.92, SPRING_CONFIG);
+    haptics.light();
+  }, [disabled, scale]);
 
-  const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      speed: 35,
-      bounciness: 4,
-    }).start();
-  };
+  const handlePressOut = useCallback(() => {
+    scale.value = withSpring(1, SPRING_CONFIG);
+  }, [scale]);
 
-  const getVariantStyle = (): ViewStyle => {
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const variantStyle = useMemo<ViewStyle>(() => {
     switch (variant) {
       case 'filled':
         return {
@@ -90,30 +98,30 @@ export const IconButton: React.FC<IconButtonProps> = ({
           ...Shadows.xs,
         };
     }
-  };
+  }, [variant, colors]);
 
   return (
-    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-      <TouchableOpacity
-        activeOpacity={0.8}
-        onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        disabled={disabled}
-        accessibilityLabel={accessibilityLabel}
-        accessibilityRole="button"
-        style={[
-          styles.base,
-          sizeStyles[size],
-          getVariantStyle(),
-          disabled && styles.disabled,
-          style,
-        ]}>
-        {icon}
-      </TouchableOpacity>
-    </Animated.View>
+    <AnimatedPressable
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      disabled={disabled}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole="button"
+      style={[
+        styles.base,
+        sizeStyles[size],
+        variantStyle,
+        disabled && styles.disabled,
+        animatedStyle,
+        style,
+      ]}>
+      {icon}
+    </AnimatedPressable>
   );
-};
+});
+
+IconButton.displayName = 'IconButton';
 
 const styles = StyleSheet.create({
   base: {

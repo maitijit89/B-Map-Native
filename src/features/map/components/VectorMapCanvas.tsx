@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Animated, TouchableOpacity, Text } from 'react-native';
+import React, { memo, useCallback } from 'react';
+import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import Svg, {
   Defs,
   LinearGradient,
@@ -23,43 +23,202 @@ interface VectorMapCanvasProps {
   showTraffic?: boolean;
 }
 
-export default function VectorMapCanvas({ onPoiPress, showTraffic = true }: VectorMapCanvasProps) {
-  // Pulse animation for GPS radar beam using useState initializer
-  const [pulseAnim] = useState(() => new Animated.Value(1));
-  const [radarRotate] = useState(() => new Animated.Value(0));
+/**
+ * 1. Static Landmass & Water Layer (Base Land, Parks, Rivers)
+ */
+const StaticLandmassLayer = memo(() => (
+  <>
+    {/* Base Landmass */}
+    <Rect width="420" height="860" fill="#F4F7FB" />
 
-  useEffect(() => {
-    const pulseLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.25,
-          duration: 1800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1800,
-          useNativeDriver: true,
-        }),
-      ])
-    );
+    {/* Large Urban Park Feature */}
+    <Path
+      d="M -20,240 C 40,210 110,230 140,290 C 160,330 130,400 90,430 C 40,460 -20,440 -20,380 Z"
+      fill="url(#parkGrad)"
+      opacity={0.85}
+    />
+    <Path
+      d="M 280,110 C 340,90 390,130 430,160 L 430,20 C 370,10 320,50 280,110 Z"
+      fill="url(#parkGrad)"
+      opacity={0.75}
+    />
+    <Path
+      d="M 270,590 C 330,560 390,580 430,620 L 430,730 C 360,740 310,680 270,590 Z"
+      fill="url(#parkGrad)"
+      opacity={0.6}
+    />
 
-    const rotateLoop = Animated.loop(
-      Animated.timing(radarRotate, {
-        toValue: 1,
-        duration: 8000,
-        useNativeDriver: true,
-      })
-    );
+    {/* Winding River System */}
+    <Path
+      d="M -40,160 Q 90,190 180,150 T 360,110 T 450,130"
+      fill="none"
+      stroke="url(#riverGrad)"
+      strokeLinecap="round"
+      strokeWidth={32}
+    />
+    <Path
+      d="M 180,150 Q 230,260 210,390 T 260,610 T 230,880"
+      fill="none"
+      stroke="url(#riverGrad)"
+      strokeLinecap="round"
+      strokeWidth={26}
+    />
+  </>
+));
+StaticLandmassLayer.displayName = 'StaticLandmassLayer';
 
-    pulseLoop.start();
-    rotateLoop.start();
+/**
+ * 2. Street Grid & 3D Building Footprints Layer
+ */
+const StreetNetworkLayer = memo(() => (
+  <>
+    {/* Residential & Secondary Street Network */}
+    <G stroke="#E3E8F0" strokeLinecap="round" strokeWidth={5}>
+      <Path d="M -20,90 L 440,90" />
+      <Path d="M -20,330 L 440,330" />
+      <Path d="M -20,490 L 440,470" />
+      <Path d="M -20,670 L 440,680" />
+      <Path d="M 60,-20 L 70,880" />
+      <Path d="M 150,-20 L 140,880" />
+      <Path d="M 290,-20 L 300,880" />
+      <Path d="M 370,-20 L 360,880" />
+      <Path d="M 0,220 L 260,390" />
+      <Path d="M 120,540 L 400,370" />
+      <Path d="M 50,740 L 380,560" />
+    </G>
 
-    return () => {
-      pulseLoop.stop();
-      rotateLoop.stop();
-    };
-  }, [pulseAnim, radarRotate]);
+    {/* 3D Isometric Building Block Footprints */}
+    <G fill="#EAEEF6" stroke="#DDE3EF" strokeWidth={1.5}>
+      <Rect x="80" y="110" width="46" height="34" rx="4" />
+      <Rect x="80" y="250" width="38" height="42" rx="4" />
+      <Rect x="160" y="270" width="50" height="32" rx="4" />
+      <Rect x="230" y="230" width="34" height="44" rx="4" />
+      <Rect x="320" y="210" width="48" height="36" rx="4" />
+      <Rect x="85" y="470" width="36" height="40" rx="4" />
+      <Rect x="155" y="430" width="42" height="36" rx="4" />
+      <Rect x="310" y="440" width="56" height="48" rx="4" />
+      <Rect x="80" y="600" width="40" height="36" rx="4" />
+      <Rect x="160" y="630" width="52" height="40" rx="4" />
+      <Rect x="320" y="630" width="46" height="38" rx="4" />
+    </G>
+
+    {/* Main Arterial Avenues (White with Crisp Border) */}
+    <G stroke="#FFFFFF" strokeLinecap="round" strokeLinejoin="round" strokeWidth={10}>
+      <Path d="M -20,270 L 440,270" />
+      <Path d="M -20,570 L 440,550" />
+      <Path d="M 110,-20 L 110,880" />
+      <Path d="M 330,-20 L 330,880" />
+      <Path d="M 10,790 L 430,510" />
+    </G>
+  </>
+));
+StreetNetworkLayer.displayName = 'StreetNetworkLayer';
+
+/**
+ * 3. Dynamic Real-Time Traffic Congestion Layer
+ */
+const TrafficOverlayLayer = memo<{ showTraffic: boolean }>(({ showTraffic }) => {
+  if (!showTraffic) return null;
+  return (
+    <>
+      {/* Smooth Flow (Green #00C06D) */}
+      <G stroke="#00C06D" strokeLinecap="round" strokeLinejoin="round" strokeWidth={4.5}>
+        <Path d="M -10,270 L 140,270" />
+        <Path d="M 260,270 L 430,270" />
+        <Path d="M 110,60 L 110,380" />
+        <Path d="M 110,540 L 110,790" />
+        <Path d="M 330,20 L 330,460" />
+        <Path d="M 40,770 L 220,650" />
+      </G>
+
+      {/* Moderate Congestion (Amber/Orange #FF9800) */}
+      <G stroke="#FF9800" strokeLinecap="round" strokeLinejoin="round" strokeWidth={4.5}>
+        <Path d="M 140,270 L 260,270" />
+        <Path d="M 110,380 L 110,480" />
+        <Path d="M 220,650 L 330,580" />
+      </G>
+
+      {/* Heavy Congestion (Red #F44336) */}
+      <G stroke="#F44336" strokeLinecap="round" strokeLinejoin="round" strokeWidth={4.5}>
+        <Path d="M 110,480 L 110,540" />
+      </G>
+    </>
+  );
+});
+TrafficOverlayLayer.displayName = 'TrafficOverlayLayer';
+
+/**
+ * 4. Expressway & Navigation Polyline Track Layer
+ */
+const ExpresswayAndNavLayer = memo(() => (
+  <>
+    {/* Elevated Expressway / Highway 4 Polyline */}
+    <Path
+      d="M -20,410 C 120,400 180,360 270,300 S 390,210 440,190"
+      stroke="#FFE7BA"
+      strokeLinecap="round"
+      strokeWidth={12}
+    />
+    <Path
+      d="M -20,410 C 120,400 180,360 270,300 S 390,210 440,190"
+      stroke="#FF9D42"
+      strokeLinecap="round"
+      strokeWidth={7}
+    />
+
+    {/* Active Recommended GPS Navigation Polyline Track */}
+    <Path
+      d="M 210,520 L 210,460 L 110,460 L 110,320 L 270,300 L 330,190"
+      opacity={0.95}
+      stroke="#0096FF"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={8}
+    />
+    <Path
+      d="M 210,520 L 210,460 L 110,460 L 110,320 L 270,300 L 330,190"
+      stroke="#FFFFFF"
+      strokeDasharray="7 7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2.5}
+    />
+
+    {/* Metro Line 2 Ribbon */}
+    <Path
+      d="M 10,720 Q 180,680 230,500 T 380,240"
+      fill="none"
+      opacity={0.6}
+      stroke="#9C27B0"
+      strokeDasharray="6 4"
+      strokeWidth={3}
+    />
+
+    {/* GPS User Location Radar Beam */}
+    <G x="210" y="520">
+      <Path d="M 0,0 L -45,-90 A 100 100 0 0 1 45,-90 Z" fill="url(#radarCone)" />
+      <Circle r="36" fill="#0096FF" opacity={0.12} />
+      <Circle r="24" fill="#0096FF" opacity={0.22} />
+      <Circle r="13" fill="#FFFFFF" />
+      <Circle r="8" fill="#0096FF" />
+      <Polygon points="0,-16 -4,-9 4,-9" fill="#0096FF" />
+    </G>
+  </>
+));
+ExpresswayAndNavLayer.displayName = 'ExpresswayAndNavLayer';
+
+/**
+ * High-performance VectorMapCanvas with isolated layer decomposition
+ */
+export const VectorMapCanvas: React.FC<VectorMapCanvasProps> = memo(({
+  onPoiPress,
+  showTraffic = true,
+}) => {
+  const handleGrandMetroPress = useCallback(() => onPoiPress?.('Grand Metro Stn'), [onPoiPress]);
+  const handleEvStationPress = useCallback(() => onPoiPress?.('B-Power 120kW'), [onPoiPress]);
+  const handleMallPress = useCallback(() => onPoiPress?.('IFC Mall'), [onPoiPress]);
+  const handleCafePress = useCallback(() => onPoiPress?.('Blue Oasis Cafe'), [onPoiPress]);
+  const handleTechParkPress = useCallback(() => onPoiPress?.('Tech Innovation Park'), [onPoiPress]);
 
   return (
     <View style={styles.container}>
@@ -71,19 +230,16 @@ export default function VectorMapCanvas({ onPoiPress, showTraffic = true }: Vect
         preserveAspectRatio="xMidYMid slice"
         style={StyleSheet.absoluteFill}>
         <Defs>
-          {/* Park texture / tint */}
           <LinearGradient id="parkGrad" x1="0%" y1="0%" x2="100%" y2="100%">
             <Stop offset="0%" stopColor="#E2F6EA" />
             <Stop offset="100%" stopColor="#D0EEDC" />
           </LinearGradient>
 
-          {/* River gradient */}
           <LinearGradient id="riverGrad" x1="0%" y1="0%" x2="100%" y2="100%">
             <Stop offset="0%" stopColor="#D8EEFE" />
             <Stop offset="100%" stopColor="#C2E4FD" />
           </LinearGradient>
 
-          {/* Radar cone gradient */}
           <RadialGradient id="radarCone" cx="50%" cy="100%" r="90%">
             <Stop offset="0%" stopColor="#0096FF" stopOpacity="0.38" />
             <Stop offset="60%" stopColor="#0096FF" stopOpacity="0.12" />
@@ -91,166 +247,17 @@ export default function VectorMapCanvas({ onPoiPress, showTraffic = true }: Vect
           </RadialGradient>
         </Defs>
 
-        {/* Base Landmass */}
-        <Rect width="420" height="860" fill="#F4F7FB" />
-
-        {/* Large Urban Park Feature */}
-        <Path
-          d="M -20,240 C 40,210 110,230 140,290 C 160,330 130,400 90,430 C 40,460 -20,440 -20,380 Z"
-          fill="url(#parkGrad)"
-          opacity={0.85}
-        />
-        <Path
-          d="M 280,110 C 340,90 390,130 430,160 L 430,20 C 370,10 320,50 280,110 Z"
-          fill="url(#parkGrad)"
-          opacity={0.75}
-        />
-        <Path
-          d="M 270,590 C 330,560 390,580 430,620 L 430,730 C 360,740 310,680 270,590 Z"
-          fill="url(#parkGrad)"
-          opacity={0.6}
-        />
-
-        {/* Winding River System */}
-        <Path
-          d="M -40,160 Q 90,190 180,150 T 360,110 T 450,130"
-          fill="none"
-          stroke="url(#riverGrad)"
-          strokeLinecap="round"
-          strokeWidth={32}
-        />
-        <Path
-          d="M 180,150 Q 230,260 210,390 T 260,610 T 230,880"
-          fill="none"
-          stroke="url(#riverGrad)"
-          strokeLinecap="round"
-          strokeWidth={26}
-        />
-
-        {/* Residential & Secondary Street Network */}
-        <G stroke="#E3E8F0" strokeLinecap="round" strokeWidth={5}>
-          <Path d="M -20,90 L 440,90" />
-          <Path d="M -20,330 L 440,330" />
-          <Path d="M -20,490 L 440,470" />
-          <Path d="M -20,670 L 440,680" />
-          <Path d="M 60,-20 L 70,880" />
-          <Path d="M 150,-20 L 140,880" />
-          <Path d="M 290,-20 L 300,880" />
-          <Path d="M 370,-20 L 360,880" />
-          <Path d="M 0,220 L 260,390" />
-          <Path d="M 120,540 L 400,370" />
-          <Path d="M 50,740 L 380,560" />
-        </G>
-
-        {/* 3D Isometric-feel Building Block Footprints */}
-        <G fill="#EAEEF6" stroke="#DDE3EF" strokeWidth={1.5}>
-          <Rect x="80" y="110" width="46" height="34" rx="4" />
-          <Rect x="80" y="250" width="38" height="42" rx="4" />
-          <Rect x="160" y="270" width="50" height="32" rx="4" />
-          <Rect x="230" y="230" width="34" height="44" rx="4" />
-          <Rect x="320" y="210" width="48" height="36" rx="4" />
-          <Rect x="85" y="470" width="36" height="40" rx="4" />
-          <Rect x="155" y="430" width="42" height="36" rx="4" />
-          <Rect x="310" y="440" width="56" height="48" rx="4" />
-          <Rect x="80" y="600" width="40" height="36" rx="4" />
-          <Rect x="160" y="630" width="52" height="40" rx="4" />
-          <Rect x="320" y="630" width="46" height="38" rx="4" />
-        </G>
-
-        {/* Main Arterial Avenues (White with Crisp Border) */}
-        <G stroke="#FFFFFF" strokeLinecap="round" strokeLinejoin="round" strokeWidth={10}>
-          <Path d="M -20,270 L 440,270" />
-          <Path d="M -20,570 L 440,550" />
-          <Path d="M 110,-20 L 110,880" />
-          <Path d="M 330,-20 L 330,880" />
-          <Path d="M 10,790 L 430,510" />
-        </G>
-
-        {/* Real-Time Traffic Congestion Layers */}
-        {showTraffic && (
-          <>
-            {/* Smooth Flow (Green #00C06D) */}
-            <G stroke="#00C06D" strokeLinecap="round" strokeLinejoin="round" strokeWidth={4.5}>
-              <Path d="M -10,270 L 140,270" />
-              <Path d="M 260,270 L 430,270" />
-              <Path d="M 110,60 L 110,380" />
-              <Path d="M 110,540 L 110,790" />
-              <Path d="M 330,20 L 330,460" />
-              <Path d="M 40,770 L 220,650" />
-            </G>
-
-            {/* Moderate Congestion (Amber/Orange #FF9800) */}
-            <G stroke="#FF9800" strokeLinecap="round" strokeLinejoin="round" strokeWidth={4.5}>
-              <Path d="M 140,270 L 260,270" />
-              <Path d="M 110,380 L 110,480" />
-              <Path d="M 220,650 L 330,580" />
-            </G>
-
-            {/* Heavy Congestion (Red #F44336) */}
-            <G stroke="#F44336" strokeLinecap="round" strokeLinejoin="round" strokeWidth={4.5}>
-              <Path d="M 110,480 L 110,540" />
-            </G>
-          </>
-        )}
-
-        {/* Elevated Expressway / Highway 4 Polyline */}
-        <Path
-          d="M -20,410 C 120,400 180,360 270,300 S 390,210 440,190"
-          stroke="#FFE7BA"
-          strokeLinecap="round"
-          strokeWidth={12}
-        />
-        <Path
-          d="M -20,410 C 120,400 180,360 270,300 S 390,210 440,190"
-          stroke="#FF9D42"
-          strokeLinecap="round"
-          strokeWidth={7}
-        />
-
-        {/* Active Recommended GPS Navigation Polyline Track */}
-        <Path
-          d="M 210,520 L 210,460 L 110,460 L 110,320 L 270,300 L 330,190"
-          opacity={0.95}
-          stroke="#0096FF"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={8}
-        />
-        <Path
-          d="M 210,520 L 210,460 L 110,460 L 110,320 L 270,300 L 330,190"
-          stroke="#FFFFFF"
-          strokeDasharray="7 7"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2.5}
-        />
-
-        {/* Metro Line 2 (Subtle Purple Transit Ribbon) */}
-        <Path
-          d="M 10,720 Q 180,680 230,500 T 380,240"
-          fill="none"
-          opacity={0.6}
-          stroke="#9C27B0"
-          strokeDasharray="6 4"
-          strokeWidth={3}
-        />
-
-        {/* GPS User Location Radar Beam */}
-        <G x="210" y="520">
-          <Path d="M 0,0 L -45,-90 A 100 100 0 0 1 45,-90 Z" fill="url(#radarCone)" />
-          <Circle r="36" fill="#0096FF" opacity={0.12} />
-          <Circle r="24" fill="#0096FF" opacity={0.22} />
-          <Circle r="13" fill="#FFFFFF" />
-          <Circle r="8" fill="#0096FF" />
-          <Polygon points="0,-16 -4,-9 4,-9" fill="#0096FF" />
-        </G>
+        <StaticLandmassLayer />
+        <StreetNetworkLayer />
+        <TrafficOverlayLayer showTraffic={showTraffic} />
+        <ExpresswayAndNavLayer />
       </Svg>
 
       {/* POI Overlay Badges */}
       {/* 1. Metro Station */}
       <TouchableOpacity
         style={[styles.poiBadge, { top: 220, left: 60 }]}
-        onPress={() => onPoiPress?.('Grand Metro Stn')}
+        onPress={handleGrandMetroPress}
         activeOpacity={0.8}>
         <View style={styles.metroIcon}>
           <Text style={styles.metroIconText}>M</Text>
@@ -261,7 +268,7 @@ export default function VectorMapCanvas({ onPoiPress, showTraffic = true }: Vect
       {/* 2. EV Supercharger */}
       <TouchableOpacity
         style={[styles.poiBadge, { top: 280, right: 60 }]}
-        onPress={() => onPoiPress?.('B-Power 120kW')}
+        onPress={handleEvStationPress}
         activeOpacity={0.8}>
         <Zap size={14} color="#0096FF" fill="#0096FF" />
         <Text style={styles.poiTitle}>B-Power 120kW</Text>
@@ -273,7 +280,7 @@ export default function VectorMapCanvas({ onPoiPress, showTraffic = true }: Vect
       {/* 3. IFC Mall */}
       <TouchableOpacity
         style={[styles.mallCardContainer, { top: 135, right: 28 }]}
-        onPress={() => onPoiPress?.('IFC Mall')}
+        onPress={handleMallPress}
         activeOpacity={0.8}>
         <View style={styles.mallCard}>
           <ShoppingBag size={15} color={BMapColors.tertiaryContainer} />
@@ -291,7 +298,7 @@ export default function VectorMapCanvas({ onPoiPress, showTraffic = true }: Vect
       {/* 4. Specialty Coffee */}
       <TouchableOpacity
         style={[styles.poiBadge, { top: 345, left: 120 }]}
-        onPress={() => onPoiPress?.('Blue Oasis Cafe')}
+        onPress={handleCafePress}
         activeOpacity={0.8}>
         <Coffee size={13} color="#8B5000" />
         <Text style={[styles.poiTitle, { fontSize: 11 }]}>Blue Oasis Cafe</Text>
@@ -300,7 +307,7 @@ export default function VectorMapCanvas({ onPoiPress, showTraffic = true }: Vect
       {/* 5. Destination Pin Flag (Tech Innovation Park) */}
       <TouchableOpacity
         style={[styles.destinationContainer, { top: 110, right: 90 }]}
-        onPress={() => onPoiPress?.('Tech Innovation Park')}
+        onPress={handleTechParkPress}
         activeOpacity={0.8}>
         <View style={styles.destinationPill}>
           <Briefcase size={12} color="#ffffff" />
@@ -311,7 +318,11 @@ export default function VectorMapCanvas({ onPoiPress, showTraffic = true }: Vect
       </TouchableOpacity>
     </View>
   );
-}
+});
+
+VectorMapCanvas.displayName = 'VectorMapCanvas';
+
+export default VectorMapCanvas;
 
 const styles = StyleSheet.create({
   container: {

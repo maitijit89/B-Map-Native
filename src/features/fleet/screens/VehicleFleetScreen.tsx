@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,22 +6,26 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import {
-  ArrowLeft,
   Car,
   Bike,
   Truck,
   Plus,
   CheckCircle2,
-  ShieldCheck,
-  Zap,
-  History,
   IndianRupee,
 } from 'lucide-react-native';
+import { useThemeColors } from '@/shared/hooks';
+import { Radius, Spacing, Typography } from '@/shared/constants/tokens';
+import {
+  Header,
+  Card,
+  SectionHeader,
+} from '@/shared/components/ui';
+import { haptics } from '@/shared/utils/haptics';
 
 interface Vehicle {
   id: string;
@@ -98,211 +102,211 @@ const RECENT_TOLL_TRANSACTIONS = [
 ];
 
 export default function VehicleFleetScreen() {
+  const colors = useThemeColors();
   const [selectedVehicleId, setSelectedVehicleId] = useState('1');
   const [fastagBalance, setFastagBalance] = useState(1840);
-  const [autoRecharge, setAutoRecharge] = useState(true);
 
-  const activeVehicle =
-    VEHICLES.find((v) => v.id === selectedVehicleId) || VEHICLES[0];
+  const activeVehicle = useMemo(() => {
+    return VEHICLES.find((v) => v.id === selectedVehicleId) || VEHICLES[0];
+  }, [selectedVehicleId]);
 
-  const handleInstantRecharge = (amount: number) => {
-    setFastagBalance((prev) => prev + amount);
-    Alert.alert(
-      'Recharge Successful! 💳',
-      `₹${amount} added to FASTag Wallet via UPI. Fresh NETC balance: ₹${fastagBalance + amount}.`
-    );
-  };
+  const handleInstantRecharge = useCallback((amount: number) => {
+    haptics.medium();
+    setFastagBalance((prev) => {
+      const next = prev + amount;
+      Alert.alert(
+        'Recharge Successful! 💳',
+        `₹${amount} added to FASTag Wallet via UPI. Fresh NETC balance: ₹${next}.`
+      );
+      return next;
+    });
+  }, []);
 
-  const handleAddNewVehicle = () => {
+  const handleAddNewVehicle = useCallback(() => {
+    haptics.light();
     Alert.alert(
       'Register New Vehicle',
       'Enter Registration Certificate (RC) details and link NPCI FASTag RFID barcode.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Scan RC Card', onPress: () => Alert.alert('Camera Scanning', 'Scanning VAHAN QR Code on RC card...') },
+        {
+          text: 'Scan RC Card',
+          onPress: () => {
+            haptics.medium();
+            Alert.alert('Camera Scanning', 'Scanning VAHAN QR Code on RC card...');
+          },
+        },
       ]
     );
+  }, []);
+
+  const handleBackPress = useCallback(() => {
+    haptics.light();
+    router.back();
+  }, []);
+
+  const getVehicleIcon = (type: Vehicle['type']) => {
+    switch (type) {
+      case 'bike':
+        return <Bike size={20} color={colors.primary} />;
+      case 'commercial':
+        return <Truck size={20} color={colors.primary} />;
+      case 'car':
+      default:
+        return <Car size={20} color={colors.primary} />;
+    }
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       {/* Top Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
-          <ArrowLeft size={22} color="#111C2D" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Vehicle Fleet & FASTag</Text>
-        <TouchableOpacity style={styles.addBtn} onPress={handleAddNewVehicle} activeOpacity={0.7}>
-          <Plus size={18} color="#0096FF" />
-        </TouchableOpacity>
-      </View>
+      <Header
+        title="Vehicle Fleet & FASTag"
+        subtitle="NPCI NETC Switch · Multi-Vehicle Telematics"
+        onBackPress={handleBackPress}
+        rightAction={
+          <TouchableOpacity
+            style={[styles.addBtn, { backgroundColor: colors.primaryContainer }]}
+            onPress={handleAddNewVehicle}
+            accessibilityRole="button"
+            accessibilityLabel="Add new vehicle"
+            activeOpacity={0.7}>
+            <Plus size={20} color={colors.onPrimary} />
+          </TouchableOpacity>
+        }
+      />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* FASTag Balance Master Card */}
-        <View style={styles.walletCard}>
-          <View style={styles.walletHeader}>
-            <View style={styles.fastagLogoTag}>
-              <Text style={styles.fastagLogoText}>FASTag</Text>
+        <Animated.View entering={FadeInDown.duration(280).springify().damping(18)}>
+          <Card
+            variant="elevated"
+            padding="lg"
+            style={[
+              styles.walletCard,
+              {
+                backgroundColor: colors.primary,
+                borderColor: colors.primary,
+              },
+            ]}>
+            <View style={styles.walletHeader}>
+              <View style={styles.fastagLogoTag}>
+                <Text style={[styles.fastagLogoText, { color: colors.primary }]}>FASTag</Text>
+              </View>
+              <View style={styles.kycBadge}>
+                <CheckCircle2 size={12} color="#ffffff" />
+                <Text style={styles.kycText}>NPCI KYC VERIFIED</Text>
+              </View>
             </View>
-            <View style={styles.kycBadge}>
-              <CheckCircle2 size={12} color="#00C06D" />
-              <Text style={styles.kycText}>NPCI KYC VERIFIED</Text>
+
+            <Text style={styles.walletBalanceLabel}>Total Available Highway Balance</Text>
+            <View style={styles.walletBalanceRow}>
+              <IndianRupee size={28} color="#ffffff" />
+              <Text style={styles.walletBalanceValue}>{fastagBalance.toLocaleString('en-IN')}</Text>
+              <Text style={styles.walletBalanceDec}>.50</Text>
             </View>
-          </View>
 
-          <Text style={styles.walletBalanceLabel}>Total Available Highway Balance</Text>
-          <View style={styles.walletBalanceRow}>
-            <IndianRupee size={28} color="#ffffff" />
-            <Text style={styles.walletBalanceValue}>{fastagBalance.toLocaleString('en-IN')}</Text>
-            <Text style={styles.walletBalanceDec}>.50</Text>
-          </View>
+            <View style={styles.tagMetaRow}>
+              <Text style={styles.tagMetaText}>Tag ID: {activeVehicle.fastagTagId}</Text>
+              <Text style={styles.tagMetaText}>Bank: IDBI NETC Switch</Text>
+            </View>
 
-          <View style={styles.tagMetaRow}>
-            <Text style={styles.tagMetaText}>Tag ID: {activeVehicle.fastagTagId}</Text>
-            <Text style={styles.tagMetaText}>Bank: IDBI NETC Switch</Text>
-          </View>
-
-          {/* Quick UPI Recharge Chips */}
-          <Text style={styles.rechargeLabel}>Instant UPI One-Tap Top-Up:</Text>
-          <View style={styles.rechargeChipRow}>
-            {[500, 1000, 2000].map((amt) => (
-              <TouchableOpacity
-                key={amt}
-                style={styles.rechargeChip}
-                onPress={() => handleInstantRecharge(amt)}
-                activeOpacity={0.8}>
-                <Text style={styles.rechargeChipText}>+₹{amt}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+            {/* Quick UPI Recharge Chips */}
+            <Text style={styles.rechargeLabel}>Instant UPI One-Tap Top-Up:</Text>
+            <View style={styles.rechargeChipRow}>
+              {[500, 1000, 2000].map((amt) => (
+                <TouchableOpacity
+                  key={amt}
+                  style={styles.rechargeChip}
+                  onPress={() => handleInstantRecharge(amt)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Top up ${amt} rupees`}
+                  activeOpacity={0.8}>
+                  <Text style={styles.rechargeChipText}>+₹{amt}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Card>
+        </Animated.View>
 
         {/* Fleet Vehicles Switcher */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Linked Vehicles</Text>
-          <TouchableOpacity onPress={handleAddNewVehicle}>
-            <Text style={styles.sectionAction}>+ Add Vehicle</Text>
-          </TouchableOpacity>
-        </View>
+        <SectionHeader
+          title="Linked Vehicles"
+          subtitle="Select vehicle for route toll calculation"
+          actionText="+ Add Vehicle"
+          onActionPress={handleAddNewVehicle}
+        />
 
         <View style={styles.vehicleList}>
-          {VEHICLES.map((v) => {
+          {VEHICLES.map((v, index) => {
             const isSelected = v.id === selectedVehicleId;
             return (
-              <TouchableOpacity
+              <Animated.View
                 key={v.id}
-                style={[styles.vehicleCard, isSelected && styles.vehicleCardSelected]}
-                onPress={() => setSelectedVehicleId(v.id)}
-                activeOpacity={0.85}>
-                <View style={styles.vehicleCardLeft}>
-                  <View
-                    style={[
-                      styles.vehicleIconCircle,
-                      isSelected ? { backgroundColor: '#0096FF' } : { backgroundColor: '#F0F3FF' },
-                    ]}>
-                    {v.type === 'car' && (
-                      <Car size={20} color={isSelected ? '#ffffff' : '#0096FF'} />
-                    )}
-                    {v.type === 'bike' && (
-                      <Bike size={20} color={isSelected ? '#ffffff' : '#0096FF'} />
-                    )}
-                    {v.type === 'commercial' && (
-                      <Truck size={20} color={isSelected ? '#ffffff' : '#0096FF'} />
-                    )}
-                  </View>
-
-                  <View>
-                    <View style={styles.vehicleTitleRow}>
-                      <Text style={styles.vehicleName}>{v.name}</Text>
-                      {v.powertrain === 'EV' && (
-                        <View style={styles.evChip}>
-                          <Zap size={10} color="#00C06D" />
-                          <Text style={styles.evChipText}>EV</Text>
-                        </View>
-                      )}
+                entering={FadeInDown.delay(50 * (index + 1)).duration(280).springify().damping(18)}>
+                <Card
+                  variant={isSelected ? 'glass' : 'flat'}
+                  padding="md"
+                  style={[
+                    styles.vehicleCard,
+                    {
+                      borderColor: isSelected ? colors.primary : colors.surfaceContainerHigh,
+                      backgroundColor: isSelected ? colors.surfaceContainerLow : colors.surfaceContainerLowest,
+                    },
+                  ]}
+                  onPress={() => {
+                    haptics.selection();
+                    setSelectedVehicleId(v.id);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${v.name}, ${v.numberPlate}, ${v.vehicleClass}${isSelected ? ', selected' : ''}`}>
+                  <View style={styles.vehicleCardLeft}>
+                    <View style={[styles.vehicleIconBox, { backgroundColor: colors.surfaceContainerHigh }]}>
+                      {getVehicleIcon(v.type)}
                     </View>
-                    <Text style={styles.numberPlate}>{v.numberPlate}</Text>
-                    <Text style={styles.vehicleClass}>{v.vehicleClass}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.vehicleName, { color: colors.onSurface }]}>{v.name}</Text>
+                      <Text style={[styles.vehiclePlate, { color: colors.onSurfaceVariant }]}>
+                        {v.numberPlate} · {v.vehicleClass}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-
-                {isSelected ? (
-                  <View style={styles.activeCheckBadge}>
-                    <CheckCircle2 size={18} color="#0096FF" />
-                  </View>
-                ) : null}
-              </TouchableOpacity>
+                </Card>
+              </Animated.View>
             );
           })}
         </View>
 
-        {/* Auto Recharge Settings */}
-        <View style={styles.settingsCard}>
-          <View style={styles.settingsHeader}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-              <ShieldCheck size={18} color="#0096FF" />
-              <Text style={styles.settingsTitle}>NHAI Corridor Auto-Passage Rule</Text>
-            </View>
-            <Switch
-              value={autoRecharge}
-              onValueChange={setAutoRecharge}
-              trackColor={{ false: '#D8E3FB', true: '#0096FF' }}
-              thumbColor="#ffffff"
-            />
-          </View>
-          <Text style={styles.settingsDesc}>
-            Ensures FASTag never incurs blacklisting penalty. Auto-triggers UPI mandate recharge
-            of ₹1,000 whenever wallet falls below ₹300.
-          </Text>
-          <View style={styles.activeRuleRow}>
-            <View
-              style={[
-                styles.ruleStatusDot,
-                { backgroundColor: autoRecharge ? '#00C06D' : '#A0A8B4' },
-              ]}
-            />
-            <Text
-              style={[
-                styles.ruleStatusText,
-                { color: autoRecharge ? '#00C06D' : '#707884' },
-              ]}>
-              {autoRecharge
-                ? 'Auto-Recharge Active via UPI AutoPay'
-                : 'Auto-Recharge Paused (Manual Mode)'}
-            </Text>
-          </View>
-        </View>
+        {/* Recent Toll Statement */}
+        <SectionHeader
+          title="Recent Toll Statement"
+          subtitle="Real-time RFID Toll Deduction Feeds"
+        />
 
-        {/* Recent Toll Transactions */}
-        <View style={styles.transactionsCard}>
-          <View style={styles.transactionsHeader}>
-            <View style={styles.txHeaderLeft}>
-              <History size={16} color="#0096FF" />
-              <Text style={styles.txTitle}>Recent Toll Crossings</Text>
-            </View>
-            <TouchableOpacity onPress={() => Alert.alert('All Transactions', 'Full NHAI electronic receipt log exported.')}>
-              <Text style={styles.txViewAll}>View Slips</Text>
-            </TouchableOpacity>
-          </View>
-
-          {RECENT_TOLL_TRANSACTIONS.map((tx) => (
-            <View key={tx.id} style={styles.txRow}>
-              <View style={styles.txLeft}>
-                <Text style={styles.txPlaza}>{tx.plaza}</Text>
-                <Text style={styles.txHighway}>{tx.highway} · {tx.lane}</Text>
-                <Text style={styles.txDate}>{tx.date}</Text>
-              </View>
-              <View style={styles.txRight}>
-                <Text style={styles.txAmount}>-{tx.amount}</Text>
-                <View style={styles.txSuccessBadge}>
-                  <Text style={styles.txSuccessText}>CLEARED</Text>
+        <Card variant="flat" padding="md" style={styles.statementCard}>
+          {RECENT_TOLL_TRANSACTIONS.map((tx, idx) => (
+            <Animated.View
+              key={tx.id}
+              entering={FadeInUp.delay(idx * 60).duration(260).springify().damping(18)}>
+              <View
+                style={[
+                  styles.txRow,
+                  {
+                    borderBottomColor: colors.surfaceContainerHigh,
+                    borderBottomWidth: idx < RECENT_TOLL_TRANSACTIONS.length - 1 ? 1 : 0,
+                  },
+                ]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.txPlaza, { color: colors.onSurface }]}>{tx.plaza}</Text>
+                  <Text style={[styles.txMeta, { color: colors.onSurfaceVariant }]}>
+                    {tx.highway} · {tx.date}
+                  </Text>
                 </View>
+                <Text style={[styles.txAmount, { color: colors.primary }]}>{tx.amount}</Text>
               </View>
-            </View>
+            </Animated.View>
           ))}
-        </View>
-
-        <View style={{ height: 28 }} />
+        </Card>
       </ScrollView>
     </SafeAreaView>
   );
@@ -311,356 +315,153 @@ export default function VehicleFleetScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFF',
   },
-  header: {
-    height: 56,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E8EEFF',
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F0F3FF',
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111C2D',
+  scroll: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xxl,
+    gap: Spacing.md,
   },
   addBtn: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#E8F4FF',
   },
-  scroll: {
-    padding: 16,
-    gap: 14,
-  },
-
-  /* FASTag Wallet Card */
   walletCard: {
-    backgroundColor: '#0052CC',
-    borderRadius: 20,
-    padding: 18,
-    shadowColor: '#0052CC',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 6,
-    gap: 10,
+    borderRadius: Radius.xxl,
   },
   walletHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   fastagLogoTag: {
     backgroundColor: '#ffffff',
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 6,
+    borderRadius: Radius.sm,
   },
   fastagLogoText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '900',
-    color: '#0052CC',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
   },
   kycBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
   },
   kycText: {
+    color: '#ffffff',
     fontSize: 10,
     fontWeight: '700',
-    color: '#ffffff',
   },
   walletBalanceLabel: {
+    color: 'rgba(255, 255, 255, 0.8)',
     fontSize: 11,
-    color: '#D8E3FB',
-    marginTop: 4,
+    marginTop: 16,
   },
   walletBalanceRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
+    marginTop: 4,
   },
   walletBalanceValue: {
-    fontSize: 32,
-    fontWeight: '900',
     color: '#ffffff',
-    letterSpacing: 0.5,
+    fontSize: 34,
+    fontWeight: '900',
+    letterSpacing: -1,
   },
   walletBalanceDec: {
+    color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 18,
     fontWeight: '700',
-    color: '#D8E3FB',
   },
   tagMetaRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
+    marginTop: 12,
+    paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.15)',
-    paddingTop: 8,
+    borderTopColor: 'rgba(255, 255, 255, 0.2)',
   },
   tagMetaText: {
+    color: 'rgba(255, 255, 255, 0.85)',
     fontSize: 10,
-    color: '#D8E3FB',
+    fontWeight: '600',
   },
   rechargeLabel: {
+    color: '#ffffff',
     fontSize: 11,
     fontWeight: '700',
-    color: '#ffffff',
-    marginTop: 4,
+    marginTop: 14,
   },
   rechargeChipRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
+    marginTop: 6,
   },
   rechargeChip: {
     flex: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.22)',
     paddingVertical: 8,
-    borderRadius: 8,
+    borderRadius: Radius.md,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   rechargeChipText: {
-    fontSize: 13,
-    fontWeight: '800',
     color: '#ffffff',
-  },
-
-  /* Fleet Vehicles */
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#111C2D',
-  },
-  sectionAction: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#0096FF',
+    fontWeight: '800',
   },
   vehicleList: {
     gap: 10,
   },
   vehicleCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: Radius.xl,
     borderWidth: 1.5,
-    borderColor: '#E8EEFF',
-  },
-  vehicleCardSelected: {
-    borderColor: '#0096FF',
-    backgroundColor: '#F8FBFF',
   },
   vehicleCardLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  vehicleIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  vehicleIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  vehicleTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
   vehicleName: {
-    fontSize: 14,
+    ...Typography.titleSmall,
     fontWeight: '700',
-    color: '#111C2D',
   },
-  evChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    backgroundColor: '#E8F8EE',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  evChipText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#00C06D',
-  },
-  numberPlate: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#0096FF',
-    letterSpacing: 0.5,
+  vehiclePlate: {
+    ...Typography.bodySmall,
     marginTop: 2,
   },
-  vehicleClass: {
-    fontSize: 10,
-    color: '#707884',
-    marginTop: 1,
-  },
-  activeCheckBadge: {
-    paddingRight: 4,
-  },
-
-  /* Settings Card */
-  settingsCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 18,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-    gap: 8,
-  },
-  settingsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  settingsTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#111C2D',
-  },
-  settingsDesc: {
-    fontSize: 11,
-    color: '#707884',
-    lineHeight: 16,
-  },
-  activeRuleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#E8F8EE',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-    marginTop: 4,
-  },
-  ruleStatusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#00C06D',
-  },
-  ruleStatusText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#00C06D',
-  },
-
-  /* Transactions Card */
-  transactionsCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 18,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-    gap: 12,
-  },
-  transactionsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F3FF',
-    paddingBottom: 8,
-  },
-  txHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  txTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111C2D',
-  },
-  txViewAll: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#0096FF',
+  statementCard: {
+    borderRadius: Radius.xl,
   },
   txRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F8FAFF',
-    paddingBottom: 8,
-  },
-  txLeft: {
-    flex: 1,
+    justifyContent: 'space-between',
+    paddingVertical: Spacing.sm + 2,
   },
   txPlaza: {
-    fontSize: 12,
+    ...Typography.titleSmall,
     fontWeight: '700',
-    color: '#111C2D',
   },
-  txHighway: {
-    fontSize: 10,
-    color: '#707884',
-    marginTop: 1,
-  },
-  txDate: {
-    fontSize: 10,
-    color: '#A0A8B4',
+  txMeta: {
+    ...Typography.bodySmall,
     marginTop: 2,
   },
-  txRight: {
-    alignItems: 'flex-end',
-    gap: 3,
-  },
   txAmount: {
-    fontSize: 14,
+    ...Typography.titleSmall,
     fontWeight: '800',
-    color: '#BA1A1A',
-  },
-  txSuccessBadge: {
-    backgroundColor: '#E8F8EE',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  txSuccessText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#00C06D',
   },
 });

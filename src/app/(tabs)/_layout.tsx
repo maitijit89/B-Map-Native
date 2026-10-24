@@ -16,7 +16,7 @@ export default function TabLayout() {
         options={{
           title: 'Explore',
           tabBarIcon: ({ focused }) => (
-            <DynamicCompassIcon size={focused ? 26 : 24} dynamic={true} />
+            <DynamicCompassIcon size={focused ? 26 : 24} dynamic={false} />
           ),
         }}
       />

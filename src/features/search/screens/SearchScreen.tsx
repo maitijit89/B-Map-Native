@@ -5,11 +5,11 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import * as Haptics from 'expo-haptics';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { haptics } from '@/shared/utils/haptics';
 import {
   ArrowLeft,
   Clock,
@@ -137,18 +137,8 @@ export default function SearchScreen() {
   const [query, setQuery] = useState('');
   const [recentList, setRecentList] = useState(RECENT_SEARCHES);
 
-  const triggerHaptic = () => {
-    if (Platform.OS === 'ios' || Platform.OS === 'android') {
-      try {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } catch {
-        // Haptics unavailable
-      }
-    }
-  };
-
   const handleSelectResult = (_result: SearchResult) => {
-    triggerHaptic();
+    haptics.selection();
     router.push('/(tabs)/routes');
   };
 
@@ -176,7 +166,7 @@ export default function SearchScreen() {
         <TouchableOpacity
           style={styles.backBtn}
           onPress={() => {
-            triggerHaptic();
+            haptics.light();
             router.back();
           }}
           accessibilityRole="button"
@@ -193,7 +183,7 @@ export default function SearchScreen() {
             variant="flat"
             onClear={() => setQuery('')}
             onMicPress={() => {
-              triggerHaptic();
+              haptics.medium();
               router.push('/ai-copilot');
             }}
           />
@@ -209,58 +199,61 @@ export default function SearchScreen() {
               {filteredResults.length === 1 ? '' : 'es'}
             </Text>
 
-            {filteredResults.map((result) => (
-              <Card
+            {filteredResults.map((result, idx) => (
+              <Animated.View
                 key={result.id}
-                variant="outlined"
-                padding="md"
-                onPress={() => handleSelectResult(result)}
-                accessibilityLabel={`Select ${result.name}`}
-                style={styles.resultCard}>
-                <View style={styles.resultLeft}>
-                  <View
-                    style={[
-                      styles.resultIconBox,
-                      { backgroundColor: colors.surfaceContainerLow },
-                    ]}>
-                    <MapPin size={20} color={colors.primary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <View style={styles.resultTitleRow}>
-                      <Text style={[styles.resultName, { color: colors.onSurface }]}>
-                        {result.name}
-                      </Text>
-                      {result.rating && (
-                        <Badge label={result.rating} variant="warning" size="sm" />
-                      )}
-                    </View>
-                    <Text
-                      style={[styles.resultAddress, { color: colors.onSurfaceVariant }]}
-                      numberOfLines={1}>
-                      {result.address}
-                    </Text>
-
-                    <View style={styles.resultMetaRow}>
-                      <Badge
-                        label={`DigiPIN: ${result.digiPin}`}
-                        variant="primary"
-                        size="sm"
-                      />
-                      <Text style={[styles.metaDistance, { color: colors.onSurfaceVariant }]}>
-                        {result.distance}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                <TouchableOpacity
-                  style={[styles.routeActionBtn, { backgroundColor: colors.primary }]}
+                entering={FadeInDown.delay(Math.min(idx * 50, 300)).duration(300).springify().damping(16)}>
+                <Card
+                  variant="outlined"
+                  padding="md"
                   onPress={() => handleSelectResult(result)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Route to ${result.name}`}>
-                  <Navigation size={14} color={colors.onPrimary} />
-                </TouchableOpacity>
-              </Card>
+                  accessibilityLabel={`Select ${result.name}`}
+                  style={styles.resultCard}>
+                  <View style={styles.resultLeft}>
+                    <View
+                      style={[
+                        styles.resultIconBox,
+                        { backgroundColor: colors.surfaceContainerLow },
+                      ]}>
+                      <MapPin size={20} color={colors.primary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={styles.resultTitleRow}>
+                        <Text style={[styles.resultName, { color: colors.onSurface }]}>
+                          {result.name}
+                        </Text>
+                        {result.rating && (
+                          <Badge label={result.rating} variant="warning" size="sm" />
+                        )}
+                      </View>
+                      <Text
+                        style={[styles.resultAddress, { color: colors.onSurfaceVariant }]}
+                        numberOfLines={1}>
+                        {result.address}
+                      </Text>
+
+                      <View style={styles.resultMetaRow}>
+                        <Badge
+                          label={`DigiPIN: ${result.digiPin}`}
+                          variant="primary"
+                          size="sm"
+                        />
+                        <Text style={[styles.metaDistance, { color: colors.onSurfaceVariant }]}>
+                          {result.distance}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[styles.routeActionBtn, { backgroundColor: colors.primary }]}
+                    onPress={() => handleSelectResult(result)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Route to ${result.name}`}>
+                    <Navigation size={14} color={colors.onPrimary} />
+                  </TouchableOpacity>
+                </Card>
+              </Animated.View>
             ))}
 
             {filteredResults.length === 0 && (
@@ -289,7 +282,7 @@ export default function SearchScreen() {
                       label={cat.label}
                       icon={<IconComp size={16} color={colors.primary} />}
                       onPress={() => {
-                        triggerHaptic();
+                        haptics.selection();
                         setQuery(cat.label);
                       }}
                       size="md"
@@ -318,33 +311,36 @@ export default function SearchScreen() {
                 title="Recent Searches"
                 actionText="Clear All"
                 onActionPress={() => {
-                  triggerHaptic();
+                  haptics.selection();
                   setRecentList([]);
                 }}
               />
 
               <View style={styles.recentListContainer}>
                 {recentList.map((recent, idx) => (
-                  <TouchableOpacity
-                    key={idx}
-                    style={[
-                      styles.recentItem,
-                      {
-                        backgroundColor: colors.surfaceContainerLowest,
-                        borderColor: colors.surfaceContainerHigh,
-                      },
-                    ]}
-                    onPress={() => {
-                      triggerHaptic();
-                      setQuery(recent.split(' ')[0]);
-                    }}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Search recent: ${recent}`}
-                    activeOpacity={0.7}>
-                    <Clock size={14} color={colors.outline} />
-                    <Text style={[styles.recentText, { color: colors.onSurface }]}>{recent}</Text>
-                    <ChevronRight size={14} color={colors.outline} />
-                  </TouchableOpacity>
+                  <Animated.View
+                    key={recent}
+                    entering={FadeInDown.delay(Math.min(idx * 40, 240)).duration(260).springify().damping(18)}>
+                    <TouchableOpacity
+                      style={[
+                        styles.recentItem,
+                        {
+                          backgroundColor: colors.surfaceContainerLowest,
+                          borderColor: colors.surfaceContainerHigh,
+                        },
+                      ]}
+                      onPress={() => {
+                        haptics.selection();
+                        setQuery(recent.split(' ')[0]);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Search recent: ${recent}`}
+                      activeOpacity={0.7}>
+                      <Clock size={14} color={colors.outline} />
+                      <Text style={[styles.recentText, { color: colors.onSurface }]}>{recent}</Text>
+                      <ChevronRight size={14} color={colors.outline} />
+                    </TouchableOpacity>
+                  </Animated.View>
                 ))}
               </View>
             </View>
@@ -366,7 +362,7 @@ export default function SearchScreen() {
                   variant="outlined"
                   padding="md"
                   onPress={() => {
-                    triggerHaptic();
+                    haptics.selection();
                     setQuery(corridor.name);
                   }}
                   accessibilityLabel={`Corridor ${corridor.name}`}
@@ -386,7 +382,7 @@ export default function SearchScreen() {
           </>
         )}
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: Spacing.xl }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -414,18 +410,19 @@ const styles = StyleSheet.create({
   },
   scroll: {
     padding: Spacing.md,
-    gap: 14,
+    paddingBottom: 100,
+    gap: Spacing.md,
   },
   categoryTrack: {
-    gap: 8,
+    gap: Spacing.sm,
   },
   section: {
-    gap: 8,
+    gap: Spacing.sm,
   },
   sovereignNotice: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: Spacing.md,
   },
   sovereignNoticeTitle: {
     ...Typography.labelMedium,
@@ -438,7 +435,7 @@ const styles = StyleSheet.create({
     lineHeight: 15,
   },
   recentListContainer: {
-    gap: 6,
+    gap: Spacing.xs + 2,
   },
   recentItem: {
     flexDirection: 'row',

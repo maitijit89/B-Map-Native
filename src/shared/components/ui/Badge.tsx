@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, memo } from 'react';
 import {
   View,
   Text,
@@ -31,7 +31,7 @@ export interface BadgeProps {
   textStyle?: StyleProp<TextStyle>;
 }
 
-export const Badge: React.FC<BadgeProps> = ({
+export const Badge: React.FC<BadgeProps> = memo(({
   label,
   variant = 'primary',
   size = 'md',
@@ -64,7 +64,7 @@ export const Badge: React.FC<BadgeProps> = ({
     }
   }, [variant, showDot, pulseAnim]);
 
-  const getVariantStyles = (): { bg: string; text: string; dot: string; border?: string } => {
+  const currentStyles = useMemo(() => {
     switch (variant) {
       case 'success':
         return {
@@ -105,22 +105,16 @@ export const Badge: React.FC<BadgeProps> = ({
           dot: colors.primary,
         };
     }
-  };
+  }, [variant, colors]);
 
-  const currentStyles = getVariantStyles();
+  const containerStyle = useMemo<ViewStyle>(() => ({
+    backgroundColor: currentStyles.bg,
+    borderColor: currentStyles.border || 'transparent',
+    borderWidth: currentStyles.border ? 1 : 0,
+  }), [currentStyles]);
 
   return (
-    <View
-      style={[
-        styles.base,
-        sizeStyles[size],
-        {
-          backgroundColor: currentStyles.bg,
-          borderColor: currentStyles.border || 'transparent',
-          borderWidth: currentStyles.border ? 1 : 0,
-        },
-        style,
-      ]}>
+    <View style={[styles.base, sizeStyles[size], containerStyle, style]}>
       {showDot && (
         <Animated.View
           style={[
@@ -142,7 +136,9 @@ export const Badge: React.FC<BadgeProps> = ({
       </Text>
     </View>
   );
-};
+});
+
+Badge.displayName = 'Badge';
 
 const styles = StyleSheet.create({
   base: {

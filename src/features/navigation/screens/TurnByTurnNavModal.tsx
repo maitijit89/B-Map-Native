@@ -6,11 +6,10 @@ import {
   TouchableOpacity,
   Alert,
   StatusBar,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import * as Haptics from 'expo-haptics';
+import { haptics } from '@/shared/utils/haptics';
 import {
   CornerUpRight,
   Volume2,
@@ -57,7 +56,7 @@ export default function ActiveNavigationModal() {
   }, []);
 
   const toggleMute = () => {
-    triggerHaptic();
+    haptics.selection();
     const nextMuted = !isMuted;
     setIsMuted(nextMuted);
     speechService.setMuted(nextMuted);
@@ -66,18 +65,8 @@ export default function ActiveNavigationModal() {
     }
   };
 
-  const triggerHaptic = () => {
-    if (Platform.OS === 'ios' || Platform.OS === 'android') {
-      try {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } catch {
-        // Haptics unavailable
-      }
-    }
-  };
-
   const handleEndNavigation = () => {
-    triggerHaptic();
+    haptics.medium();
     Alert.alert(
       'End Navigation?',
       'Are you sure you want to stop active turn-by-turn route guidance?',
@@ -93,7 +82,7 @@ export default function ActiveNavigationModal() {
   };
 
   const handleReportHazard = () => {
-    triggerHaptic();
+    haptics.selection();
     router.push('/hazard-report');
   };
 

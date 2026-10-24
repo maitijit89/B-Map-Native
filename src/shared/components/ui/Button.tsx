@@ -1,17 +1,24 @@
-import React, { useState } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import {
-  TouchableOpacity,
   Text,
   ActivityIndicator,
   StyleSheet,
   View,
-  Animated,
   ViewStyle,
   TextStyle,
   StyleProp,
+  Pressable,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from 'react-native-reanimated';
 import { useThemeColors } from '../../hooks';
 import { Radius, Shadows } from '../../constants/tokens';
+import { haptics } from '../../utils/haptics';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export type ButtonVariant =
   | 'primary'
@@ -38,7 +45,13 @@ export interface ButtonProps {
   accessibilityLabel?: string;
 }
 
-export const Button: React.FC<ButtonProps> = ({
+const SPRING_CONFIG = {
+  damping: 14,
+  stiffness: 320,
+  mass: 0.5,
+};
+
+export const Button: React.FC<ButtonProps> = React.memo(({
   title,
   onPress,
   variant = 'primary',
@@ -53,28 +66,25 @@ export const Button: React.FC<ButtonProps> = ({
   accessibilityLabel,
 }) => {
   const colors = useThemeColors();
-  const [scaleAnim] = useState(() => new Animated.Value(1));
+  const scale = useSharedValue(1);
 
-  const handlePressIn = () => {
-    if (disabled || loading) return;
-    Animated.spring(scaleAnim, {
-      toValue: 0.96,
-      useNativeDriver: true,
-      speed: 30,
-      bounciness: 4,
-    }).start();
-  };
+  const isDisabled = disabled || loading;
 
-  const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      speed: 30,
-      bounciness: 4,
-    }).start();
-  };
+  const handlePressIn = useCallback(() => {
+    if (isDisabled) return;
+    scale.value = withSpring(0.96, SPRING_CONFIG);
+    haptics.light();
+  }, [isDisabled, scale]);
 
-  const getVariantStyle = (): ViewStyle => {
+  const handlePressOut = useCallback(() => {
+    scale.value = withSpring(1, SPRING_CONFIG);
+  }, [scale]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const variantStyle = useMemo<ViewStyle>(() => {
     switch (variant) {
       case 'primary':
         return {
@@ -108,9 +118,9 @@ export const Button: React.FC<ButtonProps> = ({
           ...Shadows.sm,
         };
     }
-  };
+  }, [variant, colors]);
 
-  const getTextStyle = (): TextStyle => {
+  const textVariantStyle = useMemo<TextStyle>(() => {
     switch (variant) {
       case 'primary':
         return { color: colors.onPrimary };
@@ -124,57 +134,53 @@ export const Button: React.FC<ButtonProps> = ({
       case 'glass':
         return { color: colors.onSurface };
     }
-  };
+  }, [variant, colors]);
 
-  const isDisabled = disabled || loading;
+  const indicatorColor = useMemo(() => {
+    return variant === 'primary' || variant === 'danger' ? colors.onPrimary : colors.primary;
+  }, [variant, colors]);
 
   return (
-    <Animated.View
+    <AnimatedPressable
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      disabled={isDisabled}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel || title}
+      accessibilityState={{ disabled: isDisabled }}
       style={[
+        styles.base,
+        sizeStyles[size],
+        variantStyle,
         fullWidth && styles.fullWidth,
-        { transform: [{ scale: scaleAnim }] },
+        isDisabled && styles.disabled,
+        animatedStyle,
+        style,
       ]}>
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        disabled={isDisabled}
-        accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel || title}
-        accessibilityState={{ disabled: isDisabled }}
-        style={[
-          styles.base,
-          sizeStyles[size],
-          getVariantStyle(),
-          isDisabled && styles.disabled,
-          style,
-        ]}>
-        {loading ? (
-          <ActivityIndicator
-            size="small"
-            color={variant === 'primary' || variant === 'danger' ? colors.onPrimary : colors.primary}
-          />
-        ) : (
-          <View style={styles.content}>
-            {leftIcon && <View style={styles.leftIcon}>{leftIcon}</View>}
-            <Text
-              style={[
-                styles.textBase,
-                textSizeStyles[size],
-                getTextStyle(),
-                isDisabled && { color: colors.outline },
-                textStyle,
-              ]}>
-              {title}
-            </Text>
-            {rightIcon && <View style={styles.rightIcon}>{rightIcon}</View>}
-          </View>
-        )}
-      </TouchableOpacity>
-    </Animated.View>
+      {loading ? (
+        <ActivityIndicator size="small" color={indicatorColor} />
+      ) : (
+        <View style={styles.content}>
+          {leftIcon && <View style={styles.leftIcon}>{leftIcon}</View>}
+          <Text
+            style={[
+              styles.textBase,
+              textSizeStyles[size],
+              textVariantStyle,
+              isDisabled && { color: colors.outline },
+              textStyle,
+            ]}>
+            {title}
+          </Text>
+          {rightIcon && <View style={styles.rightIcon}>{rightIcon}</View>}
+        </View>
+      )}
+    </AnimatedPressable>
   );
-};
+});
+
+Button.displayName = 'Button';
 
 const styles = StyleSheet.create({
   base: {

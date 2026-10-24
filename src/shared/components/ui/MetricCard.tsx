@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, memo } from 'react';
 import {
   View,
   Text,
@@ -22,7 +22,7 @@ export interface MetricCardProps {
   style?: StyleProp<ViewStyle>;
 }
 
-export const MetricCard: React.FC<MetricCardProps> = ({
+export const MetricCard: React.FC<MetricCardProps> = memo(({
   value,
   label,
   unit,
@@ -33,55 +33,45 @@ export const MetricCard: React.FC<MetricCardProps> = ({
 }) => {
   const colors = useThemeColors();
 
+  const containerStyle = useMemo<ViewStyle>(() => ({
+    backgroundColor: highlight
+      ? colors.primaryContainer
+      : colors.surfaceContainerLowest,
+    borderColor: highlight ? colors.primary : colors.surfaceContainerHigh,
+  }), [highlight, colors]);
+
+  const labelColor = useMemo(() => ({
+    color: highlight ? colors.onPrimaryContainer : colors.onSurfaceVariant,
+  }), [highlight, colors]);
+
+  const valueColor = useMemo(() => ({
+    color: highlight ? colors.onPrimaryContainer : colors.onSurface,
+  }), [highlight, colors]);
+
+  const unitColor = useMemo(() => ({
+    color: highlight ? colors.onPrimaryContainer : colors.onSurfaceVariant,
+  }), [highlight, colors]);
+
+  const trendColor = useMemo(() => {
+    if (!trend) return undefined;
+    return { color: trend.positive ? colors.secondary : colors.error };
+  }, [trend, colors]);
+
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          backgroundColor: highlight
-            ? colors.primaryContainer
-            : colors.surfaceContainerLowest,
-          borderColor: highlight ? colors.primary : colors.surfaceContainerHigh,
-        },
-        style,
-      ]}>
+    <View style={[styles.container, containerStyle, style]}>
       <View style={styles.headerRow}>
-        <Text
-          numberOfLines={1}
-          style={[
-            styles.label,
-            {
-              color: highlight
-                ? colors.onPrimaryContainer
-                : colors.onSurfaceVariant,
-            },
-          ]}>
+        <Text numberOfLines={1} style={[styles.label, labelColor]}>
           {label}
         </Text>
         {icon ? <View style={styles.iconContainer}>{icon}</View> : null}
       </View>
 
       <View style={styles.valueRow}>
-        <Text
-          numberOfLines={1}
-          style={[
-            styles.value,
-            {
-              color: highlight ? colors.onPrimaryContainer : colors.onSurface,
-            },
-          ]}>
+        <Text numberOfLines={1} style={[styles.value, valueColor]}>
           {value}
         </Text>
         {unit ? (
-          <Text
-            style={[
-              styles.unit,
-              {
-                color: highlight
-                  ? colors.onPrimaryContainer
-                  : colors.onSurfaceVariant,
-              },
-            ]}>
+          <Text style={[styles.unit, unitColor]}>
             {' '}{unit}
           </Text>
         ) : null}
@@ -89,13 +79,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
 
       {trend ? (
         <View style={styles.trendRow}>
-          <Text
-            style={[
-              styles.trendText,
-              {
-                color: trend.positive ? colors.secondary : colors.error,
-              },
-            ]}>
+          <Text style={[styles.trendText, trendColor]}>
             {trend.positive ? '↑ ' : '↓ '}
             {trend.value}
           </Text>
@@ -103,7 +87,9 @@ export const MetricCard: React.FC<MetricCardProps> = ({
       ) : null}
     </View>
   );
-};
+});
+
+MetricCard.displayName = 'MetricCard';
 
 const styles = StyleSheet.create({
   container: {
