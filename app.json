@@ -7,6 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "bmapnative",
     "userInterfaceStyle": "automatic",
+    "jsEngine": "hermes",
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -41,7 +42,41 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
-      ]
+      ],
+      [
+        "@howincodes/expo-dynamic-app-icon",
+        {
+          "compassNorth": {
+            "ios": "./assets/images/icon-compass-north.png",
+            "android": {
+              "foregroundImage": "./assets/images/icon-compass-north.png",
+              "backgroundColor": "#3865F3"
+            }
+          },
+          "compassEast": {
+            "ios": "./assets/images/icon-compass-east.png",
+            "android": {
+              "foregroundImage": "./assets/images/icon-compass-east.png",
+              "backgroundColor": "#3865F3"
+            }
+          },
+          "compassSouth": {
+            "ios": "./assets/images/icon-compass-south.png",
+            "android": {
+              "foregroundImage": "./assets/images/icon-compass-south.png",
+              "backgroundColor": "#3865F3"
+            }
+          },
+          "compassWest": {
+            "ios": "./assets/images/icon-compass-west.png",
+            "android": {
+              "foregroundImage": "./assets/images/icon-compass-west.png",
+              "backgroundColor": "#3865F3"
+            }
+          }
+        }
+      ],
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": true

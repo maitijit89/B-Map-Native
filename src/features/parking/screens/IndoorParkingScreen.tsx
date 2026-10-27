@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
@@ -20,7 +20,7 @@ import {
 } from 'lucide-react-native';
 import { storageService } from '@/shared/services';
 import { useThemeColors } from '@/shared/hooks';
-import { Radius, Spacing, Typography } from '@/shared/constants/tokens';
+import { Radius, Shadows, Spacing, Typography } from '@/shared/constants/tokens';
 import { Header, Card, Button } from '@/shared/components/ui';
 import { haptics } from '@/shared/utils/haptics';
 
@@ -57,6 +57,7 @@ const BAYS_B2: ParkingBay[] = [
 
 export default function IndoorParkingModal() {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   const [selectedFloor, setSelectedFloor] = useState(1); // B2
   const [selectedBay, setSelectedBay] = useState<ParkingBay | null>(BAYS_B2[3]); // B2-04 (150kW EV)
 
@@ -97,9 +98,14 @@ export default function IndoorParkingModal() {
         }}
       />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingBottom: Math.max(insets.bottom, 20) + 40 },
+        ]}
+        showsVerticalScrollIndicator={false}>
         {/* Facility Info Card */}
-        <Animated.View entering={FadeInDown.duration(350).springify().damping(16)}>
+        <Animated.View entering={FadeInDown.duration(180).springify().damping(22)}>
           <Card variant="elevated" padding="md" style={styles.facilityCard}>
             <View style={styles.facilityTop}>
               <View>
@@ -131,7 +137,8 @@ export default function IndoorParkingModal() {
         </Animated.View>
 
         {/* BLE Beacon Trilateration Sensor Box */}
-        <Animated.View entering={FadeInDown.delay(100).duration(350).springify().damping(16)}>
+        <Animated.View entering={FadeInDown.delay(30).duration(180).springify().damping(22)}>
+
           <Card variant="flat" padding="md" style={styles.beaconCard}>
             <View style={styles.beaconHeader}>
               <Radio size={16} color={colors.primary} />
@@ -272,40 +279,50 @@ export default function IndoorParkingModal() {
           </Card>
         </Animated.View>
 
-        {/* Selected Bay Action Card */}
-        {selectedBay && (
-          <Animated.View entering={FadeInDown.duration(300).springify().damping(16)}>
-            <Card
-              variant="elevated"
-              padding="md"
-              style={[styles.selectedBayCard, { borderColor: colors.primary }]}>
-              <View style={styles.selectedBayTop}>
-                <View>
-                  <Text style={[styles.selectedBayCode, { color: colors.onSurface }]}>Selected Bay: {selectedBay.code}</Text>
-                  <Text style={[styles.selectedBaySub, { color: colors.onSurfaceVariant }]}>
-                    Floor B2 · {selectedBay.type === 'ev' ? `EV Fast Charging (${selectedBay.powerKw} kW)` : 'Standard Bay'}
-                  </Text>
-                </View>
+        <View style={{ height: Spacing.xl }} />
+      </ScrollView>
+
+      {/* Docked Selected Bay Action Bar */}
+      {selectedBay && (
+        <Animated.View
+          entering={FadeInDown.duration(260).springify().damping(16)}
+          style={[
+            styles.bottomDock,
+            {
+              backgroundColor: colors.surfaceContainerLowest,
+              borderTopColor: colors.surfaceContainerHigh,
+              paddingBottom: Math.max(insets.bottom, 12) + 8,
+            },
+          ]}>
+          <View style={styles.dockContent}>
+            <View style={styles.dockSummary}>
+              <View style={styles.dockBayRow}>
+                <Text style={[styles.dockBayCode, { color: colors.onSurface }]}>
+                  Bay {selectedBay.code}
+                </Text>
                 <View style={[styles.availableTag, { backgroundColor: colors.surfaceContainerLow }]}>
                   <CheckCircle2 size={12} color={colors.trafficGreen} />
                   <Text style={[styles.availableTagText, { color: colors.trafficGreen }]}>Available</Text>
                 </View>
               </View>
+              <Text style={[styles.dockSubText, { color: colors.onSurfaceVariant }]}>
+                Floor B2 · {selectedBay.type === 'ev' ? `EV Fast Charging (${selectedBay.powerKw}kW)` : 'Standard Bay'}
+              </Text>
+            </View>
 
+            <View style={styles.dockButtonWrapper}>
               <Button
-                title="Reserve Bay & Start Indoor Routing"
+                title="Reserve & Route"
                 variant="primary"
-                size="lg"
-                fullWidth
+                size="md"
                 leftIcon={<NavIcon size={16} color={colors.onPrimary} />}
                 onPress={handleReserve}
+                style={styles.dockReserveBtn}
               />
-            </Card>
-          </Animated.View>
-        )}
-
-        <View style={{ height: Spacing.xl }} />
-      </ScrollView>
+            </View>
+          </View>
+        </Animated.View>
+      )}
     </SafeAreaView>
   );
 }
@@ -370,9 +387,12 @@ const styles = StyleSheet.create({
   legendDot: { width: 6, height: 6, borderRadius: 3 },
   legendText: { ...Typography.labelSmall, fontSize: 10 },
 
-  bayGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between' },
+  bayGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-start' },
   baySlot: {
+    flexGrow: 0,
+    flexShrink: 0,
     width: '23%',
+    minWidth: 62,
     aspectRatio: 1,
     borderRadius: Radius.sm,
     borderWidth: 1.5,
@@ -396,4 +416,47 @@ const styles = StyleSheet.create({
     borderRadius: Radius.sm,
   },
   availableTagText: { ...Typography.labelSmall, fontWeight: '800' },
+  bottomDock: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopWidth: 1,
+    paddingTop: 10,
+    paddingHorizontal: Spacing.md,
+    ...Shadows.lg,
+  },
+  dockContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
+    gap: 12,
+  },
+  dockSummary: {
+    flex: 1,
+  },
+  dockBayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dockBayCode: {
+    ...Typography.titleMedium,
+    fontWeight: '800',
+    fontSize: 18,
+  },
+  dockSubText: {
+    ...Typography.bodySmall,
+    marginTop: 2,
+    fontSize: 12,
+  },
+  dockButtonWrapper: {
+    minWidth: 150,
+  },
+  dockReserveBtn: {
+    height: 48,
+  },
 });

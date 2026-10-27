@@ -14,15 +14,15 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import type { Tabs } from 'expo-router';
-import { useTheme, useThemeColors } from '../../hooks';
+import { useTheme, useThemeColors, useResponsive } from '../../hooks';
 import { Radius, Shadows, Spacing, Typography } from '../../constants/tokens';
 import { haptics } from '../../utils/haptics';
 
 export type TabBarProps = Parameters<NonNullable<React.ComponentProps<typeof Tabs>['tabBar']>>[0];
 
 const SPRING_CONFIG = {
-  damping: 14,
-  stiffness: 280,
+  damping: 22,
+  stiffness: 320,
   mass: 0.5,
 };
 
@@ -33,6 +33,7 @@ const TabItem = React.memo(({
   options,
   colors,
   isDark,
+  isSmallDevice,
   onPress,
 }: {
   route: any;
@@ -41,15 +42,17 @@ const TabItem = React.memo(({
   options: any;
   colors: any;
   isDark: boolean;
+  isSmallDevice: boolean;
   onPress: () => void;
 }) => {
-  const scale = useSharedValue(isFocused ? 1.05 : 0.95);
+  const scale = useSharedValue(isFocused ? 1.02 : 1.0);
   const pillOpacity = useSharedValue(isFocused ? 1 : 0);
 
   useEffect(() => {
-    scale.value = withSpring(isFocused ? 1.05 : 0.95, SPRING_CONFIG);
+    scale.value = withSpring(isFocused ? 1.02 : 1.0, SPRING_CONFIG);
     pillOpacity.value = withSpring(isFocused ? 1 : 0, SPRING_CONFIG);
   }, [isFocused, scale, pillOpacity]);
+
 
   const animatedContentStyle = useAnimatedStyle(() => {
     return {
@@ -85,7 +88,7 @@ const TabItem = React.memo(({
       return options.tabBarIcon({
         focused: isFocused,
         color: iconColor,
-        size: 22,
+        size: isSmallDevice ? 20 : 22,
       });
     }
     return null;
@@ -127,6 +130,7 @@ const TabItem = React.memo(({
               {
                 color: isFocused ? colors.primary : colors.onSurfaceVariant,
                 fontWeight: isFocused ? '700' : '500',
+                fontSize: isSmallDevice ? 9 : 10,
               },
             ]}>
             {label}
@@ -158,8 +162,9 @@ export const AnimatedTabBar: React.FC<TabBarProps> = ({
   const insets = useSafeAreaInsets();
   const { isDark } = useTheme();
   const colors = useThemeColors();
+  const { isSmallDevice } = useResponsive();
 
-  const bottomPadding = Math.max(insets.bottom, Platform.OS === 'ios' ? 24 : 12);
+  const bottomMargin = Math.max(insets.bottom, Platform.OS === 'ios' ? 14 : 10);
 
   const handleTabPress = useCallback(
     (routeKey: string, routeName: string, isFocused: boolean) => {
@@ -178,76 +183,63 @@ export const AnimatedTabBar: React.FC<TabBarProps> = ({
     [navigation]
   );
 
-  const containerContent = (
-    <View
-      style={[
-        styles.barContainer,
-        {
-          paddingBottom: bottomPadding,
-          borderTopColor: isDark
-            ? colors.surfaceContainerHighest
-            : colors.surfaceContainerHigh,
-          backgroundColor:
-            Platform.OS === 'ios'
-              ? 'transparent'
-              : colors.surfaceContainerLowest,
-        },
-      ]}>
-      <View style={styles.tabRow}>
-        {state.routes.map((route, index) => {
-          const isFocused = state.index === index;
-          const { options } = descriptors[route.key];
-          return (
-            <TabItem
-              key={route.key}
-              route={route}
-              index={index}
-              isFocused={isFocused}
-              options={options}
-              colors={colors}
-              isDark={isDark}
-              onPress={() => handleTabPress(route.key, route.name, isFocused)}
-            />
-          );
-        })}
-      </View>
-    </View>
-  );
-
-  if (Platform.OS === 'ios') {
-    return (
-      <BlurView
-        intensity={85}
-        tint={isDark ? 'dark' : 'light'}
-        style={styles.blurWrapper}>
-        {containerContent}
-      </BlurView>
-    );
-  }
-
   return (
-    <View style={[styles.androidWrapper, Shadows.lg]}>
-      {containerContent}
+    <View style={[styles.floatingDockWrapper, { bottom: bottomMargin }]} pointerEvents="box-none">
+      <BlurView
+        intensity={Platform.OS === 'ios' ? 85 : 60}
+        tint={isDark ? 'dark' : 'light'}
+        style={[
+          styles.dockContainer,
+          {
+            backgroundColor: isDark
+              ? 'rgba(15, 22, 36, 0.88)'
+              : 'rgba(255, 255, 255, 0.92)',
+            borderColor: isDark
+              ? 'rgba(255, 255, 255, 0.15)'
+              : 'rgba(0, 97, 167, 0.12)',
+          },
+        ]}>
+        <View style={styles.tabRow}>
+          {state.routes.map((route, index) => {
+            const isFocused = state.index === index;
+            const { options } = descriptors[route.key];
+            return (
+              <TabItem
+                key={route.key}
+                route={route}
+                index={index}
+                isFocused={isFocused}
+                options={options}
+                colors={colors}
+                isDark={isDark}
+                isSmallDevice={isSmallDevice}
+                onPress={() => handleTabPress(route.key, route.name, isFocused)}
+              />
+            );
+          })}
+        </View>
+      </BlurView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  blurWrapper: {
+  floatingDockWrapper: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(150, 150, 150, 0.25)',
+    left: Spacing.md,
+    right: Spacing.md,
+    alignItems: 'center',
+    zIndex: 100,
   },
-  androidWrapper: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    elevation: 16,
-  },
-  barContainer: {
-    paddingTop: 8,
-    paddingHorizontal: Spacing.sm,
+  dockContainer: {
+    width: '100%',
+    maxWidth: 520,
+    borderRadius: Radius.xxl,
+    borderWidth: 1,
+    overflow: 'hidden',
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+    ...Shadows.lg,
   },
   tabRow: {
     flexDirection: 'row',
@@ -259,40 +251,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 4,
-    minHeight: 52,
+    minHeight: 48,
   },
   tabContent: {
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
     paddingVertical: 2,
   },
   activePill: {
     position: 'absolute',
     top: -2,
     bottom: -2,
-    left: -6,
-    right: -6,
+    left: -4,
+    right: -4,
     borderRadius: Radius.full,
   },
   iconContainer: {
-    width: 28,
-    height: 28,
+    width: 26,
+    height: 26,
     alignItems: 'center',
     justifyContent: 'center',
   },
   tabLabel: {
     ...Typography.labelSmall,
     fontSize: 10,
-    marginTop: 2,
+    marginTop: 1,
     letterSpacing: 0.1,
   },
   activeDot: {
     width: 4,
     height: 4,
     borderRadius: 2,
-    marginTop: 3,
+    marginTop: 2,
   },
 });
 

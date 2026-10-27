@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useThemeColors } from '../../hooks';
 import { Spacing, Typography } from '../../constants/tokens';
 
@@ -21,6 +22,7 @@ export interface HeaderProps {
   rightAction?: React.ReactNode;
   alignCenter?: boolean;
   transparent?: boolean;
+  useSafeAreaTop?: boolean;
   style?: StyleProp<ViewStyle>;
   titleStyle?: StyleProp<TextStyle>;
 }
@@ -33,10 +35,12 @@ export const Header: React.FC<HeaderProps> = ({
   rightAction,
   alignCenter = false,
   transparent = false,
+  useSafeAreaTop = false,
   style,
   titleStyle,
 }) => {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
 
   const handleBack = () => {
     if (onBackPress) {
@@ -46,10 +50,13 @@ export const Header: React.FC<HeaderProps> = ({
     }
   };
 
+  const paddingTop = useSafeAreaTop ? Math.max(insets.top, Spacing.sm) : Spacing.sm;
+
   return (
     <View
       style={[
         styles.container,
+        { paddingTop },
         !transparent && {
           backgroundColor: colors.surfaceContainerLowest,
           borderBottomWidth: StyleSheet.hairlineWidth,
@@ -101,7 +108,6 @@ export const Header: React.FC<HeaderProps> = ({
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.sm,
     paddingBottom: Spacing.sm,
     zIndex: 10,
   },
@@ -124,6 +130,7 @@ const styles = StyleSheet.create({
   titleContainer: {
     flex: 1,
     paddingHorizontal: Spacing.sm,
+    justifyContent: 'center',
   },
   centerAligned: {
     alignItems: 'center',

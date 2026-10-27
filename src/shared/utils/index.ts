@@ -1,5 +1,6 @@
 export * from './digipin';
 export * from './haptics';
+export * from './responsive';
 
 /**
  * Formats a distance given in meters or kilometers to human readable text

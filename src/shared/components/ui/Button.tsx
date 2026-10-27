@@ -46,9 +46,9 @@ export interface ButtonProps {
 }
 
 const SPRING_CONFIG = {
-  damping: 14,
-  stiffness: 320,
-  mass: 0.5,
+  damping: 26,
+  stiffness: 380,
+  mass: 0.4,
 };
 
 export const Button: React.FC<ButtonProps> = React.memo(({
@@ -72,13 +72,14 @@ export const Button: React.FC<ButtonProps> = React.memo(({
 
   const handlePressIn = useCallback(() => {
     if (isDisabled) return;
-    scale.value = withSpring(0.96, SPRING_CONFIG);
+    scale.value = withSpring(0.975, SPRING_CONFIG);
     haptics.light();
   }, [isDisabled, scale]);
 
   const handlePressOut = useCallback(() => {
     scale.value = withSpring(1, SPRING_CONFIG);
   }, [scale]);
+
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -146,6 +147,7 @@ export const Button: React.FC<ButtonProps> = React.memo(({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       disabled={isDisabled}
+      hitSlop={size === 'sm' ? { top: 6, bottom: 6, left: 6, right: 6 } : undefined}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel || title}
       accessibilityState={{ disabled: isDisabled }}
@@ -196,10 +198,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 1,
+    maxWidth: '100%',
   },
   textBase: {
     fontWeight: '600',
     textAlign: 'center',
+    flexShrink: 1,
   },
   leftIcon: {
     marginRight: 8,

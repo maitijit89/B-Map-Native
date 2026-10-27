@@ -6,7 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { haptics } from '@/shared/utils/haptics';
@@ -134,6 +134,7 @@ const CATEGORY_SHORTCUTS = [
 
 export default function SearchScreen() {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
   const [recentList, setRecentList] = useState(RECENT_SEARCHES);
 
@@ -190,7 +191,12 @@ export default function SearchScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingBottom: Math.max(insets.bottom, 20) + 24 },
+        ]}
+        showsVerticalScrollIndicator={false}>
         {/* Results List */}
         {query.trim().length > 0 ? (
           <View style={styles.resultsContainer}>
@@ -202,7 +208,7 @@ export default function SearchScreen() {
             {filteredResults.map((result, idx) => (
               <Animated.View
                 key={result.id}
-                entering={FadeInDown.delay(Math.min(idx * 50, 300)).duration(300).springify().damping(16)}>
+                entering={FadeInDown.delay(Math.min(idx * 20, 120)).duration(180).springify().damping(22)}>
                 <Card
                   variant="outlined"
                   padding="md"
@@ -320,7 +326,7 @@ export default function SearchScreen() {
                 {recentList.map((recent, idx) => (
                   <Animated.View
                     key={recent}
-                    entering={FadeInDown.delay(Math.min(idx * 40, 240)).duration(260).springify().damping(18)}>
+                    entering={FadeInDown.delay(Math.min(idx * 15, 100)).duration(180).springify().damping(22)}>
                     <TouchableOpacity
                       style={[
                         styles.recentItem,
@@ -520,9 +526,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   routeActionBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 10,

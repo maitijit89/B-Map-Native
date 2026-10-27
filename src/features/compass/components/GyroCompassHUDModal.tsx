@@ -4,10 +4,12 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  ScrollView,
+  useWindowDimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { X, Compass, Navigation2, ShieldCheck, MapPin } from 'lucide-react-native';
+import { X, Navigation2, ShieldCheck, MapPin } from 'lucide-react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -45,6 +47,13 @@ export const GyroCompassHUDModal: React.FC = () => {
   const { heading, pitch, roll, source, accuracy } = useCompass(50, 0.25);
   const { location } = useLocation(false);
   const [mode, setMode] = useState<'north' | 'heading'>('north');
+
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+
+  const dialSize = Math.min(270, Math.floor(screenWidth * 0.72), Math.floor(screenHeight * 0.32));
+  const dialRadius = Math.floor(dialSize / 2);
+  const iconSize = Math.min(168, Math.floor(dialSize * 0.62));
 
   const dialRotation = useSharedValue(0);
 
@@ -94,94 +103,102 @@ export const GyroCompassHUDModal: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Central 3D Interactive Gyro Compass */}
-        <View style={styles.centerContainer}>
-          {/* Rotating Compass Outer Ring */}
-          <Animated.View style={[styles.dialRing, dialStyle]}>
-            <Text style={[styles.dialLabel, styles.northLabel]}>N</Text>
-            <Text style={[styles.dialLabel, styles.eastLabel]}>E</Text>
-            <Text style={[styles.dialLabel, styles.southLabel]}>S</Text>
-            <Text style={[styles.dialLabel, styles.westLabel]}>W</Text>
-            {/* Degree ticks */}
-            <View style={[styles.tick, { transform: [{ rotate: '45deg' }] }]} />
-            <View style={[styles.tick, { transform: [{ rotate: '135deg' }] }]} />
-            <View style={[styles.tick, { transform: [{ rotate: '225deg' }] }]} />
-            <View style={[styles.tick, { transform: [{ rotate: '315deg' }] }]} />
-          </Animated.View>
+        <ScrollView
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: Math.max(insets.bottom, 20) + 12 },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Central 3D Interactive Gyro Compass */}
+          <View style={[styles.centerContainer, { height: dialSize + 20 }]}>
+            {/* Rotating Compass Outer Ring */}
+            <Animated.View
+              style={[
+                styles.dialRing,
+                { width: dialSize, height: dialSize, borderRadius: dialRadius },
+                dialStyle,
+              ]}
+            >
+              <Text style={[styles.dialLabel, styles.northLabel]}>N</Text>
+              <Text style={[styles.dialLabel, styles.eastLabel]}>E</Text>
+              <Text style={[styles.dialLabel, styles.southLabel]}>S</Text>
+              <Text style={[styles.dialLabel, styles.westLabel]}>W</Text>
+              {/* Degree ticks */}
+              <View style={[styles.tick, { height: dialSize - 20, transform: [{ rotate: '45deg' }] }]} />
+              <View style={[styles.tick, { height: dialSize - 20, transform: [{ rotate: '135deg' }] }]} />
+              <View style={[styles.tick, { height: dialSize - 20, transform: [{ rotate: '225deg' }] }]} />
+              <View style={[styles.tick, { height: dialSize - 20, transform: [{ rotate: '315deg' }] }]} />
+            </Animated.View>
 
-          {/* Hero 3D Gyro Squircle Icon */}
-          <DynamicCompassIcon
-            size={168}
-            dynamic={true}
-            tilt3D={true}
-            mode={mode}
-            borderRadius={42}
-          />
-        </View>
-
-        {/* Heading Digital Readout */}
-        <View style={styles.metricsContainer}>
-          <View style={styles.headingRow}>
-            <Text style={styles.headingDigits}>{formattedHeading}°</Text>
-            <Text style={styles.headingUnit}>MAG</Text>
-          </View>
-          <Text style={styles.cardinalText}>{cardinal}</Text>
-
-          {/* Attitude / Gyro Telemetry Pills */}
-          <View style={styles.telemetryRow}>
-            <View style={styles.telemetryPill}>
-              <Text style={styles.telemetryLabel}>Pitch</Text>
-              <Text style={styles.telemetryVal}>{pitch > 0 ? `+${pitch}°` : `${pitch}°`}</Text>
-            </View>
-            <View style={styles.telemetryPill}>
-              <Text style={styles.telemetryLabel}>Roll</Text>
-              <Text style={styles.telemetryVal}>{roll > 0 ? `+${roll}°` : `${roll}°`}</Text>
-            </View>
-            <View style={styles.telemetryPill}>
-              <Text style={styles.telemetryLabel}>Accuracy</Text>
-              <Text style={styles.telemetryVal}>{accuracy > 0 ? `${accuracy}/3 High` : 'Fused'}</Text>
-            </View>
+            {/* Hero 3D Gyro Squircle Icon */}
+            <DynamicCompassIcon
+              size={iconSize}
+              dynamic={true}
+              tilt3D={true}
+              mode={mode}
+              borderRadius={Math.floor(iconSize * 0.25)}
+            />
           </View>
 
-          {/* Location & GPS Fix */}
-          <View style={styles.locationPill}>
-            <MapPin size={14} color="#60A5FA" />
-            <Text style={styles.locationText}>
-              {location.latitude.toFixed(4)}° N, {location.longitude.toFixed(4)}° E
-            </Text>
-            <View style={styles.statusDot} />
-            <ShieldCheck size={14} color="#34D399" />
-            <Text style={styles.sensorSourceText}>
-              {source === 'location-fused' ? 'GPS + Gyro Fused' : 'Hardware Gyro'}
-            </Text>
+          {/* Heading Readout & Cardinal */}
+          <View style={styles.metricsContainer}>
+            <View style={styles.headingRow}>
+              <Text style={styles.headingDigits}>{formattedHeading}</Text>
+              <Text style={styles.degreeSymbol}>°</Text>
+              <Text style={styles.cardinalBadge}>{cardinal}</Text>
+            </View>
+
+            {/* Pitch & Roll Hardware Telematics */}
+            <View style={styles.telematicsRow}>
+              <View style={styles.telematicPill}>
+                <Text style={styles.telematicLabel}>PITCH</Text>
+                <Text style={styles.telematicValue}>{pitch.toFixed(1)}°</Text>
+              </View>
+              <View style={styles.telematicPill}>
+                <Text style={styles.telematicLabel}>ROLL</Text>
+                <Text style={styles.telematicValue}>{roll.toFixed(1)}°</Text>
+              </View>
+              <View style={styles.telematicPill}>
+                <Text style={styles.telematicLabel}>ACCURACY</Text>
+                <Text style={styles.telematicValue}>{accuracy}</Text>
+              </View>
+            </View>
           </View>
-        </View>
 
-        {/* Bottom Actions */}
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={styles.modeToggleBtn}
-            onPress={toggleMode}
-            activeOpacity={0.8}
-          >
-            {mode === 'north' ? (
-              <Compass size={18} color="#93C5FD" />
-            ) : (
-              <Navigation2 size={18} color="#93C5FD" />
-            )}
-            <Text style={styles.modeToggleText}>
-              Mode: {mode === 'north' ? 'Point to True North' : 'Direction of Travel'}
-            </Text>
-          </TouchableOpacity>
+          {/* Location / Coordinate Badge */}
+          {location ? (
+            <View style={styles.locationBadge}>
+              <MapPin size={14} color="#60A5FA" />
+              <Text style={styles.locationText}>
+                {location.latitude.toFixed(5)}°N, {location.longitude.toFixed(5)}°E
+              </Text>
+            </View>
+          ) : null}
 
-          <TouchableOpacity
-            style={styles.doneBtn}
-            onPress={handleClose}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.doneBtnText}>Explore Live Map</Text>
-          </TouchableOpacity>
-        </View>
+          {/* Sensor Provider & Toggle Mode */}
+          <View style={styles.footerControls}>
+            <View style={styles.providerInfo}>
+              <ShieldCheck size={14} color="#34D399" />
+              <Text style={styles.providerText}>
+                {source !== 'none' ? 'Fused Magnetometer & Gyro' : 'Fallback Direction'}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.toggleBtn}
+              onPress={toggleMode}
+              accessibilityRole="button"
+              accessibilityLabel={`Switch mode, currently ${mode}`}
+              activeOpacity={0.8}
+            >
+              <Navigation2 size={16} color="#FFFFFF" />
+              <Text style={styles.toggleBtnText}>
+                {mode === 'north' ? 'Lock Heading' : 'Reset North'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       </SafeAreaView>
     </View>
   );
@@ -190,18 +207,22 @@ export const GyroCompassHUDModal: React.FC = () => {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#0A0F1D',
+    backgroundColor: '#0B111E',
   },
   safeArea: {
     flex: 1,
-    paddingHorizontal: 20,
-    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+  },
+  scrollContent: {
+    gap: 16,
+    paddingTop: 8,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingTop: 10,
+    marginBottom: 4,
   },
   headerTitleGroup: {
     gap: 2,
@@ -228,13 +249,9 @@ const styles = StyleSheet.create({
   centerContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    height: 290,
   },
   dialRing: {
     position: 'absolute',
-    width: 270,
-    height: 270,
-    borderRadius: 135,
     borderWidth: 1.5,
     borderColor: 'rgba(96, 165, 250, 0.25)',
     alignItems: 'center',
@@ -262,7 +279,6 @@ const styles = StyleSheet.create({
   tick: {
     position: 'absolute',
     width: 1,
-    height: 250,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   metricsContainer: {
@@ -279,104 +295,99 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#FFFFFF',
     fontVariant: ['tabular-nums'],
-    letterSpacing: -1,
   },
-  headingUnit: {
-    fontSize: 13,
+  degreeSymbol: {
+    fontSize: 28,
     fontWeight: '800',
     color: '#3B82F6',
   },
-  cardinalText: {
+  cardinalBadge: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#93C5FD',
-    marginTop: -4,
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    overflow: 'hidden',
   },
-  telemetryRow: {
+  telematicsRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 10,
+    gap: 12,
   },
-  telemetryPill: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  telematicPill: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 12,
+    borderRadius: 10,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  telemetryLabel: {
-    fontSize: 10,
-    color: '#94A3B8',
-    fontWeight: '600',
+  telematicLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 0.5,
   },
-  telemetryVal: {
-    fontSize: 13,
+  telematicValue: {
+    fontSize: 12,
     fontWeight: '800',
-    color: '#FFFFFF',
-    marginTop: 1,
+    color: '#E2E8F0',
+    marginTop: 2,
   },
-  locationPill: {
+  locationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(30, 58, 138, 0.3)',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(96, 165, 250, 0.2)',
+  },
+  locationText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#93C5FD',
+  },
+  footerControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  providerInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(15, 23, 42, 0.8)',
-    borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.25)',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    marginTop: 6,
+    flex: 1,
   },
-  locationText: {
+  providerText: {
     fontSize: 11,
-    color: '#CBD5E1',
     fontWeight: '600',
-    fontVariant: ['tabular-nums'],
+    color: '#94A3B8',
   },
-  statusDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#64748B',
-    marginHorizontal: 2,
-  },
-  sensorSourceText: {
-    fontSize: 11,
-    color: '#34D399',
-    fontWeight: '700',
-  },
-  footer: {
-    gap: 12,
-    paddingBottom: 16,
-  },
-  modeToggleBtn: {
+  toggleBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(59, 130, 246, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.3)',
-    paddingVertical: 12,
-    borderRadius: 14,
-  },
-  modeToggleText: {
-    color: '#93C5FD',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  doneBtn: {
+    gap: 6,
     backgroundColor: '#2563EB',
-    paddingVertical: 14,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
   },
-  doneBtnText: {
+  toggleBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
   },
 });
+
+export default GyroCompassHUDModal;

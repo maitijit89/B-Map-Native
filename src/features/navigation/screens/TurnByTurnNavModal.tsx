@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,8 +6,9 @@ import {
   TouchableOpacity,
   Alert,
   StatusBar,
+  AppState,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { haptics } from '@/shared/utils/haptics';
 import {
@@ -38,6 +39,8 @@ import { Button } from '@/shared/components/ui';
 import { speechService } from '@/shared/services';
 
 export default function ActiveNavigationModal() {
+  const insets = useSafeAreaInsets();
+  const clusterTop = Math.max(insets.top + 210, 240);
   const [isMuted, setIsMuted] = useState(false);
   const [currentSpeed, setCurrentSpeed] = useState(74);
   const [xtdMeters] = useState(2.3);
@@ -45,13 +48,23 @@ export default function ActiveNavigationModal() {
   // Speak initial turn prompt on route start & fluctuate live speed
   useEffect(() => {
     speechService.speak('Starting route to Company. In 350 meters, turn right onto Outer Ring Road Expressway.');
-    const speedInterval = setInterval(() => {
-      setCurrentSpeed((prev) => Math.min(Math.max(prev + Math.floor(Math.random() * 5) - 2, 68), 82));
+
+    let speedInterval: ReturnType<typeof setInterval> | null = setInterval(() => {
+      if (AppState.currentState === 'active') {
+        setCurrentSpeed((prev) => Math.min(Math.max(prev + Math.floor(Math.random() * 5) - 2, 68), 82));
+      }
     }, 2500);
+
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'background' || nextState === 'inactive') {
+        speechService.stop();
+      }
+    });
 
     return () => {
       speechService.stop();
-      clearInterval(speedInterval);
+      if (speedInterval) clearInterval(speedInterval);
+      subscription.remove();
     };
   }, []);
 
@@ -254,7 +267,7 @@ export default function ActiveNavigationModal() {
       </SafeAreaView>
 
       {/* Floating Speedometer Cluster & ADAS Warning */}
-      <View style={styles.leftFloatingCluster}>
+      <View style={[styles.leftFloatingCluster, { top: clusterTop }]}>
         {/* Speedometer Circle */}
         <View style={styles.speedometer}>
           <Text style={styles.speedValue}>{currentSpeed}</Text>
@@ -274,34 +287,46 @@ export default function ActiveNavigationModal() {
       </View>
 
       {/* Right Floating FAB Controls */}
-      <View style={styles.rightFloatingControls}>
+      <View style={[styles.rightFloatingControls, { top: clusterTop }]}>
         <TouchableOpacity
           style={styles.floatingFab}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel="Recalculate optimal route"
           onPress={() => Alert.alert('Recalculate', 'Re-computing optimal route via OSRM state machine.')}>
           <RotateCcw size={20} color="#0096FF" />
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.floatingFab}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel="View trip overview"
           onPress={() => Alert.alert('Trip Overview', 'Viewing 168 km route profile.')}>
           <Compass size={20} color="#0096FF" />
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.floatingFab, { backgroundColor: '#FFF0F0', borderColor: '#FFCDD2' }]}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel="Report road hazard"
           onPress={handleReportHazard}>
           <AlertTriangle size={20} color="#F44336" />
         </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.floatingFab, { backgroundColor: '#F0FFF4', borderColor: '#C8E6C9' }]}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel="Share live location and ETA"
           onPress={() => Alert.alert('Share ETA', 'Shared live location & ETA via WhatsApp.')}>
           <Share2 size={20} color="#00C06D" />
         </TouchableOpacity>
       </View>
 
       {/* Telematics Cross-Track Error (XTD) Banner */}
-      <View style={styles.xtdBanner}>
+      <View style={[styles.xtdBanner, { bottom: Math.max(insets.bottom, 16) + 195 }]}>
         <View style={styles.xtdDot} />
         <Text style={styles.xtdText}>
           Cross-Track Error: {xtdMeters}m · Status: ON ROUTE · Max Tolerance: 40m
@@ -309,7 +334,7 @@ export default function ActiveNavigationModal() {
       </View>
 
       {/* Bottom Route Progress Sheet */}
-      <View style={styles.bottomHud}>
+      <View style={[styles.bottomHud, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         {/* Upcoming Toll Alert */}
         <View style={styles.tollUpcomingBanner}>
           <View style={styles.tollUpcomingLeft}>
@@ -674,6 +699,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
     backgroundColor: '#ffffff',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,

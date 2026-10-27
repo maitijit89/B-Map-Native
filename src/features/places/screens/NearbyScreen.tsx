@@ -9,7 +9,7 @@ import {
   FlatList,
   ListRenderItem,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
@@ -250,6 +250,7 @@ const PHARMACY_PLACES = [
 
 export default function NearbyScreen() {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   const [activeCategory, setActiveCategory] = useState<NearbyCategory>('ev');
 
   const handleCategorySelect = useCallback((key: NearbyCategory) => {
@@ -291,7 +292,7 @@ export default function NearbyScreen() {
       {EV_STATIONS.map((station, idx) => (
         <Animated.View
           key={station.id}
-          entering={FadeInDown.delay(idx * 50).duration(260).springify().damping(18)}>
+          entering={FadeInDown.delay(idx * 20).duration(180).springify().damping(22)}>
           <Card
             variant="flat"
             padding="md"
@@ -380,7 +381,7 @@ export default function NearbyScreen() {
       {TRANSIT_ROUTES.map((route, idx) => (
         <Animated.View
           key={route.id}
-          entering={FadeInDown.delay(idx * 50).duration(260).springify().damping(18)}>
+          entering={FadeInDown.delay(idx * 20).duration(180).springify().damping(22)}>
           <Card
             variant="flat"
             padding="md"
@@ -430,7 +431,7 @@ export default function NearbyScreen() {
       ))}
 
       {/* Auto-Rickshaw Fare Card */}
-      <Animated.View entering={FadeInDown.delay(180).duration(260).springify().damping(18)}>
+      <Animated.View entering={FadeInDown.delay(40).duration(180).springify().damping(22)}>
         <Card variant="flat" padding="md" style={styles.fareCard}>
           <Text style={[styles.cardTitle, { color: colors.onSurface, marginBottom: 8 }]}>
             Official Auto-Rickshaw Fare Estimate
@@ -485,7 +486,7 @@ export default function NearbyScreen() {
       {FUEL_STATIONS.map((st, idx) => (
         <Animated.View
           key={st.id}
-          entering={FadeInDown.delay(idx * 50).duration(260).springify().damping(18)}>
+          entering={FadeInDown.delay(idx * 20).duration(180).springify().damping(22)}>
           <Card variant="flat" padding="md" style={styles.card}>
             <View style={styles.cardHeader}>
               <View style={{ flex: 1 }}>
@@ -540,7 +541,7 @@ export default function NearbyScreen() {
       {DINING_PLACES.map((place, idx) => (
         <Animated.View
           key={place.id}
-          entering={FadeInDown.delay(idx * 50).duration(260).springify().damping(18)}>
+          entering={FadeInDown.delay(idx * 20).duration(180).springify().damping(22)}>
           <Card variant="flat" padding="md" style={styles.card}>
             <View style={styles.cardHeader}>
               <View style={{ flex: 1 }}>
@@ -582,7 +583,7 @@ export default function NearbyScreen() {
       {PHARMACY_PLACES.map((ph, idx) => (
         <Animated.View
           key={ph.id}
-          entering={FadeInDown.delay(idx * 50).duration(260).springify().damping(18)}>
+          entering={FadeInDown.delay(idx * 20).duration(180).springify().damping(22)}>
           <Card variant="flat" padding="md" style={styles.card}>
             <View style={styles.cardHeader}>
               <View style={{ flex: 1 }}>
@@ -661,7 +662,7 @@ export default function NearbyScreen() {
       />
 
       {/* Category Selection Bar using Virtualized FlatList */}
-      <Animated.View entering={FadeInDown.duration(280).springify().damping(18)} style={styles.categoryContainer}>
+      <Animated.View entering={FadeInDown.duration(180).springify().damping(22)} style={styles.categoryContainer}>
         <FlatList
           horizontal
           data={CATEGORIES}
@@ -678,7 +679,10 @@ export default function NearbyScreen() {
         renderItem={() => activeContent}
         keyExtractor={() => 'active_body'}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.contentContainer}
+        contentContainerStyle={[
+          styles.contentContainer,
+          { paddingBottom: Math.max(insets.bottom, 16) + 90 },
+        ]}
       />
     </SafeAreaView>
   );

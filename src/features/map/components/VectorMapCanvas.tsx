@@ -1,5 +1,5 @@
 import React, { memo, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, type ViewStyle, type StyleProp } from 'react-native';
 import Svg, {
   Defs,
   LinearGradient,
@@ -14,104 +14,208 @@ import Svg, {
 import { Zap, ShoppingBag, Coffee, Star, Briefcase } from 'lucide-react-native';
 import { BMapColors } from '@/shared';
 
-const MAP_HEIGHT = 720;
 const SVG_VIEW_WIDTH = 420;
 const SVG_VIEW_HEIGHT = 860;
+
+export type MapLayerType = 'standard' | 'satellite' | 'night' | 'navic';
 
 interface VectorMapCanvasProps {
   onPoiPress?: (poiName: string) => void;
   showTraffic?: boolean;
+  mapLayer?: MapLayerType;
+  style?: StyleProp<ViewStyle>;
 }
 
 /**
  * 1. Static Landmass & Water Layer (Base Land, Parks, Rivers)
  */
-const StaticLandmassLayer = memo(() => (
-  <>
-    {/* Base Landmass */}
-    <Rect width="420" height="860" fill="#F4F7FB" />
+const StaticLandmassLayer = memo<{ mapLayer?: MapLayerType }>(({ mapLayer = 'standard' }) => {
+  const getLandColor = () => {
+    switch (mapLayer) {
+      case 'satellite':
+        return '#141E2B';
+      case 'night':
+        return '#0D1117';
+      case 'navic':
+        return '#05192C';
+      default:
+        return '#F4F7FB';
+    }
+  };
 
-    {/* Large Urban Park Feature */}
-    <Path
-      d="M -20,240 C 40,210 110,230 140,290 C 160,330 130,400 90,430 C 40,460 -20,440 -20,380 Z"
-      fill="url(#parkGrad)"
-      opacity={0.85}
-    />
-    <Path
-      d="M 280,110 C 340,90 390,130 430,160 L 430,20 C 370,10 320,50 280,110 Z"
-      fill="url(#parkGrad)"
-      opacity={0.75}
-    />
-    <Path
-      d="M 270,590 C 330,560 390,580 430,620 L 430,730 C 360,740 310,680 270,590 Z"
-      fill="url(#parkGrad)"
-      opacity={0.6}
-    />
+  const getParkOpacity = () => {
+    if (mapLayer === 'night') return 0.35;
+    if (mapLayer === 'satellite') return 0.25;
+    if (mapLayer === 'navic') return 0.4;
+    return 0.85;
+  };
 
-    {/* Winding River System */}
-    <Path
-      d="M -40,160 Q 90,190 180,150 T 360,110 T 450,130"
-      fill="none"
-      stroke="url(#riverGrad)"
-      strokeLinecap="round"
-      strokeWidth={32}
-    />
-    <Path
-      d="M 180,150 Q 230,260 210,390 T 260,610 T 230,880"
-      fill="none"
-      stroke="url(#riverGrad)"
-      strokeLinecap="round"
-      strokeWidth={26}
-    />
-  </>
-));
+  return (
+    <>
+      {/* Base Landmass */}
+      <Rect width="420" height="860" fill={getLandColor()} />
+
+      {/* Large Urban Park Feature */}
+      <Path
+        d="M -20,240 C 40,210 110,230 140,290 C 160,330 130,400 90,430 C 40,460 -20,440 -20,380 Z"
+        fill="url(#parkGrad)"
+        opacity={getParkOpacity()}
+      />
+      <Path
+        d="M 280,110 C 340,90 390,130 430,160 L 430,20 C 370,10 320,50 280,110 Z"
+        fill="url(#parkGrad)"
+        opacity={getParkOpacity() * 0.9}
+      />
+      <Path
+        d="M 270,590 C 330,560 390,580 430,620 L 430,730 C 360,740 310,680 270,590 Z"
+        fill="url(#parkGrad)"
+        opacity={getParkOpacity() * 0.7}
+      />
+
+      {/* Winding River System */}
+      <Path
+        d="M -40,160 Q 90,190 180,150 T 360,110 T 450,130"
+        fill="none"
+        stroke="url(#riverGrad)"
+        strokeLinecap="round"
+        strokeWidth={32}
+      />
+      <Path
+        d="M 180,150 Q 230,260 210,390 T 260,610 T 230,880"
+        fill="none"
+        stroke="url(#riverGrad)"
+        strokeLinecap="round"
+        strokeWidth={26}
+      />
+
+      {/* NavIC Satellite Precision Grid Overlay */}
+      {mapLayer === 'navic' && (
+        <G stroke="#0096FF" strokeWidth={0.5} opacity={0.35} strokeDasharray="4 4">
+          <Path d="M 0,100 L 420,100" />
+          <Path d="M 0,200 L 420,200" />
+          <Path d="M 0,300 L 420,300" />
+          <Path d="M 0,400 L 420,400" />
+          <Path d="M 0,500 L 420,500" />
+          <Path d="M 0,600 L 420,600" />
+          <Path d="M 0,700 L 420,700" />
+          <Path d="M 0,800 L 420,800" />
+          <Path d="M 100,0 L 100,860" />
+          <Path d="M 200,0 L 200,860" />
+          <Path d="M 300,0 L 300,860" />
+          <Path d="M 400,0 L 400,860" />
+        </G>
+      )}
+    </>
+  );
+});
 StaticLandmassLayer.displayName = 'StaticLandmassLayer';
 
 /**
  * 2. Street Grid & 3D Building Footprints Layer
  */
-const StreetNetworkLayer = memo(() => (
-  <>
-    {/* Residential & Secondary Street Network */}
-    <G stroke="#E3E8F0" strokeLinecap="round" strokeWidth={5}>
-      <Path d="M -20,90 L 440,90" />
-      <Path d="M -20,330 L 440,330" />
-      <Path d="M -20,490 L 440,470" />
-      <Path d="M -20,670 L 440,680" />
-      <Path d="M 60,-20 L 70,880" />
-      <Path d="M 150,-20 L 140,880" />
-      <Path d="M 290,-20 L 300,880" />
-      <Path d="M 370,-20 L 360,880" />
-      <Path d="M 0,220 L 260,390" />
-      <Path d="M 120,540 L 400,370" />
-      <Path d="M 50,740 L 380,560" />
-    </G>
+const StreetNetworkLayer = memo<{ mapLayer?: MapLayerType }>(({ mapLayer = 'standard' }) => {
+  const getSecondaryStreetColor = () => {
+    switch (mapLayer) {
+      case 'satellite':
+        return '#253346';
+      case 'night':
+        return '#21262D';
+      case 'navic':
+        return '#0E304F';
+      default:
+        return '#E3E8F0';
+    }
+  };
 
-    {/* 3D Isometric Building Block Footprints */}
-    <G fill="#EAEEF6" stroke="#DDE3EF" strokeWidth={1.5}>
-      <Rect x="80" y="110" width="46" height="34" rx="4" />
-      <Rect x="80" y="250" width="38" height="42" rx="4" />
-      <Rect x="160" y="270" width="50" height="32" rx="4" />
-      <Rect x="230" y="230" width="34" height="44" rx="4" />
-      <Rect x="320" y="210" width="48" height="36" rx="4" />
-      <Rect x="85" y="470" width="36" height="40" rx="4" />
-      <Rect x="155" y="430" width="42" height="36" rx="4" />
-      <Rect x="310" y="440" width="56" height="48" rx="4" />
-      <Rect x="80" y="600" width="40" height="36" rx="4" />
-      <Rect x="160" y="630" width="52" height="40" rx="4" />
-      <Rect x="320" y="630" width="46" height="38" rx="4" />
-    </G>
+  const getBuildingFill = () => {
+    switch (mapLayer) {
+      case 'satellite':
+        return '#1E293B';
+      case 'night':
+        return '#161B22';
+      case 'navic':
+        return '#0A2540';
+      default:
+        return '#EAEEF6';
+    }
+  };
 
-    {/* Main Arterial Avenues (White with Crisp Border) */}
-    <G stroke="#FFFFFF" strokeLinecap="round" strokeLinejoin="round" strokeWidth={10}>
-      <Path d="M -20,270 L 440,270" />
-      <Path d="M -20,570 L 440,550" />
-      <Path d="M 110,-20 L 110,880" />
-      <Path d="M 330,-20 L 330,880" />
-      <Path d="M 10,790 L 430,510" />
-    </G>
-  </>
-));
+  const getBuildingStroke = () => {
+    switch (mapLayer) {
+      case 'satellite':
+        return '#334155';
+      case 'night':
+        return '#30363D';
+      case 'navic':
+        return '#005596';
+      default:
+        return '#DDE3EF';
+    }
+  };
+
+  const getMainAvenueColor = () => {
+    switch (mapLayer) {
+      case 'satellite':
+        return '#38475D';
+      case 'night':
+        return '#30363D';
+      case 'navic':
+        return '#0070CC';
+      default:
+        return '#FFFFFF';
+    }
+  };
+
+  return (
+    <>
+      {/* Residential & Secondary Street Network */}
+      <G stroke={getSecondaryStreetColor()} strokeLinecap="round" strokeWidth={5}>
+        <Path d="M -20,90 L 440,90" />
+        <Path d="M -20,330 L 440,330" />
+        <Path d="M -20,490 L 440,470" />
+        <Path d="M -20,670 L 440,680" />
+        <Path d="M 60,-20 L 70,880" />
+        <Path d="M 150,-20 L 140,880" />
+        <Path d="M 290,-20 L 300,880" />
+        <Path d="M 370,-20 L 360,880" />
+        <Path d="M 0,220 L 260,390" />
+        <Path d="M 120,540 L 400,370" />
+        <Path d="M 50,740 L 380,560" />
+      </G>
+
+      {/* 3D Isometric Building Block Footprints */}
+      <G fill={getBuildingFill()} stroke={getBuildingStroke()} strokeWidth={0.8} opacity={0.55}>
+        <Rect x="80" y="110" width="30" height="22" rx="3" />
+        <Rect x="80" y="255" width="26" height="28" rx="3" />
+        <Rect x="160" y="275" width="32" height="20" rx="3" />
+        <Rect x="235" y="235" width="22" height="28" rx="3" />
+        <Rect x="325" y="215" width="30" height="22" rx="3" />
+        <Rect x="88" y="475" width="24" height="26" rx="3" />
+        <Rect x="158" y="435" width="28" height="22" rx="3" />
+        <Rect x="315" y="445" width="36" height="30" rx="3" />
+        <Rect x="85" y="605" width="26" height="22" rx="3" />
+        <Rect x="165" y="635" width="34" height="24" rx="3" />
+        <Rect x="325" y="635" width="28" height="22" rx="3" />
+        {/* Extra small detail buildings for realism */}
+        <Rect x="130" y="140" width="18" height="14" rx="2" />
+        <Rect x="280" y="320" width="20" height="16" rx="2" />
+        <Rect x="200" y="500" width="22" height="18" rx="2" />
+        <Rect x="360" y="350" width="16" height="20" rx="2" />
+        <Rect x="50" y="380" width="18" height="16" rx="2" />
+        <Rect x="250" y="560" width="20" height="14" rx="2" />
+      </G>
+
+      {/* Main Arterial Avenues (White with Crisp Border) */}
+      <G stroke={getMainAvenueColor()} strokeLinecap="round" strokeLinejoin="round" strokeWidth={10}>
+        <Path d="M -20,270 L 440,270" />
+        <Path d="M -20,570 L 440,550" />
+        <Path d="M 110,-20 L 110,880" />
+        <Path d="M 330,-20 L 330,880" />
+        <Path d="M 10,790 L 430,510" />
+      </G>
+    </>
+  );
+});
 StreetNetworkLayer.displayName = 'StreetNetworkLayer';
 
 /**
@@ -213,6 +317,8 @@ ExpresswayAndNavLayer.displayName = 'ExpresswayAndNavLayer';
 export const VectorMapCanvas: React.FC<VectorMapCanvasProps> = memo(({
   onPoiPress,
   showTraffic = true,
+  mapLayer = 'standard',
+  style,
 }) => {
   const handleGrandMetroPress = useCallback(() => onPoiPress?.('Grand Metro Stn'), [onPoiPress]);
   const handleEvStationPress = useCallback(() => onPoiPress?.('B-Power 120kW'), [onPoiPress]);
@@ -221,7 +327,7 @@ export const VectorMapCanvas: React.FC<VectorMapCanvasProps> = memo(({
   const handleTechParkPress = useCallback(() => onPoiPress?.('Tech Innovation Park'), [onPoiPress]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, style]}>
       {/* Scaled SVG Vector Map */}
       <Svg
         width="100%"
@@ -247,8 +353,8 @@ export const VectorMapCanvas: React.FC<VectorMapCanvasProps> = memo(({
           </RadialGradient>
         </Defs>
 
-        <StaticLandmassLayer />
-        <StreetNetworkLayer />
+        <StaticLandmassLayer mapLayer={mapLayer} />
+        <StreetNetworkLayer mapLayer={mapLayer} />
         <TrafficOverlayLayer showTraffic={showTraffic} />
         <ExpresswayAndNavLayer />
       </Svg>
@@ -256,8 +362,11 @@ export const VectorMapCanvas: React.FC<VectorMapCanvasProps> = memo(({
       {/* POI Overlay Badges */}
       {/* 1. Metro Station */}
       <TouchableOpacity
-        style={[styles.poiBadge, { top: 220, left: 60 }]}
+        style={[styles.poiBadge, { top: '38%', left: 16 }]}
         onPress={handleGrandMetroPress}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        accessibilityRole="button"
+        accessibilityLabel="Grand Metro Station map pin"
         activeOpacity={0.8}>
         <View style={styles.metroIcon}>
           <Text style={styles.metroIconText}>M</Text>
@@ -267,8 +376,11 @@ export const VectorMapCanvas: React.FC<VectorMapCanvasProps> = memo(({
 
       {/* 2. EV Supercharger */}
       <TouchableOpacity
-        style={[styles.poiBadge, { top: 280, right: 60 }]}
+        style={[styles.poiBadge, { top: '48%', right: 16 }]}
         onPress={handleEvStationPress}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        accessibilityRole="button"
+        accessibilityLabel="B-Power 120kW EV Supercharger map pin"
         activeOpacity={0.8}>
         <Zap size={14} color="#0096FF" fill="#0096FF" />
         <Text style={styles.poiTitle}>B-Power 120kW</Text>
@@ -279,8 +391,11 @@ export const VectorMapCanvas: React.FC<VectorMapCanvasProps> = memo(({
 
       {/* 3. IFC Mall */}
       <TouchableOpacity
-        style={[styles.mallCardContainer, { top: 135, right: 28 }]}
+        style={[styles.mallCardContainer, { top: '26%', right: 16 }]}
         onPress={handleMallPress}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        accessibilityRole="button"
+        accessibilityLabel="IFC Mall map pin"
         activeOpacity={0.8}>
         <View style={styles.mallCard}>
           <ShoppingBag size={15} color={BMapColors.tertiaryContainer} />
@@ -297,8 +412,11 @@ export const VectorMapCanvas: React.FC<VectorMapCanvasProps> = memo(({
 
       {/* 4. Specialty Coffee */}
       <TouchableOpacity
-        style={[styles.poiBadge, { top: 345, left: 120 }]}
+        style={[styles.poiBadge, { top: '58%', left: '25%' }]}
         onPress={handleCafePress}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        accessibilityRole="button"
+        accessibilityLabel="Blue Oasis Cafe map pin"
         activeOpacity={0.8}>
         <Coffee size={13} color="#8B5000" />
         <Text style={[styles.poiTitle, { fontSize: 11 }]}>Blue Oasis Cafe</Text>
@@ -306,8 +424,11 @@ export const VectorMapCanvas: React.FC<VectorMapCanvasProps> = memo(({
 
       {/* 5. Destination Pin Flag (Tech Innovation Park) */}
       <TouchableOpacity
-        style={[styles.destinationContainer, { top: 110, right: 90 }]}
+        style={[styles.destinationContainer, { top: '22%', right: '24%' }]}
         onPress={handleTechParkPress}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        accessibilityRole="button"
+        accessibilityLabel="Tech Innovation Park destination map pin"
         activeOpacity={0.8}>
         <View style={styles.destinationPill}>
           <Briefcase size={12} color="#ffffff" />
@@ -327,8 +448,8 @@ export default VectorMapCanvas;
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    height: MAP_HEIGHT,
-    backgroundColor: '#F0F3FF',
+    height: '100%',
+    backgroundColor: '#F4F7FB',
     position: 'relative',
     overflow: 'hidden',
   },
@@ -338,14 +459,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     backgroundColor: '#ffffff',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(0,0,0,0.06)',
     shadowColor: '#111C2D',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.10,
+    shadowRadius: 8,
+    elevation: 4,
     zIndex: 10,
   },
   metroIcon: {

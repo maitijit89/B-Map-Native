@@ -37,9 +37,9 @@ export interface FloatingActionButtonProps {
 }
 
 const SPRING_CONFIG = {
-  damping: 14,
-  stiffness: 350,
-  mass: 0.5,
+  damping: 26,
+  stiffness: 380,
+  mass: 0.4,
 };
 
 export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
@@ -61,8 +61,8 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
     if (pulse) {
       pulseScale.value = withRepeat(
         withSequence(
-          withTiming(1.08, { duration: 600 }),
-          withTiming(1, { duration: 600 })
+          withTiming(1.04, { duration: 700 }),
+          withTiming(1, { duration: 700 })
         ),
         -1,
         true
@@ -77,13 +77,14 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
   }, [pulse, pulseScale]);
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.9, SPRING_CONFIG);
+    scale.value = withSpring(0.94, SPRING_CONFIG);
     haptics.light();
   };
 
   const handlePressOut = () => {
     scale.value = withSpring(1, SPRING_CONFIG);
   };
+
 
   const animatedStyle = useAnimatedStyle(() => {
     return {
@@ -125,6 +126,7 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       style={[

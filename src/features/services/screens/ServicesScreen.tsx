@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
@@ -20,6 +20,7 @@ import {
   Siren,
   Heart,
   TriangleAlert,
+  ShieldCheck,
 } from 'lucide-react-native';
 import { useThemeColors } from '@/shared/hooks';
 import { Radius, Spacing, Typography } from '@/shared/constants/tokens';
@@ -56,6 +57,7 @@ const SPEED_CAMERAS = [
 
 export default function ServicesScreen() {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
 
   const [hazards, setHazards] = useState(INITIAL_HAZARD_REPORTS);
   const [votedMap, setVotedMap] = useState<Record<number, 'up' | 'down'>>({});
@@ -91,9 +93,15 @@ export default function ServicesScreen() {
         showBack={false}
       />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingBottom: Math.max(insets.bottom, 16) + 90 },
+        ]}
+        showsVerticalScrollIndicator={false}>
         {/* NavIC Satellite Status */}
-        <Animated.View entering={FadeInDown.duration(280).springify().damping(18)}>
+        <Animated.View entering={FadeInDown.duration(180).springify().damping(22)}>
+
           <Card variant="elevated" padding="md" style={styles.cardContainer}>
             <View style={styles.cardHeader}>
               <View style={styles.headerLeftCluster}>
@@ -175,7 +183,7 @@ export default function ServicesScreen() {
         </Animated.View>
 
         {/* SOS Emergency Console */}
-        <Animated.View entering={FadeInDown.delay(60).duration(280).springify().damping(18)}>
+        <Animated.View entering={FadeInDown.delay(20).duration(180).springify().damping(22)}>
           <Card variant="elevated" padding="md" style={styles.cardContainer}>
             <View style={styles.cardHeader}>
               <View style={styles.headerLeftCluster}>
@@ -234,8 +242,45 @@ export default function ServicesScreen() {
           </Card>
         </Animated.View>
 
+        {/* Device Profiling & Security Telemetry */}
+        <Animated.View entering={FadeInDown.delay(30).duration(180).springify().damping(22)}>
+          <Card variant="elevated" padding="md" style={styles.cardContainer}>
+            <View style={styles.cardHeader}>
+              <View style={styles.headerLeftCluster}>
+                <View style={[styles.iconContainer, { backgroundColor: colors.primaryContainer }]}>
+                  <ShieldCheck size={18} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.cardTitle, { color: colors.onSurface }]}>
+                    Device Security & Telemetry
+                  </Text>
+                  <Text style={[styles.cardSubtitle, { color: colors.onSurfaceVariant }]}>
+                    Anti-bot profiling · 120+ hardware & sensor signals
+                  </Text>
+                </View>
+              </View>
+              <StatusBadge status="success" label="138 Signals" size="sm" pulsing={false} />
+            </View>
+            <Text style={[styles.sosDescription, { color: colors.onSurfaceVariant }]}>
+              Real-time hardware fingerprinting, bot fraud detection, root integrity inspection, and 4Hz kinetic sensor telemetry.
+            </Text>
+
+            <Button
+              title="Inspect Telemetry Metrics"
+              variant="primary"
+              size="sm"
+              leftIcon={<ShieldCheck size={14} color="#fff" />}
+              onPress={() => {
+                haptics.medium();
+                router.push('/device-signals');
+              }}
+              style={{ marginTop: Spacing.sm }}
+            />
+          </Card>
+        </Animated.View>
+
         {/* Real-Time Community Hazards */}
-        <Animated.View entering={FadeInDown.delay(100).duration(280).springify().damping(18)}>
+        <Animated.View entering={FadeInDown.delay(40).duration(180).springify().damping(22)}>
           <SectionHeader
             title="Community Hazard Reports"
             subtitle="Crowdsourced Highway Telematics"
@@ -300,7 +345,7 @@ export default function ServicesScreen() {
         </Animated.View>
 
         {/* ADAS Speed Camera Radar */}
-        <Animated.View entering={FadeInDown.delay(150).duration(280).springify().damping(18)}>
+        <Animated.View entering={FadeInDown.delay(60).duration(180).springify().damping(22)}>
           <SectionHeader
             title="ADAS Speed Camera Radar"
             subtitle="Fixed Speed Guns & Interceptor Zones"

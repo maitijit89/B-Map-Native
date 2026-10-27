@@ -61,8 +61,9 @@ function RootLayoutNav() {
           screenOptions={{
             headerShown: false,
             animation: 'slide_from_right',
-            animationDuration: 250,
+            animationDuration: 220,
             gestureEnabled: true,
+
           }}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="modal" options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom', headerShown: false }} />
@@ -78,6 +79,7 @@ function RootLayoutNav() {
           <Stack.Screen name="ev-station" options={{ presentation: 'modal', animation: 'slide_from_bottom', headerShown: false }} />
           <Stack.Screen name="vehicle-fleet" options={{ presentation: 'modal', animation: 'slide_from_bottom', headerShown: false }} />
           <Stack.Screen name="compass-hud" options={{ presentation: 'fullScreenModal', animation: 'fade', headerShown: false }} />
+          <Stack.Screen name="device-signals" options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom', headerShown: false }} />
         </Stack>
       </NavThemeProvider>
     </ThemeProvider>

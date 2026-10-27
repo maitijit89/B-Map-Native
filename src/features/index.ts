@@ -12,3 +12,4 @@ export * from './safety';
 export * from './transit';
 export * from './fleet';
 export * from './compass';
+export * from './telemetry';

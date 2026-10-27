@@ -1,11 +1,15 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useIsFocused } from 'expo-router';
 import { locationService, LocationCoordinates, DEFAULT_FALLBACK_LOCATION } from '../services/LocationService';
 
 export function useLocation(watch: boolean = true) {
+  const isFocused = useIsFocused();
   const [location, setLocation] = useState<LocationCoordinates>(DEFAULT_FALLBACK_LOCATION);
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  const shouldWatch = watch && isFocused;
 
   const refreshLocation = useCallback(async () => {
     setLoading(true);
@@ -38,7 +42,7 @@ export function useLocation(watch: boolean = true) {
 
       setPermissionGranted(granted);
 
-      if (granted && watch) {
+      if (granted && shouldWatch) {
         await locationService.startLocationUpdates(handleCoords);
       } else {
         const coords = await locationService.getCurrentLocation();
@@ -53,11 +57,11 @@ export function useLocation(watch: boolean = true) {
 
     return () => {
       isMounted = false;
-      if (watch) {
+      if (shouldWatch) {
         locationService.stopLocationUpdates(handleCoords);
       }
     };
-  }, [watch]);
+  }, [shouldWatch]);
 
   return {
     location,
@@ -67,3 +71,4 @@ export function useLocation(watch: boolean = true) {
     refreshLocation,
   };
 }
+

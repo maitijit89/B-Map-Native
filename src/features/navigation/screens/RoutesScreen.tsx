@@ -6,9 +6,10 @@ import {
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
+
 import {
   Navigation,
   Car,
@@ -24,7 +25,7 @@ import {
   ChevronRight,
 } from 'lucide-react-native';
 import { useThemeColors } from '@/shared/hooks';
-import { Radius, Spacing, Typography } from '@/shared/constants/tokens';
+import { Radius, Shadows, Spacing, Typography } from '@/shared/constants/tokens';
 import {
   Header,
   Card,
@@ -119,11 +120,16 @@ const IMD_WEATHER = {
 
 export default function RoutesScreen() {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
 
   const [activeProfile, setActiveProfile] = useState<RouteProfile>('drive');
   const [selectedRoute, setSelectedRoute] = useState('1');
   const [origin, setOrigin] = useState('Cyber Hub, Gurugram');
   const [destination, setDestination] = useState('Agra Fort, Uttar Pradesh');
+
+  const selectedRouteData = useMemo(() => {
+    return ROUTE_ALTERNATIVES.find((r) => r.id === selectedRoute) || ROUTE_ALTERNATIVES[0];
+  }, [selectedRoute]);
 
   const handleSwap = useCallback(() => {
     haptics.selection();
@@ -188,7 +194,12 @@ export default function RoutesScreen() {
         showBack={false}
       />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingBottom: Math.max(insets.bottom, 16) + 90 },
+        ]}
+        showsVerticalScrollIndicator={false}>
         {/* Origin → Destination Input Card */}
         <Animated.View entering={FadeInDown.duration(280).springify().damping(18)}>
           <Card variant="flat" padding="md" style={styles.routeInputCard}>
@@ -294,6 +305,7 @@ export default function RoutesScreen() {
                 activeOpacity={0.8}>
                 {p.icon(isSelected)}
                 <Text
+                  numberOfLines={1}
                   style={[
                     styles.profileTabLabel,
                     {
@@ -341,10 +353,12 @@ export default function RoutesScreen() {
           return (
             <Animated.View
               key={item.id}
-              entering={FadeInDown.delay(idx * 60).duration(280).springify().damping(18)}>
+              entering={FadeInDown.delay(idx * 20).duration(180).springify().damping(22)}
+              layout={Layout.springify().damping(22)}>
               <TouchableOpacity
                 onPress={() => handleRouteSelect(item.id)}
                 activeOpacity={0.85}>
+
                 <Card
                   variant={isSelected ? 'elevated' : 'flat'}
                   padding="md"
@@ -493,19 +507,42 @@ export default function RoutesScreen() {
             </View>
           ))}
         </Card>
-
-        {/* Start Route Navigation CTA */}
-        <View style={styles.ctaContainer}>
-          <Button
-            title="Start Turn-by-Turn Guidance"
-            onPress={handleStartNavigation}
-            size="lg"
-            variant="primary"
-            fullWidth
-            leftIcon={<Navigation size={20} color={colors.onPrimary} />}
-          />
-        </View>
       </ScrollView>
+
+      {/* Docked Sticky Navigation Action Bar */}
+      <View
+        style={[
+          styles.bottomDock,
+          {
+            backgroundColor: colors.surfaceContainerLowest,
+            borderTopColor: colors.surfaceContainerHigh,
+            paddingBottom: Math.max(insets.bottom, 12) + 68,
+          },
+        ]}>
+        <View style={styles.dockContent}>
+          <View style={styles.dockSummary}>
+            <View style={styles.dockTimeRow}>
+              <Text style={[styles.dockTimeText, { color: colors.onSurface }]}>
+                {selectedRouteData.time}
+              </Text>
+              <View style={[styles.dockTrafficDot, { backgroundColor: selectedRouteData.trafficColor }]} />
+            </View>
+            <Text style={[styles.dockSubText, { color: colors.onSurfaceVariant }]}>
+              {selectedRouteData.distance} · {selectedRouteData.toll}
+            </Text>
+          </View>
+          <View style={styles.dockButtonWrapper}>
+            <Button
+              title="Start Guidance"
+              onPress={handleStartNavigation}
+              size="md"
+              variant="primary"
+              leftIcon={<Navigation size={18} color={colors.onPrimary} />}
+              style={styles.dockStartBtn}
+            />
+          </View>
+        </View>
+      </View>
     </SafeAreaView>
   );
 }
@@ -516,7 +553,7 @@ const styles = StyleSheet.create({
   },
   scroll: {
     paddingHorizontal: Spacing.lg,
-    paddingBottom: 100,
+    paddingBottom: 160,
     gap: Spacing.md,
   },
   routeInputCard: {
@@ -733,7 +770,51 @@ const styles = StyleSheet.create({
     ...Typography.labelSmall,
     fontWeight: '700',
   },
-  ctaContainer: {
-    marginTop: Spacing.sm,
+  bottomDock: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopWidth: 1,
+    paddingTop: 10,
+    paddingHorizontal: Spacing.md,
+    ...Shadows.lg,
+  },
+  dockContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
+    gap: 12,
+  },
+  dockSummary: {
+    flex: 1,
+  },
+  dockTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  dockTimeText: {
+    ...Typography.titleMedium,
+    fontWeight: '800',
+    fontSize: 18,
+  },
+  dockTrafficDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  dockSubText: {
+    ...Typography.bodySmall,
+    marginTop: 2,
+  },
+  dockButtonWrapper: {
+    minWidth: 150,
+  },
+  dockStartBtn: {
+    height: 48,
   },
 });

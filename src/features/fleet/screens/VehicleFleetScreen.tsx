@@ -7,9 +7,10 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeInUp, Layout } from 'react-native-reanimated';
+
 import {
   Car,
   Bike,
@@ -103,6 +104,7 @@ const RECENT_TOLL_TRANSACTIONS = [
 
 export default function VehicleFleetScreen() {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   const [selectedVehicleId, setSelectedVehicleId] = useState('1');
   const [fastagBalance, setFastagBalance] = useState(1840);
 
@@ -168,6 +170,7 @@ export default function VehicleFleetScreen() {
           <TouchableOpacity
             style={[styles.addBtn, { backgroundColor: colors.primaryContainer }]}
             onPress={handleAddNewVehicle}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
             accessibilityRole="button"
             accessibilityLabel="Add new vehicle"
             activeOpacity={0.7}>
@@ -176,9 +179,14 @@ export default function VehicleFleetScreen() {
         }
       />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingBottom: Math.max(insets.bottom, 20) + 24 },
+        ]}
+        showsVerticalScrollIndicator={false}>
         {/* FASTag Balance Master Card */}
-        <Animated.View entering={FadeInDown.duration(280).springify().damping(18)}>
+        <Animated.View entering={FadeInDown.duration(180).springify().damping(22)}>
           <Card
             variant="elevated"
             padding="lg"
@@ -243,7 +251,8 @@ export default function VehicleFleetScreen() {
             return (
               <Animated.View
                 key={v.id}
-                entering={FadeInDown.delay(50 * (index + 1)).duration(280).springify().damping(18)}>
+                entering={FadeInDown.delay(20 * (index + 1)).duration(180).springify().damping(22)}
+                layout={Layout.springify().damping(22)}>
                 <Card
                   variant={isSelected ? 'glass' : 'flat'}
                   padding="md"
@@ -322,8 +331,8 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   addBtn: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
@@ -406,7 +415,8 @@ const styles = StyleSheet.create({
   rechargeChip: {
     flex: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.22)',
-    paddingVertical: 8,
+    paddingVertical: 10,
+    minHeight: 42,
     borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',

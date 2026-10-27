@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
@@ -23,7 +23,7 @@ import {
 } from 'lucide-react-native';
 import { storageService } from '@/shared/services';
 import { useThemeColors } from '@/shared/hooks';
-import { Radius, Spacing, Typography } from '@/shared/constants/tokens';
+import { Radius, Shadows, Spacing, Typography } from '@/shared/constants/tokens';
 import { Header, Card, Button, Badge } from '@/shared/components/ui';
 import { haptics } from '@/shared/utils/haptics';
 
@@ -69,6 +69,7 @@ const CONNECTOR_BAYS: ConnectorBay[] = [
 
 export default function EvStationScreen() {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   const [selectedBayId, setSelectedBayId] = useState<string>('1');
   const targetSoc = 80;
   const currentSoc = 22;
@@ -142,9 +143,14 @@ export default function EvStationScreen() {
         }
       />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingBottom: Math.max(insets.bottom, 20) + 24 },
+        ]}
+        showsVerticalScrollIndicator={false}>
         {/* Main Station Banner Card */}
-        <Animated.View entering={FadeInDown.duration(280).springify().damping(16)}>
+        <Animated.View entering={FadeInDown.duration(180).springify().damping(22)}>
           <Card variant="elevated" padding="md" style={styles.stationCard}>
             <View style={styles.stationHeader}>
               <View style={{ flex: 1 }}>
@@ -205,7 +211,7 @@ export default function EvStationScreen() {
             return (
               <Animated.View
                 key={bay.id}
-                entering={FadeInDown.delay(60 * (idx + 1)).duration(280).springify().damping(16)}>
+                entering={FadeInDown.delay(20 * (idx + 1)).duration(180).springify().damping(22)}>
                 <Card
                   variant={isSelected ? 'elevated' : 'outlined'}
                   padding="md"
@@ -300,20 +306,46 @@ export default function EvStationScreen() {
                 <Text style={[styles.estLabel, { color: colors.onSurfaceVariant }]}>TOTAL COST</Text>
               </View>
             </View>
-
-            <View style={{ marginTop: 14 }}>
-              <Button
-                title={`Reserve Gun (${activeBay.powerKw}kW) — ₹${totalCost}`}
-                onPress={handleReserveSlot}
-                size="lg"
-                variant="primary"
-                fullWidth
-                leftIcon={<Zap size={20} color={colors.onPrimary} />}
-              />
-            </View>
           </Card>
         </Animated.View>
       </ScrollView>
+
+      {/* Docked Sticky Reservation Action Bar */}
+      <View
+        style={[
+          styles.bottomDock,
+          {
+            backgroundColor: colors.surfaceContainerLowest,
+            borderTopColor: colors.surfaceContainerHigh,
+            paddingBottom: Math.max(insets.bottom, 12) + 8,
+          },
+        ]}>
+        <View style={styles.dockContent}>
+          <View style={styles.dockSummary}>
+            <View style={styles.dockPriceRow}>
+              <IndianRupee size={16} color={colors.primary} />
+              <Text style={[styles.dockPriceText, { color: colors.primary }]}>{totalCost}</Text>
+              <Text style={[styles.dockPriceSub, { color: colors.onSurfaceVariant }]}>
+                ({energyNeededKwh.toFixed(1)} kWh)
+              </Text>
+            </View>
+            <Text style={[styles.dockMetaText, { color: colors.onSurfaceVariant }]}>
+              {activeBay.type} · {chargingTimeMinutes} min est.
+            </Text>
+          </View>
+
+          <View style={styles.dockButtonWrapper}>
+            <Button
+              title={`Reserve Gun (${activeBay.powerKw}kW)`}
+              onPress={handleReserveSlot}
+              size="md"
+              variant="primary"
+              leftIcon={<Zap size={18} color={colors.onPrimary} />}
+              style={styles.dockReserveBtn}
+            />
+          </View>
+        </View>
+      </View>
     </SafeAreaView>
   );
 }
@@ -324,7 +356,7 @@ const styles = StyleSheet.create({
   },
   scroll: {
     paddingHorizontal: Spacing.lg,
-    paddingBottom: 100,
+    paddingBottom: 120,
     gap: Spacing.md,
   },
   navTopBtn: {
@@ -526,5 +558,52 @@ const styles = StyleSheet.create({
   estDivider: {
     width: 1,
     height: 24,
+  },
+  bottomDock: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopWidth: 1,
+    paddingTop: 10,
+    paddingHorizontal: Spacing.md,
+    ...Shadows.lg,
+  },
+  dockContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
+    gap: 12,
+  },
+  dockSummary: {
+    flex: 1,
+  },
+  dockPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  dockPriceText: {
+    ...Typography.titleMedium,
+    fontWeight: '800',
+    fontSize: 20,
+  },
+  dockPriceSub: {
+    ...Typography.bodySmall,
+    marginLeft: 4,
+  },
+  dockMetaText: {
+    ...Typography.bodySmall,
+    marginTop: 2,
+    fontSize: 12,
+  },
+  dockButtonWrapper: {
+    minWidth: 170,
+  },
+  dockReserveBtn: {
+    height: 48,
   },
 });

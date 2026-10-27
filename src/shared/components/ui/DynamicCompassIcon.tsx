@@ -1,5 +1,6 @@
 import React, { useEffect, useId, useRef, memo } from 'react';
 import { StyleSheet, type ViewStyle } from 'react-native';
+import { useIsFocused } from 'expo-router';
 import Svg, {
   Defs,
   LinearGradient,
@@ -58,6 +59,7 @@ export const DynamicCompassIcon: React.FC<DynamicCompassIconProps> = memo(({
   heading: overrideHeading,
   style,
 }) => {
+  const isFocused = useIsFocused();
   const rawId = useId();
   const id = rawId.replace(/[:]/g, '_');
 
@@ -65,6 +67,8 @@ export const DynamicCompassIcon: React.FC<DynamicCompassIconProps> = memo(({
   const currentTargetRef = useRef(0);
   const pitchAnim = useSharedValue(0);
   const rollAnim = useSharedValue(0);
+
+  const shouldBeDynamic = dynamic && isFocused && overrideHeading === undefined;
 
   // 1. If overrideHeading is provided, animate to it directly
   useEffect(() => {
@@ -81,30 +85,33 @@ export const DynamicCompassIcon: React.FC<DynamicCompassIconProps> = memo(({
     });
   }, [overrideHeading, mode, rotation]);
 
-  // 2. If dynamic is active and no override is set, subscribe to centralized CompassService
+  // 2. If dynamic is active and focused and no override is set, subscribe to centralized CompassService
   useEffect(() => {
-    if (!dynamic || overrideHeading !== undefined) return;
+    if (!shouldBeDynamic) return;
 
-    const unsubscribe = compassService.subscribe((compassData) => {
-      const liveHeading = compassData.heading;
-      const targetRotation = mode === 'north' ? -liveHeading : liveHeading;
-      const diff = (((targetRotation - currentTargetRef.current) % 360) + 540) % 360 - 180;
-      currentTargetRef.current += diff;
+    const unsubscribe = compassService.subscribe(
+      (compassData) => {
+        const liveHeading = compassData.heading;
+        const targetRotation = mode === 'north' ? -liveHeading : liveHeading;
+        const diff = (((targetRotation - currentTargetRef.current) % 360) + 540) % 360 - 180;
+        currentTargetRef.current += diff;
 
-      rotation.value = withSpring(currentTargetRef.current, {
-        damping: 22,
-        stiffness: 150,
-        mass: 0.7,
-      });
+        rotation.value = withSpring(currentTargetRef.current, {
+          damping: 22,
+          stiffness: 150,
+          mass: 0.7,
+        });
 
-      if (tilt3D) {
-        pitchAnim.value = withSpring(-compassData.pitch * 0.45, { damping: 16, stiffness: 130 });
-        rollAnim.value = withSpring(compassData.roll * 0.45, { damping: 16, stiffness: 130 });
-      }
-    });
+        if (tilt3D) {
+          pitchAnim.value = withSpring(-compassData.pitch * 0.45, { damping: 16, stiffness: 130 });
+          rollAnim.value = withSpring(compassData.roll * 0.45, { damping: 16, stiffness: 130 });
+        }
+      },
+      { needsTilt: tilt3D }
+    );
 
     return unsubscribe;
-  }, [dynamic, overrideHeading, mode, tilt3D, rotation, pitchAnim, rollAnim]);
+  }, [shouldBeDynamic, mode, tilt3D, rotation, pitchAnim, rollAnim]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rotation.value}deg` }],

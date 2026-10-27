@@ -7,8 +7,10 @@ import {
   TouchableOpacity,
   Alert,
   Image,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { haptics } from '@/shared/utils/haptics';
@@ -23,7 +25,7 @@ import {
   RefreshCw,
   Fingerprint,
 } from 'lucide-react-native';
-import { useThemeColors } from '@/shared/hooks';
+import { useThemeColors, useResponsive } from '@/shared/hooks';
 import { Radius, Shadows, Spacing, Typography } from '@/shared/constants/tokens';
 import {
   Header,
@@ -45,6 +47,10 @@ const triggerHaptic = () => {
 
 export default function AuthScreen() {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
+  const { width: screenWidth, isSmallDevice } = useResponsive();
+  const contentMaxWidth = Math.min(screenWidth - (isSmallDevice ? 24 : 32), 480);
+  const otpBoxWidth = Math.min(48, Math.max(36, Math.floor((contentMaxWidth - 80) / 6)));
 
   const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('aarav.sharma@example.com');
@@ -168,281 +174,298 @@ export default function AuthScreen() {
         }
       />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Brand Banner */}
-        <Animated.View entering={FadeInDown.duration(280).springify().damping(16)}>
-          <Card variant="elevated" padding="md" style={styles.brandCard}>
-            <Image source={{ uri: LOGO_URI }} style={styles.brandLogo} resizeMode="contain" />
-            <View style={{ flex: 1, gap: 4 }}>
-              <Badge label="ISRO NavIC Verified System" variant="primary" size="sm" />
-              <Text style={[styles.brandTitle, { color: colors.onSurface }]}>
-                B-Map Identity Portal
-              </Text>
-              <Text style={[styles.brandSub, { color: colors.onSurfaceVariant }]}>
-                {mode === 'otp'
-                  ? 'Two-factor cryptographic verification'
-                  : mode === 'signup'
-                  ? 'Create your sovereign navigation account'
-                  : 'Passwordless login with secure email OTP'}
-              </Text>
-            </View>
-          </Card>
-        </Animated.View>
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoid}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.scroll,
+            { paddingBottom: Math.max(insets.bottom, 24) + 40 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
+          <View style={[styles.responsiveContent, { maxWidth: contentMaxWidth }]}>
+            {/* Brand Banner */}
+            <Animated.View entering={FadeInDown.duration(280).springify().damping(16)}>
+              <Card variant="elevated" padding="md" style={styles.brandCard}>
+                <Image source={{ uri: LOGO_URI }} style={styles.brandLogo} resizeMode="contain" />
+                <View style={{ flex: 1, gap: 4 }}>
+                  <Badge label="ISRO NavIC Verified System" variant="primary" size="sm" />
+                  <Text style={[styles.brandTitle, { color: colors.onSurface }]}>
+                    B-Map Identity Portal
+                  </Text>
+                  <Text style={[styles.brandSub, { color: colors.onSurfaceVariant }]}>
+                    {mode === 'otp'
+                      ? 'Two-factor cryptographic verification'
+                      : mode === 'signup'
+                      ? 'Create your sovereign navigation account'
+                      : 'Passwordless login with secure email OTP'}
+                  </Text>
+                </View>
+              </Card>
+            </Animated.View>
 
-        {/* Tab Switcher */}
-        {mode !== 'otp' && (
-          <View
-            style={[
-              styles.tabTrack,
-              { backgroundColor: colors.surfaceContainerHigh },
-            ]}>
-            <TouchableOpacity
-              style={[
-                styles.tabBtn,
-                mode === 'login' && [
-                  styles.tabBtnActive,
-                  { backgroundColor: colors.surfaceContainerLowest },
-                ],
-              ]}
-              onPress={() => {
-                triggerHaptic();
-                setMode('login');
-              }}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: mode === 'login' }}
-              accessibilityLabel="Sign In"
-              activeOpacity={0.8}>
-              <Text
+            {/* Tab Switcher */}
+            {mode !== 'otp' && (
+              <View
                 style={[
-                  styles.tabText,
-                  { color: colors.onSurfaceVariant },
-                  mode === 'login' && { color: colors.primary, fontWeight: '700' },
+                  styles.tabTrack,
+                  { backgroundColor: colors.surfaceContainerHigh },
                 ]}>
-                Sign In
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.tabBtn,
-                mode === 'signup' && [
-                  styles.tabBtnActive,
-                  { backgroundColor: colors.surfaceContainerLowest },
-                ],
-              ]}
-              onPress={() => {
-                triggerHaptic();
-                setMode('signup');
-              }}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: mode === 'signup' }}
-              accessibilityLabel="Create Account"
-              activeOpacity={0.8}>
-              <Text
-                style={[
-                  styles.tabText,
-                  { color: colors.onSurfaceVariant },
-                  mode === 'signup' && { color: colors.primary, fontWeight: '700' },
-                ]}>
-                Create Account
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Login Form */}
-        {mode === 'login' && (
-          <Card variant="elevated" padding="lg" style={styles.formCard}>
-            <Input
-              label="Registered Email"
-              placeholder="name@example.com"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              leftIcon={<Mail size={18} color={colors.primary} />}
-            />
-
-            <Button
-              title={isLoading ? 'Dispatching OTP...' : 'Send Secure Login OTP'}
-              variant="primary"
-              size="lg"
-              fullWidth
-              loading={isLoading}
-              leftIcon={<KeyRound size={18} color="#fff" />}
-              onPress={() => handleSendOtp(false)}
-            />
-
-            <Divider label="OR QUICK LOGIN" />
-
-            <Button
-              title="Authenticate with Biometrics / Face ID"
-              variant="outline"
-              size="md"
-              fullWidth
-              leftIcon={<Fingerprint size={20} color={colors.primary} />}
-              onPress={handleBiometricMock}
-            />
-          </Card>
-        )}
-
-        {/* Signup Form */}
-        {mode === 'signup' && (
-          <Card variant="elevated" padding="lg" style={styles.formCard}>
-            <Input
-              label="Full Legal Name"
-              placeholder="Enter full name"
-              value={name}
-              onChangeText={setName}
-              leftIcon={<User size={18} color={colors.primary} />}
-            />
-
-            <View style={styles.splitRow}>
-              <View style={{ flex: 1 }}>
-                <Input
-                  label="Age"
-                  placeholder="26"
-                  value={age}
-                  onChangeText={setAge}
-                  keyboardType="number-pad"
-                />
-              </View>
-
-              <View style={{ flex: 2, marginLeft: Spacing.sm }}>
-                <Input
-                  label="Phone Number"
-                  placeholder="+91 98765 43210"
-                  value={phone}
-                  onChangeText={setPhone}
-                  keyboardType="phone-pad"
-                  leftIcon={<Phone size={18} color={colors.primary} />}
-                />
-              </View>
-            </View>
-
-            <Input
-              label="Email Address"
-              placeholder="aarav.sharma@example.com"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              leftIcon={<Mail size={18} color={colors.primary} />}
-            />
-
-            <Button
-              title={isLoading ? 'Registering...' : 'Register & Receive OTP'}
-              variant="primary"
-              size="lg"
-              fullWidth
-              loading={isLoading}
-              leftIcon={<Lock size={18} color="#fff" />}
-              onPress={() => handleSendOtp(true)}
-            />
-          </Card>
-        )}
-
-        {/* OTP Verification */}
-        {mode === 'otp' && (
-          <Card variant="elevated" padding="lg" style={styles.formCard}>
-            <View style={styles.otpHeaderBox}>
-              <Text style={[styles.otpInstruction, { color: colors.onSurfaceVariant }]}>
-                Enter the 6-digit code sent to:
-              </Text>
-              <Text style={[styles.otpEmailBadge, { color: colors.primary }]}>{email}</Text>
-            </View>
-
-            {/* 6 Digit Pin Boxes */}
-            <View style={styles.otpBoxRow}>
-              {otp.map((digit, idx) => (
                 <TouchableOpacity
-                  key={idx}
                   style={[
-                    styles.otpBox,
-                    {
-                      backgroundColor: colors.surfaceContainerLow,
-                      borderColor: colors.primary,
-                    },
+                    styles.tabBtn,
+                    mode === 'login' && [
+                      styles.tabBtnActive,
+                      { backgroundColor: colors.surfaceContainerLowest },
+                    ],
                   ]}
                   onPress={() => {
                     triggerHaptic();
-                    const next = [...otp];
-                    next[idx] = String((Number(next[idx]) + 1) % 10);
-                    setOtp(next);
+                    setMode('login');
+                  }}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: mode === 'login' }}
+                  accessibilityLabel="Sign In"
+                  activeOpacity={0.8}>
+                  <Text
+                    style={[
+                      styles.tabText,
+                      { color: colors.onSurfaceVariant },
+                      mode === 'login' && { color: colors.primary, fontWeight: '700' },
+                    ]}>
+                    Sign In
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.tabBtn,
+                    mode === 'signup' && [
+                      styles.tabBtnActive,
+                      { backgroundColor: colors.surfaceContainerLowest },
+                    ],
+                  ]}
+                  onPress={() => {
+                    triggerHaptic();
+                    setMode('signup');
+                  }}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: mode === 'signup' }}
+                  accessibilityLabel="Create Account"
+                  activeOpacity={0.8}>
+                  <Text
+                    style={[
+                      styles.tabText,
+                      { color: colors.onSurfaceVariant },
+                      mode === 'signup' && { color: colors.primary, fontWeight: '700' },
+                    ]}>
+                    Create Account
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Login Form */}
+            {mode === 'login' && (
+              <Card variant="elevated" padding="lg" style={styles.formCard}>
+                <Input
+                  label="Registered Email"
+                  placeholder="name@example.com"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  leftIcon={<Mail size={18} color={colors.primary} />}
+                />
+
+                <Button
+                  title={isLoading ? 'Dispatching OTP...' : 'Send Secure Login OTP'}
+                  variant="primary"
+                  size="lg"
+                  fullWidth
+                  loading={isLoading}
+                  leftIcon={<KeyRound size={18} color="#fff" />}
+                  onPress={() => handleSendOtp(false)}
+                  style={styles.primaryActionBtn}
+                />
+
+                <Divider label="OR QUICK LOGIN" />
+
+                <Button
+                  title="Authenticate with Biometrics / Face ID"
+                  variant="outline"
+                  size="md"
+                  fullWidth
+                  leftIcon={<Fingerprint size={20} color={colors.primary} />}
+                  onPress={handleBiometricMock}
+                  style={styles.secondaryActionBtn}
+                />
+              </Card>
+            )}
+
+            {/* Signup Form */}
+            {mode === 'signup' && (
+              <Card variant="elevated" padding="lg" style={styles.formCard}>
+                <Input
+                  label="Full Legal Name"
+                  placeholder="Enter full name"
+                  value={name}
+                  onChangeText={setName}
+                  leftIcon={<User size={18} color={colors.primary} />}
+                />
+
+                <View style={styles.splitRow}>
+                  <View style={{ flex: 1 }}>
+                    <Input
+                      label="Age"
+                      placeholder="26"
+                      value={age}
+                      onChangeText={setAge}
+                      keyboardType="number-pad"
+                    />
+                  </View>
+
+                  <View style={{ flex: 2, marginLeft: Spacing.sm }}>
+                    <Input
+                      label="Phone Number"
+                      placeholder="+91 98765 43210"
+                      value={phone}
+                      onChangeText={setPhone}
+                      keyboardType="phone-pad"
+                      leftIcon={<Phone size={18} color={colors.primary} />}
+                    />
+                  </View>
+                </View>
+
+                <Input
+                  label="Email Address"
+                  placeholder="aarav.sharma@example.com"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  leftIcon={<Mail size={18} color={colors.primary} />}
+                />
+
+                <Button
+                  title={isLoading ? 'Registering...' : 'Register & Receive OTP'}
+                  variant="primary"
+                  size="lg"
+                  fullWidth
+                  loading={isLoading}
+                  leftIcon={<Lock size={18} color="#fff" />}
+                  onPress={() => handleSendOtp(true)}
+                  style={styles.primaryActionBtn}
+                />
+              </Card>
+            )}
+
+            {/* OTP Verification */}
+            {mode === 'otp' && (
+              <Card variant="elevated" padding="lg" style={styles.formCard}>
+                <View style={styles.otpHeaderBox}>
+                  <Text style={[styles.otpInstruction, { color: colors.onSurfaceVariant }]}>
+                    Enter the 6-digit code sent to:
+                  </Text>
+                  <Text style={[styles.otpEmailBadge, { color: colors.primary }]}>{email}</Text>
+                </View>
+
+                {/* 6 Digit Pin Boxes */}
+                <View style={styles.otpBoxRow}>
+                  {otp.map((digit, idx) => (
+                    <TouchableOpacity
+                      key={idx}
+                      style={[
+                        styles.otpBox,
+                        {
+                          width: otpBoxWidth,
+                          height: Math.floor(otpBoxWidth * 1.18),
+                          backgroundColor: colors.surfaceContainerLow,
+                          borderColor: colors.primary,
+                        },
+                      ]}
+                      onPress={() => {
+                        triggerHaptic();
+                        const next = [...otp];
+                        next[idx] = String((Number(next[idx]) + 1) % 10);
+                        setOtp(next);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`OTP digit ${idx + 1}, current value ${digit}`}
+                      activeOpacity={0.7}>
+                      <Text style={[styles.otpDigit, { color: colors.onSurface }]}>{digit}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Button
+                  title={isLoading ? 'Verifying...' : 'Verify OTP & Log In'}
+                  variant="primary"
+                  size="lg"
+                  fullWidth
+                  loading={isLoading}
+                  leftIcon={<CheckCircle2 size={18} color="#fff" />}
+                  onPress={handleVerifyOtp}
+                  style={styles.primaryActionBtn}
+                />
+
+                <View style={styles.resendRow}>
+                  <Text style={[styles.timerText, { color: colors.onSurfaceVariant }]}>
+                    {timer > 0 ? `Resend OTP in ${timer}s` : 'Did not receive code?'}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={handleResendOtp}
+                    disabled={!canResend}
+                    accessibilityRole="button"
+                    accessibilityLabel="Resend OTP code"
+                    style={styles.resendBtn}>
+                    <RefreshCw
+                      size={14}
+                      color={canResend ? colors.primary : colors.outline}
+                    />
+                    <Text
+                      style={[
+                        styles.resendBtnText,
+                        { color: canResend ? colors.primary : colors.outline },
+                      ]}>
+                      Resend Code
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.changeEmailBtn}
+                  onPress={() => {
+                    triggerHaptic();
+                    setMode('login');
                   }}
                   accessibilityRole="button"
-                  accessibilityLabel={`OTP digit ${idx + 1}, current value ${digit}`}
+                  accessibilityLabel="Change email or sign in with different ID"
                   activeOpacity={0.7}>
-                  <Text style={[styles.otpDigit, { color: colors.onSurface }]}>{digit}</Text>
+                  <Text style={[styles.changeEmailText, { color: colors.onSurfaceVariant }]}>
+                    Change Email / Sign in with different ID
+                  </Text>
                 </TouchableOpacity>
-              ))}
-            </View>
+              </Card>
+            )}
 
-            <Button
-              title={isLoading ? 'Verifying...' : 'Verify OTP & Log In'}
-              variant="primary"
-              size="lg"
-              fullWidth
-              loading={isLoading}
-              leftIcon={<CheckCircle2 size={18} color="#fff" />}
-              onPress={handleVerifyOtp}
-            />
-
-            <View style={styles.resendRow}>
-              <Text style={[styles.timerText, { color: colors.onSurfaceVariant }]}>
-                {timer > 0 ? `Resend OTP in ${timer}s` : 'Did not receive code?'}
-              </Text>
-              <TouchableOpacity
-                onPress={handleResendOtp}
-                disabled={!canResend}
-                accessibilityRole="button"
-                accessibilityLabel="Resend OTP code"
-                style={styles.resendBtn}>
-                <RefreshCw
-                  size={13}
-                  color={canResend ? colors.primary : colors.outline}
-                />
-                <Text
-                  style={[
-                    styles.resendBtnText,
-                    { color: canResend ? colors.primary : colors.outline },
-                  ]}>
-                  Resend Code
+            {/* Security & Sovereign Compliance Footnote */}
+            <Card variant="outlined" padding="md" style={styles.securityBox}>
+              <ShieldCheck size={20} color={colors.secondary} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.securityTitle, { color: colors.onSurface }]}>
+                  DPDP Act 2023 Compliant
                 </Text>
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={styles.changeEmailBtn}
-              onPress={() => {
-                triggerHaptic();
-                setMode('login');
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Change email or sign in with different ID"
-              activeOpacity={0.7}>
-              <Text style={[styles.changeEmailText, { color: colors.onSurfaceVariant }]}>
-                Change Email / Sign in with different ID
-              </Text>
-            </TouchableOpacity>
-          </Card>
-        )}
-
-        {/* Security & Sovereign Compliance Footnote */}
-        <Card variant="outlined" padding="md" style={styles.securityBox}>
-          <ShieldCheck size={20} color={colors.secondary} />
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.securityTitle, { color: colors.onSurface }]}>
-              DPDP Act 2023 Compliant
-            </Text>
-            <Text style={[styles.securityDesc, { color: colors.onSurfaceVariant }]}>
-              All user coordinates and telematics data are encrypted on sovereign Indian cloud
-              infrastructure with differential privacy spatial obfuscation.
-            </Text>
+                <Text style={[styles.securityDesc, { color: colors.onSurfaceVariant }]}>
+                  All user coordinates and telematics data are encrypted on sovereign Indian cloud
+                  infrastructure with differential privacy spatial obfuscation.
+                </Text>
+              </View>
+            </Card>
           </View>
-        </Card>
-
-        <View style={{ height: Spacing.xl }} />
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -451,19 +474,28 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  keyboardAvoid: {
+    flex: 1,
+  },
+  scroll: {
+    padding: Spacing.md,
+    flexGrow: 1,
+  },
+  responsiveContent: {
+    width: '100%',
+    alignSelf: 'center',
+    gap: Spacing.md,
+  },
   guestBtn: {
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs + 2,
     borderRadius: Radius.sm,
+    minHeight: 36,
+    justifyContent: 'center',
   },
   guestText: {
     ...Typography.labelMedium,
     fontWeight: '700',
-  },
-  scroll: {
-    padding: Spacing.lg,
-    paddingBottom: 100,
-    gap: Spacing.md,
   },
   brandCard: {
     flexDirection: 'row',
@@ -493,6 +525,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: Radius.sm,
     alignItems: 'center',
+    minHeight: 40,
+    justifyContent: 'center',
   },
   tabBtnActive: {
     ...Shadows.xs,
@@ -502,11 +536,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   formCard: {
-    gap: 12,
+    gap: 14,
   },
   splitRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+  },
+  primaryActionBtn: {
+    marginTop: Spacing.xs,
+  },
+  secondaryActionBtn: {
+    marginTop: 2,
   },
   otpHeaderBox: {
     alignItems: 'center',
@@ -528,8 +568,6 @@ const styles = StyleSheet.create({
     marginVertical: Spacing.sm,
   },
   otpBox: {
-    width: 44,
-    height: 52,
     borderRadius: Radius.sm,
     borderWidth: 1.5,
     alignItems: 'center',
@@ -552,7 +590,10 @@ const styles = StyleSheet.create({
   resendBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
+    minHeight: 44,
+    paddingHorizontal: 8,
+    justifyContent: 'center',
   },
   resendBtnText: {
     ...Typography.labelMedium,
@@ -560,6 +601,8 @@ const styles = StyleSheet.create({
   },
   changeEmailBtn: {
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
     paddingVertical: Spacing.xs,
   },
   changeEmailText: {

@@ -10,7 +10,7 @@ import {
   FlatList,
   ListRenderItem,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
@@ -19,6 +19,7 @@ import {
   Copy,
   CheckCircle2,
   Phone,
+  ShieldCheck,
 } from 'lucide-react-native';
 import { useThemeColors } from '@/shared/hooks';
 import { Radius, Spacing, Typography } from '@/shared/constants/tokens';
@@ -31,6 +32,7 @@ import {
   MetricCard,
   SectionHeader,
 } from '@/shared/components/ui';
+import { DynamicAppIconSettingsCard } from '@/features/compass';
 import { haptics } from '@/shared/utils/haptics';
 
 interface LanguageItem {
@@ -101,6 +103,7 @@ const RECENT_TRIPS = [
 
 export default function ProfileScreen() {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
 
   const [selectedLanguage, setSelectedLanguage] = useState('hi');
   const [navicMode, setNavicMode] = useState(true);
@@ -183,9 +186,14 @@ export default function ProfileScreen() {
         }
       />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingBottom: Math.max(insets.bottom, 16) + 90 },
+        ]}
+        showsVerticalScrollIndicator={false}>
         {/* User Profile Card */}
-        <Animated.View entering={FadeInDown.duration(280).springify().damping(18)}>
+        <Animated.View entering={FadeInDown.duration(180).springify().damping(22)}>
           <Card variant="elevated" padding="md" style={styles.cardGap}>
             <View style={styles.profileTop}>
               <Avatar name="Aarav Sharma" size="lg" status="online" />
@@ -235,7 +243,7 @@ export default function ProfileScreen() {
         </Animated.View>
 
         {/* Live Activity Recognition State */}
-        <Animated.View entering={FadeInDown.delay(50).duration(280).springify().damping(18)}>
+        <Animated.View entering={FadeInDown.delay(20).duration(180).springify().damping(22)}>
           <Card variant="outlined" padding="md" style={styles.activityBanner}>
             <View style={styles.activityLeft}>
               <View style={[styles.activityIconRing, { backgroundColor: colors.primaryContainer }]}>
@@ -255,7 +263,7 @@ export default function ProfileScreen() {
         </Animated.View>
 
         {/* Saved Places */}
-        <Animated.View entering={FadeInDown.delay(100).duration(280).springify().damping(18)}>
+        <Animated.View entering={FadeInDown.delay(40).duration(180).springify().damping(22)}>
           <SectionHeader title="Saved Waypoints & DigiPINs" subtitle="Synchronized Sovereign Coordinates" />
 
           <Card variant="flat" padding="md" style={styles.cardGap}>
@@ -275,9 +283,10 @@ export default function ProfileScreen() {
                   <TouchableOpacity
                     onPress={() => handleCopyDigiPin(place.digiPin)}
                     style={styles.digiCopyPill}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     accessibilityRole="button"
                     accessibilityLabel={`Copy DigiPIN code ${place.digiPin}`}>
-                    <Copy size={10} color={colors.primary} />
+                    <Copy size={12} color={colors.primary} />
                     <Text style={[styles.digiCopyText, { color: colors.primary }]}>{place.digiPin}</Text>
                   </TouchableOpacity>
                 </View>
@@ -287,7 +296,7 @@ export default function ProfileScreen() {
         </Animated.View>
 
         {/* Multilingual Voice Guidance */}
-        <Animated.View entering={FadeInDown.delay(150).duration(280).springify().damping(18)}>
+        <Animated.View entering={FadeInDown.delay(60).duration(180).springify().damping(22)}>
           <SectionHeader title="Multilingual Voice Guidance" subtitle="Supported Regional Dialects" />
 
           <FlatList
@@ -301,7 +310,7 @@ export default function ProfileScreen() {
         </Animated.View>
 
         {/* Recent Navigation Trips */}
-        <Animated.View entering={FadeInDown.delay(200).duration(280).springify().damping(18)}>
+        <Animated.View entering={FadeInDown.delay(80).duration(180).springify().damping(22)}>
           <SectionHeader title="Recent Telematics History" subtitle="Trip Logs & FASTag Deductions" />
 
           <Card variant="flat" padding="md" style={styles.cardGap}>
@@ -329,7 +338,7 @@ export default function ProfileScreen() {
         </Animated.View>
 
         {/* Preferences Toggles */}
-        <Animated.View entering={FadeInDown.delay(250).duration(280).springify().damping(18)}>
+        <Animated.View entering={FadeInDown.delay(100).duration(180).springify().damping(22)}>
           <SectionHeader title="Navigation & Privacy Toggles" subtitle="ISRO NavIC · Anonymized Telematics" />
 
           <Card variant="flat" padding="md" style={styles.cardGap}>
@@ -380,6 +389,57 @@ export default function ProfileScreen() {
             </View>
           </Card>
         </Animated.View>
+
+        {/* Device Signals & Anti-Bot Telemetry */}
+        <Animated.View entering={FadeInDown.delay(100).duration(180).springify().damping(22)}>
+          <SectionHeader
+            title="Device Profiling & Security"
+            subtitle="138 Hardware, Integrity & Anti-Bot Telemetry Signals"
+          />
+          <Card variant="elevated" padding="md" style={styles.cardGap}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flex: 1, marginRight: 12 }}>
+                <Text style={{ ...Typography.titleMedium, fontWeight: '700', color: colors.onSurface }}>
+                  Security & Hardware Telemetry
+                </Text>
+                <Text style={{ ...Typography.bodySmall, color: colors.onSurfaceVariant, marginTop: 4 }}>
+                  SHA-256 fingerprint, sensor streams, root check, memory & OS specifications.
+                </Text>
+              </View>
+              <StatusBadge status="success" label="138 Signals" size="sm" />
+            </View>
+            <TouchableOpacity
+              style={{
+                marginTop: Spacing.md,
+                backgroundColor: colors.primary,
+                borderRadius: Radius.lg,
+                paddingVertical: 12,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+              }}
+              onPress={() => {
+                haptics.medium();
+                router.push('/device-signals');
+              }}
+              activeOpacity={0.85}>
+              <ShieldCheck size={16} color={colors.onPrimary} />
+              <Text style={{ ...Typography.labelMedium, fontWeight: '700', color: colors.onPrimary }}>
+                Inspect Device Telemetry Signals
+              </Text>
+            </TouchableOpacity>
+          </Card>
+        </Animated.View>
+
+        {/* Dynamic App Icon & Compass Orientation */}
+        <Animated.View entering={FadeInDown.delay(120).duration(180).springify().damping(22)}>
+          <SectionHeader
+            title="Dynamic Compass App Icon"
+            subtitle="Rotate OS Launcher Icon · iOS & Android"
+          />
+          <DynamicAppIconSettingsCard />
+        </Animated.View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -397,9 +457,11 @@ const styles = StyleSheet.create({
   sosQuickBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    minHeight: 34,
     borderRadius: Radius.full,
   },
   sosQuickText: {

@@ -1,3 +1,4 @@
+import { AppState, AppStateStatus } from 'react-native';
 import * as Location from 'expo-location';
 
 export interface LocationCoordinates {
@@ -33,6 +34,42 @@ class LocationService {
   private permissionGranted: boolean | null = null;
   private pendingPermissionPromise: Promise<boolean> | null = null;
   private pendingLocationPromise: Promise<LocationCoordinates> | null = null;
+  private isLowPowerModeEnabled: boolean = false;
+  private isPausedForBackground: boolean = false;
+
+  constructor() {
+    AppState.addEventListener('change', this.handleAppStateChange);
+  }
+
+  private handleAppStateChange = (nextAppState: AppStateStatus) => {
+    if (nextAppState === 'background' || nextAppState === 'inactive') {
+      if (this.subscription) {
+        this.subscription.remove();
+        this.subscription = null;
+        this.isPausedForBackground = true;
+      }
+    } else if (nextAppState === 'active') {
+      if (this.isPausedForBackground && this.subscribers.size > 0) {
+        this.isPausedForBackground = false;
+        this.restartSubscription();
+      }
+    }
+  };
+
+  /**
+   * Set low-power / battery-saver mode for location updates
+   */
+  setLowPowerMode(enabled: boolean): void {
+    if (this.isLowPowerModeEnabled === enabled) return;
+    this.isLowPowerModeEnabled = enabled;
+    if (this.subscription) {
+      this.restartSubscription();
+    }
+  }
+
+  isLowPowerMode(): boolean {
+    return this.isLowPowerModeEnabled;
+  }
 
   /**
    * Request Foreground Location Permissions (cached result & promise deduplication)
@@ -78,7 +115,9 @@ class LocationService {
     this.pendingLocationPromise = (async () => {
       try {
         const location = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
+          accuracy: this.isLowPowerModeEnabled
+            ? Location.Accuracy.Low
+            : Location.Accuracy.Balanced,
         });
 
         const coords: LocationCoordinates = {
@@ -104,11 +143,11 @@ class LocationService {
   }
 
   /**
-   * Start Live Position Watching with reference-counted subscribers
+   * Start Live Position Watching with reference-counted subscribers and battery-optimized intervals
    */
   async startLocationUpdates(
     callback: (location: LocationCoordinates) => void,
-    distanceIntervalMeters: number = 5
+    distanceIntervalMeters: number = 10
   ): Promise<boolean> {
     this.subscribers.add(callback);
     // Send immediate cached location so UI doesn't stutter or show empty
@@ -119,40 +158,61 @@ class LocationService {
       return false;
     }
 
-    if (this.subscribers.size === 1 && !this.subscription) {
-      try {
-        this.subscription = await Location.watchPositionAsync(
-          {
-            accuracy: Location.Accuracy.High,
-            distanceInterval: distanceIntervalMeters,
-            timeInterval: 2500,
-          },
-          (loc) => {
-            const coords: LocationCoordinates = {
-              latitude: loc.coords.latitude,
-              longitude: loc.coords.longitude,
-              altitude: loc.coords.altitude,
-              accuracy: loc.coords.accuracy,
-              heading: loc.coords.heading,
-              speed: loc.coords.speed,
-            };
-            this.lastLocation = coords;
-            this.subscribers.forEach((sub) => {
-              try {
-                sub(coords);
-              } catch (e) {
-                console.warn('Location subscriber error:', e);
-              }
-            });
-          }
-        );
-      } catch (error) {
-        console.warn('LocationService: Failed to start watchPositionAsync', error);
-        return false;
-      }
+    if (this.subscribers.size === 1 && !this.subscription && AppState.currentState === 'active') {
+      await this.restartSubscription(distanceIntervalMeters);
     }
 
     return true;
+  }
+
+  private async restartSubscription(distanceIntervalMeters: number = 10) {
+    if (this.subscription) {
+      this.subscription.remove();
+      this.subscription = null;
+    }
+
+    try {
+      const accuracy = this.isLowPowerModeEnabled
+        ? Location.Accuracy.Balanced
+        : Location.Accuracy.High;
+      const timeInterval = this.isLowPowerModeEnabled ? 10000 : 5000;
+      const dist = this.isLowPowerModeEnabled ? 20 : distanceIntervalMeters;
+
+      this.subscription = await Location.watchPositionAsync(
+        {
+          accuracy,
+          distanceInterval: dist,
+          timeInterval,
+        },
+        (loc) => {
+          const latDiff = Math.abs(loc.coords.latitude - this.lastLocation.latitude);
+          const lonDiff = Math.abs(loc.coords.longitude - this.lastLocation.longitude);
+          // Skip re-render broadcasts when device is stationary (within ~5m)
+          if (this.lastLocation && latDiff < 0.00005 && lonDiff < 0.00005) {
+            return;
+          }
+
+          const coords: LocationCoordinates = {
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+            altitude: loc.coords.altitude,
+            accuracy: loc.coords.accuracy,
+            heading: loc.coords.heading,
+            speed: loc.coords.speed,
+          };
+          this.lastLocation = coords;
+          this.subscribers.forEach((sub) => {
+            try {
+              sub(coords);
+            } catch (e) {
+              console.warn('Location subscriber error:', e);
+            }
+          });
+        }
+      );
+    } catch (error) {
+      console.warn('LocationService: Failed to start watchPositionAsync', error);
+    }
   }
 
   /**
@@ -173,3 +233,4 @@ class LocationService {
 }
 
 export const locationService = new LocationService();
+

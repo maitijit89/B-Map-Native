@@ -6,7 +6,7 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
@@ -45,6 +45,7 @@ const HIERARCHICAL_TIERS = [
 
 export default function DigiPinExplorerModal() {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   const [latInput, setLatInput] = useState('28.4986');
   const [lonInput, setLonInput] = useState('77.0878');
   const [activeDigiPin, setActiveDigiPin] = useState('28J4-K8M2-9P');
@@ -89,9 +90,15 @@ export default function DigiPinExplorerModal() {
         }}
       />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingBottom: Math.max(insets.bottom, 20) + 24 },
+        ]}
+        showsVerticalScrollIndicator={false}>
         {/* Giant Active DigiPIN Display Card */}
-        <Animated.View entering={FadeInDown.duration(350).springify().damping(16)}>
+        <Animated.View entering={FadeInDown.duration(180).springify().damping(22)}>
+
           <Card variant="elevated" padding="lg" style={styles.digiCard}>
             <View style={styles.digiCardTop}>
               <Badge label="SOVEREIGN POSTAL STANDARD" variant="primary" size="sm" showDot />
@@ -212,10 +219,11 @@ export default function DigiPinExplorerModal() {
           <Button
             title="Encode to 10-Char DigiPIN"
             variant="primary"
-            size="md"
+            size="lg"
             fullWidth
             leftIcon={<Sparkles size={16} color="#fff" />}
             onPress={handleEncode}
+            style={{ marginTop: 4 }}
           />
         </Card>
 
@@ -293,6 +301,7 @@ const styles = StyleSheet.create({
   },
   actionBtnFlex: {
     flex: 1,
+    minWidth: 130,
   },
   presetsTrack: {
     gap: 8,

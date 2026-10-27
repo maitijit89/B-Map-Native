@@ -57,13 +57,12 @@ export const Skeleton: React.FC<SkeletonProps> = ({
   }, [delay, duration, progress]);
 
   const animatedStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(progress.value, [0, 1], [0.35, 0.85]);
-    const scale = interpolate(progress.value, [0, 1], [0.99, 1.01]);
+    const opacity = interpolate(progress.value, [0, 1], [0.38, 0.75]);
     return {
       opacity,
-      transform: [{ scale }],
     };
   });
+
 
   const computedRadius =
     borderRadius !== undefined

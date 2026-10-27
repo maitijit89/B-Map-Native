@@ -36,8 +36,8 @@ export interface CardProps {
 }
 
 const SPRING_CONFIG = {
-  damping: 14,
-  stiffness: 320,
+  damping: 24,
+  stiffness: 340,
   mass: 0.5,
 };
 
@@ -58,7 +58,7 @@ export const Card: React.FC<CardProps> = React.memo(({
 
   const handlePressIn = useCallback(() => {
     if (!onPress) return;
-    scale.value = withSpring(0.97, SPRING_CONFIG);
+    scale.value = withSpring(0.985, SPRING_CONFIG);
     haptics.light();
   }, [onPress, scale]);
 
@@ -103,12 +103,13 @@ export const Card: React.FC<CardProps> = React.memo(({
 
   const enteringAnimation = useMemo(() => {
     return entering
-      ? FadeInDown.delay(enteringDelay).duration(320).springify().damping(15)
+      ? FadeInDown.delay(enteringDelay).duration(200).springify().damping(22)
       : undefined;
   }, [entering, enteringDelay]);
 
+
   if (onPress) {
-    return (
+    const pressableNode = (
       <AnimatedPressable
         onPress={onPress}
         onPressIn={handlePressIn}
@@ -116,7 +117,6 @@ export const Card: React.FC<CardProps> = React.memo(({
         accessibilityRole={accessibilityRole || 'button'}
         accessibilityLabel={accessibilityLabel}
         accessibilityState={accessibilityState}
-        entering={enteringAnimation}
         style={[
           styles.base,
           variantStyle,
@@ -127,6 +127,16 @@ export const Card: React.FC<CardProps> = React.memo(({
         {children}
       </AnimatedPressable>
     );
+
+    if (entering && enteringAnimation) {
+      return (
+        <Animated.View entering={enteringAnimation}>
+          {pressableNode}
+        </Animated.View>
+      );
+    }
+
+    return pressableNode;
   }
 
   if (entering) {

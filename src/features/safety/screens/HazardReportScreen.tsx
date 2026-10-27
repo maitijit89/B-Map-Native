@@ -7,8 +7,10 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
@@ -23,7 +25,7 @@ import {
   Zap,
 } from 'lucide-react-native';
 import { useThemeColors } from '@/shared/hooks';
-import { Radius, Spacing, Typography } from '@/shared/constants/tokens';
+import { Radius, Shadows, Spacing, Typography } from '@/shared/constants/tokens';
 import { Header, Card, Button } from '@/shared/components/ui';
 import { haptics } from '@/shared/utils/haptics';
 
@@ -44,6 +46,7 @@ const SEVERITY_LEVELS = [
 
 export default function HazardReportModal() {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   const [selectedHazard, setSelectedHazard] = useState('pothole');
   const [selectedSeverity, setSelectedSeverity] = useState('high');
   const [lanePosition, setLanePosition] = useState('Right Lane');
@@ -70,9 +73,19 @@ export default function HazardReportModal() {
         }}
       />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoid}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.scroll,
+            { paddingBottom: Math.max(insets.bottom, 20) + 80 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
         {/* Location & Sovereign DigiPIN Card */}
-        <Animated.View entering={FadeInDown.duration(350).springify().damping(16)}>
+        <Animated.View entering={FadeInDown.duration(180).springify().damping(22)}>
           <Card variant="elevated" padding="md" style={styles.locationCard}>
             <View style={styles.locationHeader}>
               <MapPin size={16} color={colors.primary} />
@@ -101,8 +114,9 @@ export default function HazardReportModal() {
             return (
               <Animated.View
                 key={ht.id}
-                entering={FadeInDown.delay(100 + idx * 40).duration(350).springify().damping(16)}
+                entering={FadeInDown.delay(20 + idx * 15).duration(180).springify().damping(22)}
                 style={styles.hazardChipWrapper}>
+
                 <TouchableOpacity
                   style={[
                     styles.hazardChip,
@@ -260,18 +274,31 @@ export default function HazardReportModal() {
           </View>
         </View>
 
-        {/* Submit Report Button */}
-        <Button
-          title="Broadcast Road Hazard Report"
-          variant="primary"
-          size="lg"
-          fullWidth
-          leftIcon={<Send size={18} color={colors.onPrimary} />}
-          onPress={handleSubmit}
-        />
+          <View style={{ height: Spacing.xl }} />
+        </ScrollView>
+      </KeyboardAvoidingView>
 
-        <View style={{ height: Spacing.xl }} />
-      </ScrollView>
+      {/* Docked Sticky Broadcast Action Bar */}
+      <View
+        style={[
+          styles.bottomDock,
+          {
+            backgroundColor: colors.surfaceContainerLowest,
+            borderTopColor: colors.surfaceContainerHigh,
+            paddingBottom: Math.max(insets.bottom, 12) + 8,
+          },
+        ]}>
+        <View style={styles.dockContent}>
+          <Button
+            title="Broadcast Road Hazard Report"
+            variant="primary"
+            size="lg"
+            fullWidth
+            leftIcon={<Send size={18} color={colors.onPrimary} />}
+            onPress={handleSubmit}
+          />
+        </View>
+      </View>
     </SafeAreaView>
   );
 }
@@ -366,4 +393,20 @@ const styles = StyleSheet.create({
   },
   trustTitle: { ...Typography.labelSmall, fontWeight: '700' },
   trustSub: { ...Typography.bodySmall, fontSize: 10, marginTop: 1 },
+  keyboardAvoid: { flex: 1 },
+  bottomDock: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopWidth: 1,
+    paddingTop: 10,
+    paddingHorizontal: Spacing.md,
+    ...Shadows.lg,
+  },
+  dockContent: {
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
+  },
 });

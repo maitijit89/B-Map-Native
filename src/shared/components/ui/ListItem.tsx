@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import {
   View,
   Text,
@@ -25,7 +25,7 @@ export interface ListItemProps {
   accessibilityLabel?: string;
 }
 
-export const ListItem: React.FC<ListItemProps> = ({
+export const ListItem: React.FC<ListItemProps> = memo(({
   title,
   subtitle,
   leading,
@@ -100,7 +100,9 @@ export const ListItem: React.FC<ListItemProps> = ({
       )}
     </View>
   );
-};
+});
+
+ListItem.displayName = 'ListItem';
 
 const styles = StyleSheet.create({
   wrapper: {

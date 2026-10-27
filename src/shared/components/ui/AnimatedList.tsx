@@ -17,8 +17,8 @@ export interface AnimatedListProps<T> extends Omit<FlatListProps<T>, 'renderItem
 
 export function AnimatedList<T>({
   renderItem,
-  itemDelay = 40,
-  maxStaggerItems = 12,
+  itemDelay = 20,
+  maxStaggerItems = 8,
   itemContainerStyle,
   ...flatListProps
 }: AnimatedListProps<T>) {
@@ -27,13 +27,14 @@ export function AnimatedList<T>({
 
     return (
       <Animated.View
-        entering={FadeInDown.delay(delay).duration(300).springify().damping(16)}
-        layout={Layout.springify().damping(15)}
+        entering={FadeInDown.delay(delay).duration(180).springify().damping(22)}
+        layout={Layout.springify().damping(22)}
         style={itemContainerStyle}>
         {renderItem(info)}
       </Animated.View>
     );
   };
+
 
   return <FlatList {...flatListProps} renderItem={animatedRenderItem} />;
 }

@@ -79,6 +79,7 @@ class CompassService {
   private motionSub: { remove: () => void } | null = null;
   private magSub: { remove: () => void } | null = null;
   private removeWebListener: (() => void) | null = null;
+  private subscriberMap = new Map<(data: CompassData) => void, { needsTilt?: boolean }>();
 
   private smoothedHeading = 0;
   private hasInitializedHeading = false;
@@ -87,10 +88,10 @@ class CompassService {
   private lastEmittedPitch = 0;
   private lastEmittedRoll = 0;
 
-  // 100ms hardware update interval (~10 updates/sec, optimal for compass without CPU load)
-  private readonly UPDATE_INTERVAL_MS = 100;
+  // 200ms hardware update interval (~5 updates/sec, optimal battery-performance balance)
+  private readonly UPDATE_INTERVAL_MS = 200;
   private readonly SMOOTHING_FACTOR = 0.25;
-  private readonly DEADBAND_DEG = 0.6;
+  private readonly DEADBAND_DEG = 1.2;
 
   constructor() {
     // Listen for AppState changes to automatically pause/resume hardware sensors
@@ -117,23 +118,40 @@ class CompassService {
   }
 
   /**
-   * Subscribe a listener to compass sensor updates.
+   * Subscribe a listener to compass sensor updates with optional tilt requirements.
    * Starts native sensors if this is the first subscriber.
    * Returns an unsubscribe function.
    */
-  subscribe(listener: (data: CompassData) => void): () => void {
+  subscribe(
+    listener: (data: CompassData) => void,
+    options?: { needsTilt?: boolean }
+  ): () => void {
     this.subscribers.add(listener);
+    this.subscriberMap.set(listener, options || {});
+
     // Send immediate cached value
     listener(this.currentData);
 
     if (this.subscribers.size === 1 && AppState.currentState === 'active') {
       this.startSensors();
+    } else if (options?.needsTilt && this.isRunning && !this.motionSub) {
+      // Start motion sensor if a new subscriber requires 3D tilt
+      this.startMotionSensor();
     }
 
     return () => {
       this.subscribers.delete(listener);
+      this.subscriberMap.delete(listener);
+
       if (this.subscribers.size === 0) {
         this.stopSensors();
+      } else {
+        // Stop motion sensor if no remaining subscribers need 3D tilt
+        const anyNeedsTilt = Array.from(this.subscriberMap.values()).some((opt) => opt.needsTilt);
+        if (!anyNeedsTilt && this.motionSub) {
+          this.motionSub.remove();
+          this.motionSub = null;
+        }
       }
     };
   }
@@ -188,8 +206,8 @@ class CompassService {
 
   private broadcast() {
     const now = Date.now();
-    // Throttle check (max 10-12 Hz)
-    if (now - this.lastBroadcastTime < 75) {
+    // Throttle check (~5 Hz max for low battery consumption)
+    if (now - this.lastBroadcastTime < 180) {
       return;
     }
 
@@ -260,10 +278,49 @@ class CompassService {
     // Native iOS / Android Lifecycle
     this.isLocationFusedStreaming = false;
 
-    // 1. Magnetometer
+    // Check if any subscriber requires 3D gyro motion
+    const anyNeedsTilt = Array.from(this.subscriberMap.values()).some((opt) => opt.needsTilt);
+    if (anyNeedsTilt) {
+      await this.startMotionSensor();
+    }
+
+    // 1. Location Fused Heading (High-precision tilt-compensated true heading)
+    try {
+      let perm = await Location.getForegroundPermissionsAsync();
+      if (!perm.granted && perm.canAskAgain) {
+        perm = await Location.requestForegroundPermissionsAsync();
+      }
+
+      if (perm.granted && this.isRunning) {
+        this.locationSub = await Location.watchHeadingAsync((headingData) => {
+          if (!this.isRunning) return;
+          const chosen =
+            headingData.trueHeading >= 0 ? headingData.trueHeading : headingData.magHeading;
+          if (typeof chosen === 'number' && !isNaN(chosen)) {
+            this.isLocationFusedStreaming = true;
+            // Stop raw magnetometer if fused location heading is active & working
+            if (this.magSub) {
+              this.magSub.remove();
+              this.magSub = null;
+            }
+            this.updateHeading(chosen, headingData.accuracy, 'location-fused');
+          }
+        });
+      }
+    } catch {
+      // Location heading unavailable
+    }
+
+    // 2. Fallback Magnetometer (only if Location fused heading is NOT streaming)
+    if (!this.isLocationFusedStreaming) {
+      await this.startMagnetometerSensor();
+    }
+  }
+
+  private async startMagnetometerSensor() {
     try {
       const magAvailable = await Magnetometer.isAvailableAsync();
-      if (magAvailable && this.isRunning) {
+      if (magAvailable && this.isRunning && !this.magSub) {
         Magnetometer.setUpdateInterval(this.UPDATE_INTERVAL_MS);
         this.magSub = Magnetometer.addListener((magData) => {
           if (!this.isRunning) return;
@@ -281,11 +338,12 @@ class CompassService {
         };
       }
     }
+  }
 
-    // 2. DeviceMotion for 3D gyro tilt
+  private async startMotionSensor() {
     try {
       const motionAvailable = await DeviceMotion.isAvailableAsync();
-      if (motionAvailable && this.isRunning) {
+      if (motionAvailable && this.isRunning && !this.motionSub) {
         DeviceMotion.setUpdateInterval(this.UPDATE_INTERVAL_MS);
         this.motionSub = DeviceMotion.addListener((motionData) => {
           if (!this.isRunning || !motionData.rotation) return;
@@ -303,28 +361,6 @@ class CompassService {
       }
     } catch {
       // DeviceMotion unavailable
-    }
-
-    // 3. Location Fused Heading (High-precision tilt-compensated true heading)
-    try {
-      let perm = await Location.getForegroundPermissionsAsync();
-      if (!perm.granted && perm.canAskAgain) {
-        perm = await Location.requestForegroundPermissionsAsync();
-      }
-
-      if (perm.granted && this.isRunning) {
-        this.locationSub = await Location.watchHeadingAsync((headingData) => {
-          if (!this.isRunning) return;
-          const chosen =
-            headingData.trueHeading >= 0 ? headingData.trueHeading : headingData.magHeading;
-          if (typeof chosen === 'number' && !isNaN(chosen)) {
-            this.isLocationFusedStreaming = true;
-            this.updateHeading(chosen, headingData.accuracy, 'location-fused');
-          }
-        });
-      }
-    } catch {
-      // Location heading unavailable
     }
   }
 

@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Animated, {
   useSharedValue,
@@ -62,6 +62,7 @@ const EMERGENCY_SERVICES = [
 
 export default function SosDistressModal() {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   const [countdown, setCountdown] = useState(5);
   const [isCountdownActive, setIsCountdownActive] = useState(true);
   const [beaconDispatched, setBeaconDispatched] = useState(false);
@@ -143,9 +144,14 @@ export default function SosDistressModal() {
         }}
       />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingBottom: Math.max(insets.bottom, 20) + 24 },
+        ]}
+        showsVerticalScrollIndicator={false}>
         {/* Pulsing Countdown Radar Box */}
-        <Animated.View entering={FadeInDown.duration(350).springify().damping(16)}>
+        <Animated.View entering={FadeInDown.duration(180).springify().damping(22)}>
           <View style={[styles.countdownCard, { backgroundColor: colors.surfaceContainer, borderColor: colors.error }]}>
             <Animated.View style={[styles.radarHalo, radarAnimatedStyle]} />
 
@@ -180,7 +186,7 @@ export default function SosDistressModal() {
         </Animated.View>
 
         {/* Live GPS & DigiPIN Coordinates Card */}
-        <Animated.View entering={FadeInDown.delay(100).duration(350).springify().damping(16)}>
+        <Animated.View entering={FadeInDown.delay(20).duration(180).springify().damping(22)}>
           <Card variant="flat" padding="md" style={[styles.telematicsCard, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant }]}>
             <View style={styles.telematicsHeader}>
               <Radio size={16} color={colors.primary} />
@@ -214,7 +220,7 @@ export default function SosDistressModal() {
         {EMERGENCY_SERVICES.map((serv, idx) => (
           <Animated.View
             key={serv.code}
-            entering={FadeInDown.delay(150 + idx * 70).duration(350).springify().damping(16)}>
+            entering={FadeInDown.delay(30 + idx * 20).duration(180).springify().damping(22)}>
             <TouchableOpacity
               style={[styles.serviceCard, { borderLeftColor: serv.color, backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant }]}
               onPress={() => handleCall(serv)}
@@ -238,7 +244,8 @@ export default function SosDistressModal() {
         ))}
 
         {/* Emergency Medical & ICE Contact Card */}
-        <Animated.View entering={FadeInDown.delay(450).duration(350).springify().damping(16)}>
+        <Animated.View entering={FadeInDown.delay(60).duration(180).springify().damping(22)}>
+
           <Card variant="flat" padding="md" style={[styles.iceCard, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant }]}>
             <View style={styles.iceHeader}>
               <Heart size={16} color={colors.error} />
@@ -293,13 +300,16 @@ const styles = StyleSheet.create({
   countdownNumber: { fontSize: 54, fontWeight: '900' },
   countdownLabel: { fontSize: 12, fontWeight: '700', textAlign: 'center' },
   cancelCountdownBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     borderRadius: Radius.md,
-    marginTop: 8,
+    marginTop: 10,
     borderWidth: 1,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  cancelCountdownText: { ...Typography.labelSmall, fontWeight: '800' },
+  cancelCountdownText: { ...Typography.labelSmall, fontWeight: '800', letterSpacing: 0.5 },
   dispatchedTitle: { ...Typography.titleMedium, fontWeight: '900', marginTop: 8 },
   dispatchedSub: { ...Typography.bodySmall, textAlign: 'center', marginTop: 2 },
   pausedTitle: { ...Typography.titleMedium, fontWeight: '800', marginTop: 8 },
@@ -335,7 +345,7 @@ const styles = StyleSheet.create({
   codeBadgeText: { fontSize: 10, fontWeight: '900', color: '#ffffff' },
   serviceSub: { ...Typography.bodySmall, marginTop: 2 },
   serviceDesc: { ...Typography.bodySmall, fontSize: 10, marginTop: 4 },
-  callBtnCircle: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  callBtnCircle: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
 
   iceCard: { borderWidth: 1 },
   iceHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },

@@ -36,9 +36,9 @@ export interface IconButtonProps {
 }
 
 const SPRING_CONFIG = {
-  damping: 14,
-  stiffness: 350,
-  mass: 0.5,
+  damping: 26,
+  stiffness: 380,
+  mass: 0.4,
 };
 
 export const IconButton: React.FC<IconButtonProps> = memo(({
@@ -55,13 +55,14 @@ export const IconButton: React.FC<IconButtonProps> = memo(({
 
   const handlePressIn = useCallback(() => {
     if (disabled) return;
-    scale.value = withSpring(0.92, SPRING_CONFIG);
+    scale.value = withSpring(0.94, SPRING_CONFIG);
     haptics.light();
   }, [disabled, scale]);
 
   const handlePressOut = useCallback(() => {
     scale.value = withSpring(1, SPRING_CONFIG);
   }, [scale]);
+
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -106,6 +107,7 @@ export const IconButton: React.FC<IconButtonProps> = memo(({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       disabled={disabled}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
       style={[

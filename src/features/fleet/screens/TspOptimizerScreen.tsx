@@ -6,8 +6,10 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { FadeInDown, FadeOut, Layout } from 'react-native-reanimated';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
   X,
@@ -20,6 +22,8 @@ import {
   Gauge,
   IndianRupee,
 } from 'lucide-react-native';
+import { haptics } from '../../../shared/utils/haptics';
+
 
 interface Waypoint {
   id: string;
@@ -39,11 +43,13 @@ const INITIAL_WAYPOINTS: Waypoint[] = [
 ];
 
 export default function TspOptimizerModal() {
+  const insets = useSafeAreaInsets();
   const [waypoints, setWaypoints] = useState<Waypoint[]>(INITIAL_WAYPOINTS);
   const [isOptimized, setIsOptimized] = useState(false);
   const [isCalculating, setIsCalculating] = useState(false);
 
   const handleRun2Opt = () => {
+    haptics.medium();
     setIsCalculating(true);
     setTimeout(() => {
       // 2-Opt TSP heuristic untangling simulation
@@ -65,10 +71,13 @@ export default function TspOptimizerModal() {
       setWaypoints(reordered);
       setIsOptimized(true);
       setIsCalculating(false);
-    }, 700);
+      haptics.success();
+    }, 600);
+
   };
 
   const handleReset = () => {
+    haptics.light();
     setWaypoints(INITIAL_WAYPOINTS);
     setIsOptimized(false);
   };
@@ -78,6 +87,7 @@ export default function TspOptimizerModal() {
       Alert.alert('Minimum Stops', 'TSP optimization requires at least 3 waypoints.');
       return;
     }
+    haptics.light();
     setWaypoints((prev) => prev.filter((w) => w.id !== id));
     setIsOptimized(false);
   };
@@ -100,7 +110,12 @@ export default function TspOptimizerModal() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingBottom: Math.max(insets.bottom, 20) + 80 },
+        ]}
+        showsVerticalScrollIndicator={false}>
         {/* Math & Algorithm Banner */}
         <View style={styles.algorithmCard}>
           <View style={styles.algorithmHeader}>
@@ -115,7 +130,9 @@ export default function TspOptimizerModal() {
         </View>
 
         {/* Efficiency Delta Metrics Banner */}
-        <View style={[styles.metricsBanner, isOptimized && styles.metricsBannerOptimized]}>
+        <Animated.View
+          layout={Layout.springify().damping(22).stiffness(300)}
+          style={[styles.metricsBanner, isOptimized && styles.metricsBannerOptimized]}>
           <View style={styles.metricsHeader}>
             <View style={styles.metricsBadge}>
               <Text style={styles.metricsBadgeText}>
@@ -123,10 +140,13 @@ export default function TspOptimizerModal() {
               </Text>
             </View>
             {isOptimized && (
-              <View style={styles.savingsPill}>
+              <Animated.View
+                entering={FadeInDown.duration(180)}
+                exiting={FadeOut.duration(140)}
+                style={styles.savingsPill}>
                 <TrendingDown size={12} color="#00C06D" />
                 <Text style={styles.savingsPillText}>-18.1% Distance Saved</Text>
-              </View>
+              </Animated.View>
             )}
           </View>
 
@@ -174,7 +194,7 @@ export default function TspOptimizerModal() {
               </Text>
             </View>
           </View>
-        </View>
+        </Animated.View>
 
         {/* Waypoints Sequence List */}
         <View style={styles.sectionHeaderRow}>
@@ -192,7 +212,12 @@ export default function TspOptimizerModal() {
           const isStart = idx === 0;
           const isEnd = idx === waypoints.length - 1;
           return (
-            <View key={wp.id} style={styles.waypointCard}>
+            <Animated.View
+              key={wp.id}
+              entering={FadeInDown.duration(180)}
+              exiting={FadeOut.duration(140)}
+              layout={Layout.springify().damping(22).stiffness(300)}
+              style={styles.waypointCard}>
               <View style={styles.stepNumCol}>
                 <View
                   style={[
@@ -225,35 +250,50 @@ export default function TspOptimizerModal() {
                   <Trash2 size={16} color="#BA1A1A" />
                 </TouchableOpacity>
               )}
-            </View>
+            </Animated.View>
           );
         })}
 
-        {/* Optimize Action Button */}
-        <TouchableOpacity
-          style={[styles.optimizeBtn, isOptimized && styles.optimizeBtnDone]}
-          onPress={isOptimized ? () => {
-            router.back();
-            router.push('/modal');
-          } : handleRun2Opt}
-          activeOpacity={0.85}>
-          {isOptimized ? (
-            <>
-              <Navigation size={18} color="#fff" />
-              <Text style={styles.optimizeBtnText}>Navigate Optimized Tour (39.8 km)</Text>
-            </>
-          ) : (
-            <>
-              <Sparkles size={18} color="#fff" />
-              <Text style={styles.optimizeBtnText}>
-                {isCalculating ? 'Computing 2-Opt Matrix...' : 'Optimize Waypoint Tour (2-Opt TSP)'}
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
-
         <View style={{ height: 24 }} />
       </ScrollView>
+
+      {/* Docked Sticky Optimize / Navigate Action Bar */}
+      <View
+        style={[
+          styles.bottomDock,
+          {
+            paddingBottom: Math.max(insets.bottom, 12) + 8,
+          },
+        ]}>
+        <View style={styles.dockContent}>
+          <TouchableOpacity
+            style={[styles.optimizeBtn, isOptimized && styles.optimizeBtnDone]}
+            disabled={isCalculating}
+            onPress={isOptimized ? () => {
+              router.back();
+              router.push('/modal');
+            } : handleRun2Opt}
+            activeOpacity={0.85}>
+            {isOptimized ? (
+              <>
+                <Navigation size={18} color="#fff" />
+                <Text style={styles.optimizeBtnText}>Navigate Optimized Tour (39.8 km)</Text>
+              </>
+            ) : isCalculating ? (
+              <>
+                <ActivityIndicator size="small" color="#fff" />
+                <Text style={styles.optimizeBtnText}>Computing 2-Opt Permutations...</Text>
+              </>
+            ) : (
+              <>
+                <Sparkles size={18} color="#fff" />
+                <Text style={styles.optimizeBtnText}>Optimize Waypoint Tour (2-Opt TSP)</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+
     </SafeAreaView>
   );
 }
@@ -404,4 +444,25 @@ const styles = StyleSheet.create({
     shadowColor: '#00C06D',
   },
   optimizeBtnText: { fontSize: 14, fontWeight: '800', color: '#ffffff' },
+  bottomDock: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#E8EEFF',
+    paddingTop: 10,
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 8,
+  },
+  dockContent: {
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
+  },
 });

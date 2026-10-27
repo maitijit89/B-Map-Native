@@ -7,8 +7,10 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Animated, {
   useSharedValue,
@@ -70,6 +72,7 @@ const getNextMsgId = () => {
 
 export default function AiCopilotModal() {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -217,7 +220,11 @@ export default function AiCopilotModal() {
         }
       />
 
-      {/* Suggested Quick Prompts Carousel */}
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoid}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}>
+        {/* Suggested Quick Prompts Carousel */}
       <Animated.View
         entering={FadeInDown.duration(280).springify().damping(16)}
         style={[styles.presetContainer, { borderBottomColor: colors.surfaceContainerHigh }]}>
@@ -382,6 +389,7 @@ export default function AiCopilotModal() {
           {
             backgroundColor: colors.surfaceContainerLowest,
             borderTopColor: colors.surfaceContainerHigh,
+            paddingBottom: Math.max(insets.bottom, 10),
           },
         ]}>
         <TouchableOpacity
@@ -439,12 +447,16 @@ export default function AiCopilotModal() {
           />
         </TouchableOpacity>
       </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  keyboardAvoid: {
     flex: 1,
   },
   presetContainer: {

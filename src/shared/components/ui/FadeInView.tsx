@@ -24,7 +24,7 @@ export interface FadeInViewProps {
 export const FadeInView: React.FC<FadeInViewProps> = ({
   children,
   delay = 0,
-  duration = 350,
+  duration = 200,
   direction = 'down',
   springify = true,
   style,
@@ -55,7 +55,7 @@ export const FadeInView: React.FC<FadeInViewProps> = ({
       configuredAnim = configuredAnim.delay(delay);
     }
     if (springify) {
-      configuredAnim = configuredAnim.springify().damping(16).stiffness(180);
+      configuredAnim = configuredAnim.springify().damping(22).stiffness(320);
     }
 
     return configuredAnim;
@@ -64,12 +64,13 @@ export const FadeInView: React.FC<FadeInViewProps> = ({
   return (
     <Animated.View
       entering={getEnteringAnimation()}
-      exiting={FadeOut.duration(200)}
-      layout={Layout.springify().damping(15)}
+      exiting={FadeOut.duration(150)}
+      layout={Layout.springify().damping(22)}
       style={style}>
       {children}
     </Animated.View>
   );
 };
+
 
 export default FadeInView;

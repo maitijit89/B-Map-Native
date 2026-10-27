@@ -22,14 +22,17 @@ export interface AnimatedPressableProps extends Omit<PressableProps, 'style'> {
   springConfig?: WithSpringConfig;
   enableHaptic?: boolean;
   hapticType?: 'light' | 'medium' | 'heavy' | 'selection' | 'rigid' | 'soft';
+  entering?: any;
+  exiting?: any;
+  layout?: any;
   style?: StyleProp<ViewStyle>;
   children: React.ReactNode | ((state: { pressed: boolean }) => React.ReactNode);
 }
 
 const DEFAULT_SPRING: WithSpringConfig = {
-  damping: 14,
-  stiffness: 320,
-  mass: 0.5,
+  damping: 26,
+  stiffness: 380,
+  mass: 0.4,
 };
 
 export const AnimatedPressable: React.FC<AnimatedPressableProps> = ({
@@ -37,12 +40,16 @@ export const AnimatedPressable: React.FC<AnimatedPressableProps> = ({
   onPress,
   onPressIn,
   onPressOut,
-  activeScale = 0.96,
-  activeOpacity = 0.9,
+  activeScale = 0.975,
+  activeOpacity = 0.92,
   springConfig = DEFAULT_SPRING,
   enableHaptic = true,
+
   hapticType = 'light',
   disabled = false,
+  entering,
+  exiting,
+  layout,
   style,
   ...rest
 }) => {
@@ -92,7 +99,7 @@ export const AnimatedPressable: React.FC<AnimatedPressableProps> = ({
     };
   });
 
-  return (
+  const content = (
     <AnimatedComponent
       onPress={onPress}
       onPressIn={handlePressIn}
@@ -103,6 +110,16 @@ export const AnimatedPressable: React.FC<AnimatedPressableProps> = ({
       {children}
     </AnimatedComponent>
   );
+
+  if (entering || exiting || layout) {
+    return (
+      <Animated.View entering={entering} exiting={exiting} layout={layout}>
+        {content}
+      </Animated.View>
+    );
+  }
+
+  return content;
 };
 
 export default AnimatedPressable;

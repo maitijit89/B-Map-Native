@@ -38,9 +38,9 @@ export interface ChipProps {
 }
 
 const SPRING_CONFIG = {
-  damping: 14,
-  stiffness: 350,
-  mass: 0.5,
+  damping: 26,
+  stiffness: 380,
+  mass: 0.4,
 };
 
 export const Chip: React.FC<ChipProps> = React.memo(({
@@ -61,7 +61,7 @@ export const Chip: React.FC<ChipProps> = React.memo(({
 
   const handlePressIn = useCallback(() => {
     if (disabled || !onPress) return;
-    scale.value = withSpring(0.93, SPRING_CONFIG);
+    scale.value = withSpring(0.96, SPRING_CONFIG);
     haptics.selection();
   }, [disabled, onPress, scale]);
 
@@ -69,6 +69,7 @@ export const Chip: React.FC<ChipProps> = React.memo(({
     if (disabled || !onPress) return;
     scale.value = withSpring(1, SPRING_CONFIG);
   }, [disabled, onPress, scale]);
+
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],

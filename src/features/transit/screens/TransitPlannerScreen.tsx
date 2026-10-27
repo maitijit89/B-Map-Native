@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import {
@@ -21,7 +21,7 @@ import {
   ArrowRight,
 } from 'lucide-react-native';
 import { useThemeColors } from '@/shared/hooks';
-import { Radius, Spacing, Typography } from '@/shared/constants/tokens';
+import { Radius, Shadows, Spacing, Typography } from '@/shared/constants/tokens';
 import { Header, Card, Button } from '@/shared/components/ui';
 import { haptics } from '@/shared/utils/haptics';
 
@@ -154,6 +154,7 @@ const METRO_LINES_STATUS = [
 
 export default function TransitPlannerScreen() {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   const [selectedPlan, setSelectedPlan] = useState<string>('1');
   const [showQrTicket, setShowQrTicket] = useState(false);
   const [ticketCountdown, setTicketCountdown] = useState(179);
@@ -224,9 +225,14 @@ export default function TransitPlannerScreen() {
         }
       />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingBottom: Math.max(insets.bottom, 20) + 24 },
+        ]}
+        showsVerticalScrollIndicator={false}>
         {/* Origin & Destination Card */}
-        <Animated.View entering={FadeInDown.duration(280).springify().damping(16)}>
+        <Animated.View entering={FadeInDown.duration(180).springify().damping(22)}>
           <Card variant="elevated" padding="md" style={styles.routeHeaderCard}>
             <View style={[styles.routePill, { backgroundColor: colors.surfaceContainerLow }]}>
               <View style={[styles.stationDot, { backgroundColor: '#FFD600' }]} />
@@ -253,7 +259,7 @@ export default function TransitPlannerScreen() {
         </Animated.View>
 
         {/* Live DMRC Network Status Bar */}
-        <Animated.View entering={FadeInDown.delay(50).duration(280).springify().damping(16)}>
+        <Animated.View entering={FadeInDown.delay(20).duration(180).springify().damping(22)}>
           <View style={styles.statusSection}>
             <Text style={[styles.statusSectionTitle, { color: colors.onSurface }]}>Live NCR Transit Feeds</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statusTrack}>
@@ -285,7 +291,7 @@ export default function TransitPlannerScreen() {
             return (
               <Animated.View
                 key={plan.id}
-                entering={FadeInDown.delay(75 + idx * 40).duration(280).springify().damping(16)}>
+                entering={FadeInDown.delay(30 + idx * 20).duration(180).springify().damping(22)}>
                 <TouchableOpacity
                   activeOpacity={0.8}
                   onPress={() => {
@@ -329,7 +335,8 @@ export default function TransitPlannerScreen() {
       </View>
 
         {/* Selected Plan Step-by-Step Breakdown */}
-        <Animated.View entering={FadeInDown.delay(100).duration(280).springify().damping(16)}>
+        <Animated.View entering={FadeInDown.delay(50).duration(180).springify().damping(22)}>
+
           <Card variant="flat" padding="md" style={styles.breakdownCard}>
             <Text style={[styles.breakdownTitle, { color: colors.onSurface }]}>Step-by-Step Navigation Legs</Text>
 
@@ -346,19 +353,43 @@ export default function TransitPlannerScreen() {
               </View>
             ))}
 
-            <View style={{ marginTop: 14 }}>
-              <Button
-                title="Book QR Metro & Transit Ticket"
-                onPress={handleBuyQrTicket}
-                size="md"
-                variant="primary"
-                fullWidth
-                leftIcon={<QrCode size={18} color={colors.onPrimary} />}
-              />
-            </View>
           </Card>
         </Animated.View>
       </ScrollView>
+
+      {/* Docked Sticky QR Ticket Booking Bar */}
+      <View
+        style={[
+          styles.bottomDock,
+          {
+            backgroundColor: colors.surfaceContainerLowest,
+            borderTopColor: colors.surfaceContainerHigh,
+            paddingBottom: Math.max(insets.bottom, 12) + 8,
+          },
+        ]}>
+        <View style={styles.dockContent}>
+          <View style={styles.dockSummary}>
+            <View style={styles.dockFareRow}>
+              <Text style={[styles.dockFareText, { color: colors.primary }]}>{activePlan.fare}</Text>
+              <Text style={[styles.dockTimeText, { color: colors.onSurface }]}>· {activePlan.duration}</Text>
+            </View>
+            <Text style={[styles.dockPlanTitle, { color: colors.onSurfaceVariant }]} numberOfLines={1}>
+              {activePlan.title}
+            </Text>
+          </View>
+
+          <View style={styles.dockButtonWrapper}>
+            <Button
+              title="Book QR Ticket"
+              onPress={handleBuyQrTicket}
+              size="md"
+              variant="primary"
+              leftIcon={<QrCode size={18} color={colors.onPrimary} />}
+              style={styles.dockBookBtn}
+            />
+          </View>
+        </View>
+      </View>
     </SafeAreaView>
   );
 }
@@ -369,7 +400,7 @@ const styles = StyleSheet.create({
   },
   scroll: {
     paddingHorizontal: Spacing.lg,
-    paddingBottom: 100,
+    paddingBottom: 120,
     gap: Spacing.md,
   },
   qrHeaderBtn: {
@@ -527,5 +558,52 @@ const styles = StyleSheet.create({
   segDur: {
     ...Typography.labelSmall,
     fontWeight: '800',
+  },
+  bottomDock: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopWidth: 1,
+    paddingTop: 10,
+    paddingHorizontal: Spacing.md,
+    ...Shadows.lg,
+  },
+  dockContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
+    gap: 12,
+  },
+  dockSummary: {
+    flex: 1,
+  },
+  dockFareRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  dockFareText: {
+    ...Typography.titleMedium,
+    fontWeight: '800',
+    fontSize: 20,
+  },
+  dockTimeText: {
+    ...Typography.titleSmall,
+    fontWeight: '700',
+  },
+  dockPlanTitle: {
+    ...Typography.bodySmall,
+    marginTop: 2,
+    fontSize: 12,
+  },
+  dockButtonWrapper: {
+    minWidth: 160,
+  },
+  dockBookBtn: {
+    height: 48,
   },
 });

@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   StyleSheet,
-  Dimensions,
+  useWindowDimensions,
   StyleProp,
   ViewStyle,
 } from 'react-native';
@@ -20,12 +20,11 @@ import Animated, {
   interpolate,
   Extrapolation,
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
 import { useThemeColors } from '../../hooks';
 import { Radius, Shadows, Spacing, Typography } from '../../constants/tokens';
 import { haptics } from '../../utils/haptics';
-
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export interface BottomSheetProps {
   visible: boolean;
@@ -39,10 +38,11 @@ export interface BottomSheetProps {
 }
 
 const SPRING_CONFIG = {
-  damping: 24,
-  stiffness: 240,
-  mass: 0.8,
+  damping: 28,
+  stiffness: 320,
+  mass: 0.5,
 };
+
 
 export const BottomSheet: React.FC<BottomSheetProps> = memo(({
   visible,
@@ -50,13 +50,18 @@ export const BottomSheet: React.FC<BottomSheetProps> = memo(({
   title,
   subtitle,
   children,
-  maxHeight = SCREEN_HEIGHT * 0.75,
+  maxHeight,
   showCloseButton = true,
   contentStyle,
 }) => {
+  const { height: screenHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const colors = useThemeColors();
-  const translateY = useSharedValue(SCREEN_HEIGHT);
+
+  const translateY = useSharedValue(screenHeight);
   const startY = useSharedValue(0);
+
+  const calculatedMaxHeight = maxHeight ?? screenHeight * 0.82;
 
   const handleDismiss = useCallback(() => {
     haptics.light();
@@ -68,17 +73,15 @@ export const BottomSheet: React.FC<BottomSheetProps> = memo(({
       startY.value = translateY.value;
     })
     .onUpdate((event) => {
-      // Only allow dragging down or slight elastic resistance dragging up
       if (event.translationY > 0) {
         translateY.value = startY.value + event.translationY;
       } else {
-        // Elastic pull up
         translateY.value = startY.value + event.translationY * 0.2;
       }
     })
     .onEnd((event) => {
       if (event.translationY > 100 || event.velocityY > 600) {
-        translateY.value = withTiming(SCREEN_HEIGHT, { duration: 220 }, () => {
+        translateY.value = withTiming(screenHeight, { duration: 220 }, () => {
           runOnJS(handleDismiss)();
         });
       } else {
@@ -90,9 +93,9 @@ export const BottomSheet: React.FC<BottomSheetProps> = memo(({
     if (visible) {
       translateY.value = withSpring(0, SPRING_CONFIG);
     } else {
-      translateY.value = withTiming(SCREEN_HEIGHT, { duration: 250 });
+      translateY.value = withTiming(screenHeight, { duration: 250 });
     }
-  }, [visible, translateY]);
+  }, [visible, translateY, screenHeight]);
 
   const sheetAnimatedStyle = useAnimatedStyle(() => {
     return {
@@ -103,7 +106,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = memo(({
   const backdropAnimatedStyle = useAnimatedStyle(() => {
     const opacity = interpolate(
       translateY.value,
-      [0, SCREEN_HEIGHT * 0.5, SCREEN_HEIGHT],
+      [0, screenHeight * 0.5, screenHeight],
       [1, 0.4, 0],
       Extrapolation.CLAMP
     );
@@ -127,7 +130,8 @@ export const BottomSheet: React.FC<BottomSheetProps> = memo(({
               styles.sheetContainer,
               {
                 backgroundColor: colors.surfaceContainerLowest,
-                maxHeight: maxHeight as any,
+                maxHeight: calculatedMaxHeight as any,
+                paddingBottom: Math.max(insets.bottom, Spacing.lg),
               },
               sheetAnimatedStyle,
             ]}>
@@ -176,7 +180,6 @@ const styles = StyleSheet.create({
   sheetContainer: {
     borderTopLeftRadius: Radius.xxl,
     borderTopRightRadius: Radius.xxl,
-    paddingBottom: Spacing.xl,
     ...Shadows.xl,
   },
   dragHandleHitSlop: {

@@ -15,19 +15,20 @@ export interface UseSpringPressOptions {
 }
 
 const DEFAULT_SPRING_CONFIG: WithSpringConfig = {
-  damping: 15,
-  stiffness: 300,
-  mass: 0.5,
+  damping: 26,
+  stiffness: 380,
+  mass: 0.4,
 };
 
 export function useSpringPress(options: UseSpringPressOptions = {}) {
   const {
-    activeScale = 0.96,
+    activeScale = 0.975,
     springConfig = DEFAULT_SPRING_CONFIG,
     enableHaptic = true,
     hapticType = 'light',
     disabled = false,
   } = options;
+
 
   const scale = useSharedValue(1);
 
