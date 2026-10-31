@@ -36,6 +36,8 @@ import {
   SectionHeader,
   EmptyState,
 } from '@/shared/components/ui';
+import { VoiceListeningModal } from '@/shared/components/voice/VoiceListeningModal';
+import { VoiceRecognitionResult } from '@/shared/services';
 
 interface SearchResult {
   id: string;
@@ -139,6 +141,13 @@ export default function SearchScreen() {
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
   const [recentList, setRecentList] = useState(RECENT_SEARCHES);
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
+
+  const handleVoiceResult = (res: VoiceRecognitionResult) => {
+    if (res.transcript) {
+      setQuery(res.transcript);
+    }
+  };
 
   const handleSelectResult = (_result: SearchResult) => {
     haptics.selection();
@@ -187,7 +196,7 @@ export default function SearchScreen() {
             onClear={() => setQuery('')}
             onMicPress={() => {
               haptics.medium();
-              router.push('/ai-copilot');
+              setShowVoiceModal(true);
             }}
           />
         </View>
@@ -439,6 +448,13 @@ export default function SearchScreen() {
 
         <View style={{ height: Spacing.xl }} />
       </ScrollView>
+
+      {/* Sovereign Flowstep Voice Listening Modal */}
+      <VoiceListeningModal
+        visible={showVoiceModal}
+        onClose={() => setShowVoiceModal(false)}
+        onResult={handleVoiceResult}
+      />
     </SafeAreaView>
   );
 }

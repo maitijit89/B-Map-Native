@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export interface SavedPlaceItem {
   id: string;
@@ -11,29 +11,38 @@ export interface SavedPlaceItem {
 }
 
 export type VoiceLanguageCode =
-  | 'en'
-  | 'bn'
-  | 'hi'
-  | 'ta'
-  | 'te'
-  | 'mr'
-  | 'gu'
-  | 'kn'
-  | 'ml'
-  | 'pa'
-  | 'or'
-  | 'as';
+  | "en"
+  | "bn"
+  | "hi"
+  | "ta"
+  | "te"
+  | "mr"
+  | "gu"
+  | "kn"
+  | "ml"
+  | "pa"
+  | "or"
+  | "as";
+
+export type UserGender = "male" | "female" | "other";
+export type VoiceGender = "female" | "male";
+
+export function getPairedVoiceGender(gender: UserGender): VoiceGender {
+  return gender === "male" ? "female" : "male";
+}
 
 export interface UserPreferences {
-  theme: 'light' | 'dark' | 'system';
+  theme: "light" | "dark" | "system";
   voiceGuidance: boolean;
   voiceVolume: number;
   voiceLanguage: VoiceLanguageCode;
   speedLimitAlerts: boolean;
-  unitSystem: 'metric' | 'imperial';
+  unitSystem: "metric" | "imperial";
   hapticFeedback: boolean;
   trafficOverlay: boolean;
   evConnectorTypes: string[];
+  userGender?: UserGender;
+  voiceGender?: VoiceGender;
 }
 
 export interface EvVehicleProfile {
@@ -50,36 +59,42 @@ export interface UserProfileData {
   phone: string;
   digipin?: string;
   bloodGroup?: string;
+  gender: UserGender;
+  voiceGender?: VoiceGender;
 }
 
 export const DEFAULT_USER_PROFILE: UserProfileData = {
-  name: 'Aarav Sharma',
-  email: 'aarav.sharma@example.com',
-  phone: '+91 98765 43210',
-  digipin: '28J4-K8M2-9P',
-  bloodGroup: 'O+',
+  name: "Aarav Sharma",
+  email: "aarav.sharma@example.com",
+  phone: "+91 98765 43210",
+  digipin: "28J4-K8M2-9P",
+  bloodGroup: "O+",
+  gender: "male",
+  voiceGender: "female",
 };
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
-  theme: 'system',
+  theme: "system",
   voiceGuidance: true,
   voiceVolume: 1.0,
-  voiceLanguage: 'en',
+  voiceLanguage: "en",
   speedLimitAlerts: true,
-  unitSystem: 'metric',
-  hapticFeedback: true,
+  unitSystem: "metric",
+  hapticFeedback: false,
   trafficOverlay: true,
-  evConnectorTypes: ['CCS2', 'Type 2'],
+  evConnectorTypes: ["CCS2", "Type 2"],
+  userGender: "male",
+  voiceGender: "female",
 };
 
 const STORAGE_KEYS = {
-  PREFERENCES: '@bmap/user_preferences',
-  SAVED_PLACES: '@bmap/saved_places',
-  SEARCH_HISTORY: '@bmap/search_history',
-  EV_PROFILE: '@bmap/ev_profile',
-  OFFLINE_REGIONS: '@bmap/offline_regions',
-  RESERVATIONS: '@bmap/reservations',
-  USER_PROFILE: '@bmap/user_profile',
+  PREFERENCES: "@bmap/user_preferences",
+  SAVED_PLACES: "@bmap/saved_places",
+  SEARCH_HISTORY: "@bmap/search_history",
+  EV_PROFILE: "@bmap/ev_profile",
+  OFFLINE_REGIONS: "@bmap/offline_regions",
+  RESERVATIONS: "@bmap/reservations",
+  USER_PROFILE: "@bmap/user_profile",
 };
 
 /**
@@ -105,22 +120,27 @@ class StorageService {
       }
     } catch (e) {
       if (__DEV__) {
-        console.debug('StorageService: Failed to load preferences', e);
+        console.debug("StorageService: Failed to load preferences", e);
       }
     }
     this.cache.set(STORAGE_KEYS.PREFERENCES, DEFAULT_PREFERENCES);
     return DEFAULT_PREFERENCES;
   }
 
-  async savePreferences(preferences: Partial<UserPreferences>): Promise<UserPreferences> {
+  async savePreferences(
+    preferences: Partial<UserPreferences>,
+  ): Promise<UserPreferences> {
     const current = await this.getPreferences();
     const updated = { ...current, ...preferences };
     this.cache.set(STORAGE_KEYS.PREFERENCES, updated);
     try {
-      await AsyncStorage.setItem(STORAGE_KEYS.PREFERENCES, JSON.stringify(updated));
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.PREFERENCES,
+        JSON.stringify(updated),
+      );
     } catch (e) {
       if (__DEV__) {
-        console.debug('StorageService: Failed to save preferences', e);
+        console.debug("StorageService: Failed to save preferences", e);
       }
     }
     return updated;
@@ -140,13 +160,15 @@ class StorageService {
       return loaded;
     } catch (e) {
       if (__DEV__) {
-        console.debug('StorageService: Failed to load saved places', e);
+        console.debug("StorageService: Failed to load saved places", e);
       }
       return [];
     }
   }
 
-  async addSavedPlace(place: Omit<SavedPlaceItem, 'id' | 'createdAt'>): Promise<SavedPlaceItem[]> {
+  async addSavedPlace(
+    place: Omit<SavedPlaceItem, "id" | "createdAt">,
+  ): Promise<SavedPlaceItem[]> {
     const current = await this.getSavedPlaces();
     const newItem: SavedPlaceItem = {
       ...place,
@@ -156,10 +178,13 @@ class StorageService {
     const updated = [newItem, ...current.filter((p) => p.name !== place.name)];
     this.cache.set(STORAGE_KEYS.SAVED_PLACES, updated);
     try {
-      await AsyncStorage.setItem(STORAGE_KEYS.SAVED_PLACES, JSON.stringify(updated));
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.SAVED_PLACES,
+        JSON.stringify(updated),
+      );
     } catch (e) {
       if (__DEV__) {
-        console.debug('StorageService: Failed to add saved place', e);
+        console.debug("StorageService: Failed to add saved place", e);
       }
     }
     return updated;
@@ -170,10 +195,13 @@ class StorageService {
     const updated = current.filter((p) => p.id !== id);
     this.cache.set(STORAGE_KEYS.SAVED_PLACES, updated);
     try {
-      await AsyncStorage.setItem(STORAGE_KEYS.SAVED_PLACES, JSON.stringify(updated));
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.SAVED_PLACES,
+        JSON.stringify(updated),
+      );
     } catch (e) {
       if (__DEV__) {
-        console.debug('StorageService: Failed to remove saved place', e);
+        console.debug("StorageService: Failed to remove saved place", e);
       }
     }
     return updated;
@@ -205,10 +233,13 @@ class StorageService {
     ].slice(0, 15);
     this.cache.set(STORAGE_KEYS.SEARCH_HISTORY, updated);
     try {
-      await AsyncStorage.setItem(STORAGE_KEYS.SEARCH_HISTORY, JSON.stringify(updated));
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.SEARCH_HISTORY,
+        JSON.stringify(updated),
+      );
     } catch (e) {
       if (__DEV__) {
-        console.debug('StorageService: Failed to add search query', e);
+        console.debug("StorageService: Failed to add search query", e);
       }
     }
     return updated;
@@ -220,7 +251,7 @@ class StorageService {
       await AsyncStorage.removeItem(STORAGE_KEYS.SEARCH_HISTORY);
     } catch (e) {
       if (__DEV__) {
-        console.debug('StorageService: Failed to clear search history', e);
+        console.debug("StorageService: Failed to clear search history", e);
       }
     }
   }
@@ -245,10 +276,13 @@ class StorageService {
   async saveEvProfile(profile: EvVehicleProfile): Promise<void> {
     this.cache.set(STORAGE_KEYS.EV_PROFILE, profile);
     try {
-      await AsyncStorage.setItem(STORAGE_KEYS.EV_PROFILE, JSON.stringify(profile));
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.EV_PROFILE,
+        JSON.stringify(profile),
+      );
     } catch (e) {
       if (__DEV__) {
-        console.debug('StorageService: Failed to save EV profile', e);
+        console.debug("StorageService: Failed to save EV profile", e);
       }
     }
   }
@@ -274,15 +308,20 @@ class StorageService {
     return DEFAULT_USER_PROFILE;
   }
 
-  async saveUserProfile(profile: Partial<UserProfileData>): Promise<UserProfileData> {
+  async saveUserProfile(
+    profile: Partial<UserProfileData>,
+  ): Promise<UserProfileData> {
     const current = await this.getUserProfile();
     const updated = { ...current, ...profile };
     this.cache.set(STORAGE_KEYS.USER_PROFILE, updated);
     try {
-      await AsyncStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(updated));
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.USER_PROFILE,
+        JSON.stringify(updated),
+      );
     } catch (e) {
       if (__DEV__) {
-        console.debug('StorageService: Failed to save user profile', e);
+        console.debug("StorageService: Failed to save user profile", e);
       }
     }
     return updated;

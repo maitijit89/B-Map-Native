@@ -326,6 +326,12 @@ export default function VehicleFleetScreen() {
                         {v.numberPlate} · {v.vehicleClass}
                       </Text>
                     </View>
+                    {isSelected && (
+                      <View style={[styles.activeVehiclePill, { backgroundColor: colors.primaryContainer }]}>
+                        <CheckCircle2 size={12} color={colors.primary} />
+                        <Text style={[styles.activeVehiclePillText, { color: colors.primary }]}>Active</Text>
+                      </View>
+                    )}
                   </View>
                 </Card>
               </Animated.View>
@@ -499,6 +505,18 @@ const styles = StyleSheet.create({
   vehiclePlate: {
     ...Typography.bodySmall,
     marginTop: 2,
+  },
+  activeVehiclePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: Radius.full,
+  },
+  activeVehiclePillText: {
+    fontSize: 10,
+    fontWeight: '800',
   },
   statementCard: {
     borderRadius: Radius.xl,

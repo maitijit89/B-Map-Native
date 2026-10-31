@@ -1,9 +1,17 @@
-import { Platform } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from "expo-haptics";
+import { Platform } from "react-native";
+
+// Global vibration toggle - explicitly disabled by default per user request: "stop app vribation"
+let isVibrationEnabled = false;
 
 export const haptics = {
-  light: () => {
-    if (Platform.OS === 'ios' || Platform.OS === 'android') {
+  isEnabled: (): boolean => isVibrationEnabled,
+  setEnabled: (enabled: boolean): void => {
+    isVibrationEnabled = enabled;
+  },
+  light: (): void => {
+    if (!isVibrationEnabled) return;
+    if (Platform.OS === "ios" || Platform.OS === "android") {
       try {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       } catch {
@@ -11,8 +19,9 @@ export const haptics = {
       }
     }
   },
-  medium: () => {
-    if (Platform.OS === 'ios' || Platform.OS === 'android') {
+  medium: (): void => {
+    if (!isVibrationEnabled) return;
+    if (Platform.OS === "ios" || Platform.OS === "android") {
       try {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       } catch {
@@ -20,8 +29,9 @@ export const haptics = {
       }
     }
   },
-  heavy: () => {
-    if (Platform.OS === 'ios' || Platform.OS === 'android') {
+  heavy: (): void => {
+    if (!isVibrationEnabled) return;
+    if (Platform.OS === "ios" || Platform.OS === "android") {
       try {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
       } catch {
@@ -29,8 +39,9 @@ export const haptics = {
       }
     }
   },
-  rigid: () => {
-    if (Platform.OS === 'ios' || Platform.OS === 'android') {
+  rigid: (): void => {
+    if (!isVibrationEnabled) return;
+    if (Platform.OS === "ios" || Platform.OS === "android") {
       try {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid);
       } catch {
@@ -38,8 +49,9 @@ export const haptics = {
       }
     }
   },
-  soft: () => {
-    if (Platform.OS === 'ios' || Platform.OS === 'android') {
+  soft: (): void => {
+    if (!isVibrationEnabled) return;
+    if (Platform.OS === "ios" || Platform.OS === "android") {
       try {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
       } catch {
@@ -47,8 +59,9 @@ export const haptics = {
       }
     }
   },
-  selection: () => {
-    if (Platform.OS === 'ios' || Platform.OS === 'android') {
+  selection: (): void => {
+    if (!isVibrationEnabled) return;
+    if (Platform.OS === "ios" || Platform.OS === "android") {
       try {
         Haptics.selectionAsync();
       } catch {
@@ -56,8 +69,9 @@ export const haptics = {
       }
     }
   },
-  success: () => {
-    if (Platform.OS === 'ios' || Platform.OS === 'android') {
+  success: (): void => {
+    if (!isVibrationEnabled) return;
+    if (Platform.OS === "ios" || Platform.OS === "android") {
       try {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       } catch {
@@ -65,8 +79,9 @@ export const haptics = {
       }
     }
   },
-  warning: () => {
-    if (Platform.OS === 'ios' || Platform.OS === 'android') {
+  warning: (): void => {
+    if (!isVibrationEnabled) return;
+    if (Platform.OS === "ios" || Platform.OS === "android") {
       try {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       } catch {
@@ -74,8 +89,9 @@ export const haptics = {
       }
     }
   },
-  error: () => {
-    if (Platform.OS === 'ios' || Platform.OS === 'android') {
+  error: (): void => {
+    if (!isVibrationEnabled) return;
+    if (Platform.OS === "ios" || Platform.OS === "android") {
       try {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       } catch {

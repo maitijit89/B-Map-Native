@@ -22,6 +22,10 @@ import {
   Volume2,
   Bell,
   ChevronRight,
+  User,
+  Sparkles,
+  Play,
+  ArrowRight,
 } from 'lucide-react-native';
 import { useThemeColors } from '@/shared/hooks';
 import { Radius, Spacing, Typography } from '@/shared/constants/tokens';
@@ -44,6 +48,9 @@ import {
   storageService,
   UserProfileData,
   DEFAULT_USER_PROFILE,
+  UserGender,
+  VoiceGender,
+  getPairedVoiceGender,
 } from '@/shared/services';
 
 const SAVED_PLACES = [
@@ -99,28 +106,52 @@ export default function ProfileScreen() {
     voiceLanguageService.getLanguage()
   );
   const [userProfile, setUserProfile] = useState<UserProfileData>(DEFAULT_USER_PROFILE);
+  const [userGender, setUserGender] = useState<UserGender>(speechService.getUserGender());
+  const [voiceGender, setVoiceGender] = useState<VoiceGender>(speechService.getVoiceGender());
   const [navicMode, setNavicMode] = useState(true);
   const [differentialPrivacy, setDifferentialPrivacy] = useState(false);
   const [speedAlerts, setSpeedAlerts] = useState(true);
+  const [hapticVibration, setHapticVibration] = useState(haptics.isEnabled());
 
   // Sync user profile & voice language preference from storage & subscriptions
   useEffect(() => {
     let isMounted = true;
     storageService.getUserProfile().then((prof) => {
-      if (isMounted) setUserProfile(prof);
+      if (isMounted) {
+        setUserProfile(prof);
+        if (prof.gender) {
+          setUserGender(prof.gender);
+          setVoiceGender(getPairedVoiceGender(prof.gender));
+        }
+      }
+    });
+
+    storageService.getPreferences().then((pref) => {
+      if (isMounted && pref.hapticFeedback !== undefined) {
+        setHapticVibration(pref.hapticFeedback);
+        haptics.setEnabled(pref.hapticFeedback);
+      }
     });
 
     voiceLanguageService.init().then((lang) => {
       if (isMounted) setSelectedLanguage(lang);
     });
 
-    const unsubscribe = voiceLanguageService.subscribe((lang) => {
+    const unsubscribeLang = voiceLanguageService.subscribe((lang) => {
       if (isMounted) setSelectedLanguage(lang);
+    });
+
+    const unsubscribeSpeech = speechService.subscribe((vGender, uGender) => {
+      if (isMounted) {
+        setVoiceGender(vGender);
+        setUserGender(uGender);
+      }
     });
 
     return () => {
       isMounted = false;
-      unsubscribe();
+      unsubscribeLang();
+      unsubscribeSpeech();
     };
   }, []);
 
@@ -134,6 +165,15 @@ export default function ProfileScreen() {
     setSelectedLanguage(code);
     await speechService.switchLanguageAndSpeak(code);
   }, []);
+
+  const handleSelectUserGender = useCallback(async (gender: UserGender) => {
+    haptics.medium();
+    const paired = await speechService.setUserGender(gender);
+    setUserGender(gender);
+    setVoiceGender(paired);
+    setUserProfile((prev) => ({ ...prev, gender, voiceGender: paired }));
+    await speechService.speakVoiceSample(selectedLanguage);
+  }, [selectedLanguage]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
@@ -179,6 +219,11 @@ export default function ProfileScreen() {
                 </Text>
                 <View style={styles.badgeRow}>
                   <Badge label="VIP Navigator Level 4" variant="primary" size="sm" showDot />
+                  <Badge
+                    label={userGender === 'male' ? '♂ Male User (♀ Female Voice)' : '♀ Female User (♂ Male Voice)'}
+                    variant="neutral"
+                    size="sm"
+                  />
                 </View>
               </View>
             </View>
@@ -342,6 +387,156 @@ export default function ProfileScreen() {
           </Card>
         </Animated.View>
 
+        {/* Smart Voice Gender Pairing (Male User -> Female Voice, Female User -> Male Voice) */}
+        <Animated.View entering={fluidEntering(70)}>
+          <SectionHeader
+            title="Smart Voice Gender Pairing"
+            subtitle="Auto-Pairing: Male User → Female Voice · Female User → Male Voice"
+          />
+
+          <Card variant="flat" padding="md" style={styles.cardGap}>
+            <View style={styles.genderPairingHeader}>
+              <View style={[styles.voiceIconRing, { backgroundColor: colors.secondaryContainer }]}>
+                <Sparkles size={18} color={colors.secondary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.voiceActiveTitle, { color: colors.onSurface }]}>
+                  Adaptive Voice Pairing Active
+                </Text>
+                <Text style={[styles.voiceActiveSub, { color: colors.onSurfaceVariant }]}>
+                  Opposite-gender acoustics for highest driver alertness
+                </Text>
+              </View>
+              <Badge
+                label={voiceGender === 'female' ? '♀ Female Voice' : '♂ Male Voice'}
+                variant={voiceGender === 'female' ? 'primary' : 'success'}
+                size="sm"
+              />
+            </View>
+
+            {/* User Gender Selection Chips */}
+            <Text style={[styles.genderSelectLabel, { color: colors.onSurfaceVariant }]}>
+              SELECT YOUR GENDER (AUTO-PAIRS APP VOICE):
+            </Text>
+            <View style={styles.genderChipRow}>
+              <TouchableOpacity
+                style={[
+                  styles.genderChip,
+                  {
+                    backgroundColor:
+                      userGender === 'male'
+                        ? colors.primaryContainer
+                        : colors.surfaceContainerLow,
+                    borderColor:
+                      userGender === 'male'
+                        ? colors.primary
+                        : colors.surfaceContainerHigh,
+                  },
+                ]}
+                onPress={() => handleSelectUserGender('male')}
+                accessibilityRole="button"
+                accessibilityLabel="Select Male gender. App voice will be Female."
+                activeOpacity={0.8}>
+                <User size={16} color={userGender === 'male' ? colors.primary : colors.onSurfaceVariant} />
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[
+                      styles.genderChipTitle,
+                      { color: userGender === 'male' ? colors.primary : colors.onSurface },
+                    ]}>
+                    Male (पुरुष / পুরুষ)
+                  </Text>
+                  <Text
+                    style={[
+                      styles.genderChipSub,
+                      { color: userGender === 'male' ? colors.primary : colors.onSurfaceVariant },
+                    ]}>
+                    → Female Voice (1.18x)
+                  </Text>
+                </View>
+                {userGender === 'male' && <CheckCircle2 size={16} color={colors.primary} />}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.genderChip,
+                  {
+                    backgroundColor:
+                      userGender === 'female'
+                        ? colors.primaryContainer
+                        : colors.surfaceContainerLow,
+                    borderColor:
+                      userGender === 'female'
+                        ? colors.primary
+                        : colors.surfaceContainerHigh,
+                  },
+                ]}
+                onPress={() => handleSelectUserGender('female')}
+                accessibilityRole="button"
+                accessibilityLabel="Select Female gender. App voice will be Male."
+                activeOpacity={0.8}>
+                <User size={16} color={userGender === 'female' ? colors.primary : colors.onSurfaceVariant} />
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[
+                      styles.genderChipTitle,
+                      { color: userGender === 'female' ? colors.primary : colors.onSurface },
+                    ]}>
+                    Female (महिला / মহিলা)
+                  </Text>
+                  <Text
+                    style={[
+                      styles.genderChipSub,
+                      { color: userGender === 'female' ? colors.primary : colors.onSurfaceVariant },
+                    ]}>
+                    → Male Voice (0.88x)
+                  </Text>
+                </View>
+                {userGender === 'female' && <CheckCircle2 size={16} color={colors.primary} />}
+              </TouchableOpacity>
+            </View>
+
+            {/* Active Pairing Diagram & Test Audio Button */}
+            <View
+              style={[
+                styles.pairingSchematic,
+                {
+                  backgroundColor: colors.surfaceContainerLow,
+                  borderColor: colors.surfaceContainerHigh,
+                },
+              ]}>
+              <View style={styles.schematicNode}>
+                <Text style={[styles.schematicRole, { color: colors.onSurfaceVariant }]}>USER IDENTITY</Text>
+                <Text style={[styles.schematicValue, { color: colors.onSurface }]}>
+                  {userGender === 'male' ? '♂ Male (Aarav)' : '♀ Female (Aanya)'}
+                </Text>
+              </View>
+
+              <ArrowRight size={16} color={colors.primary} />
+
+              <View style={styles.schematicNode}>
+                <Text style={[styles.schematicRole, { color: colors.onSurfaceVariant }]}>PAIRED APP VOICE</Text>
+                <Text style={[styles.schematicValue, { color: colors.primary }]}>
+                  {voiceGender === 'female' ? '♀ Female (1.18x Pitch)' : '♂ Male (0.88x Pitch)'}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.testVoiceBtn,
+                  { backgroundColor: colors.primary },
+                ]}
+                onPress={() => speechService.speakVoiceSample(selectedLanguage)}
+                accessibilityRole="button"
+                accessibilityLabel="Test active voice sample"
+                activeOpacity={0.85}>
+                <Play size={13} color="#fff" />
+                <Text style={styles.testVoiceText}>Play Sample</Text>
+              </TouchableOpacity>
+            </View>
+          </Card>
+        </Animated.View>
+
         {/* Recent Navigation Trips */}
         <Animated.View entering={fluidEntering(80)}>
           <SectionHeader title="Recent Telematics History" subtitle="Trip Logs & FASTag Deductions" />
@@ -417,6 +612,25 @@ export default function ProfileScreen() {
                 onValueChange={(val) => {
                   haptics.selection();
                   setSpeedAlerts(val);
+                }}
+              />
+            </View>
+
+            <View style={[styles.toggleDivider, { backgroundColor: colors.surfaceContainerHigh }]} />
+
+            <View style={styles.toggleRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.toggleTitle, { color: colors.onSurface }]}>Haptic Vibration Feedback</Text>
+                <Text style={[styles.toggleSub, { color: colors.onSurfaceVariant }]}>
+                  {hapticVibration ? 'Enabled on buttons & task bar' : 'Stopped (Silent touch & task bar)'}
+                </Text>
+              </View>
+              <Switch
+                value={hapticVibration}
+                onValueChange={(val) => {
+                  setHapticVibration(val);
+                  haptics.setEnabled(val);
+                  storageService.savePreferences({ hapticFeedback: val });
                 }}
               />
             </View>
@@ -721,5 +935,77 @@ const styles = StyleSheet.create({
   toggleDivider: {
     height: 1,
     marginVertical: 12,
+  },
+  genderPairingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  genderSelectLabel: {
+    ...Typography.labelSmall,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    marginTop: 8,
+  },
+  genderChipRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  genderChip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: Radius.lg,
+    borderWidth: 1.5,
+  },
+  genderChipTitle: {
+    ...Typography.bodySmall,
+    fontWeight: '700',
+  },
+  genderChipSub: {
+    ...Typography.labelSmall,
+    fontSize: 10,
+    marginTop: 1,
+  },
+  pairingSchematic: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    marginTop: 6,
+    gap: 8,
+  },
+  schematicNode: {
+    flex: 1,
+  },
+  schematicRole: {
+    ...Typography.labelSmall,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  schematicValue: {
+    ...Typography.bodySmall,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  testVoiceBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: Radius.full,
+  },
+  testVoiceText: {
+    ...Typography.labelSmall,
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 11,
   },
 });

@@ -64,8 +64,9 @@ import {
   DynamicCompassIcon,
   AnimatedPressable,
 } from '@/shared/components/ui';
+import { VoiceListeningModal } from '@/shared/components/voice/VoiceListeningModal';
 import { haptics } from '@/shared/utils/haptics';
-import { notificationService } from '@/shared/services';
+import { notificationService, VoiceRecognitionResult } from '@/shared/services';
 
 type TransitMode = 'drive' | 'transit' | 'ride' | 'bike' | 'walk';
 type MapLayerType = 'standard' | 'satellite' | 'night' | 'navic';
@@ -84,6 +85,7 @@ export default function HomeScreen() {
   const [showHazards, setShowHazards] = useState(true);
   const [isLocating, setIsLocating] = useState(false);
   const [isSheetExpanded, setIsSheetExpanded] = useState(false);
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState<number>(() =>
     notificationService.getUnreadCountSync()
   );
@@ -153,8 +155,19 @@ export default function HomeScreen() {
   }, [location, refreshLocation]);
 
   const handleVoiceAssistant = useCallback(() => {
-    haptics.light();
-    router.push('/ai-copilot');
+    haptics.medium();
+    setShowVoiceModal(true);
+  }, []);
+
+  const handleVoiceResult = useCallback((res: VoiceRecognitionResult) => {
+    if (res.intent.targetRoute) {
+      router.push(res.intent.targetRoute as any);
+    } else if (res.transcript && res.transcript.trim()) {
+      router.push({
+        pathname: '/search',
+        params: { q: res.transcript.trim() },
+      } as any);
+    }
   }, []);
 
   const handleModeChange = useCallback((mode: TransitMode) => {
@@ -900,6 +913,13 @@ export default function HomeScreen() {
           />
         </View>
       </BottomSheet>
+
+      {/* Sovereign Flowstep Voice Listening Modal */}
+      <VoiceListeningModal
+        visible={showVoiceModal}
+        onClose={() => setShowVoiceModal(false)}
+        onResult={handleVoiceResult}
+      />
     </View>
   );
 }

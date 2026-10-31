@@ -11,3 +11,4 @@ export {
 } from './VoiceLanguageService';
 export * from './ArNavigationBackendService';
 export * from './NotificationService';
+export * from './VoiceListenerService';

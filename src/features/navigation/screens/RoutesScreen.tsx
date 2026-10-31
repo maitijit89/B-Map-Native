@@ -1,42 +1,47 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import { fluidEntering, fluidLayout } from "@/shared/animations";
+import { router } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
   ScrollView,
+  StyleSheet,
+  Text,
   TouchableOpacity,
-} from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
-import Animated from 'react-native-reanimated';
-import { fluidEntering, fluidLayout } from '@/shared/animations';
-
+  View,
+} from "react-native";
+import Animated from "react-native-reanimated";
 import {
-  Navigation,
-  Car,
-  Bike,
-  Footprints,
-  TrainFront,
-  ArrowDownUp,
-  MapPin,
-  Leaf,
-  IndianRupee,
-  CornerDownRight,
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+
+import { Button, Card, Header, SectionHeader } from "@/shared/components/ui";
+import { VoiceListeningModal } from "@/shared/components/voice/VoiceListeningModal";
+import {
+  Radius,
+  Shadows,
+  Spacing,
+  Typography,
+} from "@/shared/constants/tokens";
+import { useThemeColors } from "@/shared/hooks";
+import { notificationService, VoiceRecognitionResult } from "@/shared/services";
+import { haptics } from "@/shared/utils/haptics";
+import {
   AlertTriangle,
+  ArrowDownUp,
+  Bike,
+  Car,
   ChevronRight,
-} from 'lucide-react-native';
-import { useThemeColors } from '@/shared/hooks';
-import { Radius, Shadows, Spacing, Typography } from '@/shared/constants/tokens';
-import {
-  Header,
-  Card,
-  Button,
-  SectionHeader,
-} from '@/shared/components/ui';
-import { haptics } from '@/shared/utils/haptics';
-import { notificationService } from '@/shared/services';
+  CornerDownRight,
+  Footprints,
+  IndianRupee,
+  Leaf,
+  MapPin,
+  Mic,
+  Navigation,
+  TrainFront,
+} from "lucide-react-native";
 
-type RouteProfile = 'drive' | 'bike' | 'walk' | 'transit';
+type RouteProfile = "drive" | "bike" | "walk" | "transit";
 
 interface RouteAlternativeItem {
   id: string;
@@ -55,82 +60,143 @@ interface RouteAlternativeItem {
 
 const ROUTE_ALTERNATIVES: RouteAlternativeItem[] = [
   {
-    id: '1',
-    label: 'Fastest',
-    via: 'via NH-48 & Yamuna Expressway',
-    time: '2h 14m',
-    distance: '168.3 km',
-    toll: '₹435',
+    id: "1",
+    label: "Fastest",
+    via: "via NH-48 & Yamuna Expressway",
+    time: "2h 14m",
+    distance: "168.3 km",
+    toll: "₹435",
     tollPlazas: 3,
     ecoScore: 72,
-    color: '#0096FF',
-    trafficColor: '#00C06D',
-    trafficLabel: 'Light Traffic',
+    color: "#0096FF",
+    trafficColor: "#00C06D",
+    trafficLabel: "Light Traffic",
     isRecommended: true,
   },
   {
-    id: '2',
-    label: 'Eco-Friendly',
-    via: 'via SH-14 & State Highway',
-    time: '2h 42m',
-    distance: '182.1 km',
-    toll: '₹0',
+    id: "2",
+    label: "Eco-Friendly",
+    via: "via SH-14 & State Highway",
+    time: "2h 42m",
+    distance: "182.1 km",
+    toll: "₹0",
     tollPlazas: 0,
     ecoScore: 94,
-    color: '#00C06D',
-    trafficColor: '#FF9800',
-    trafficLabel: 'Moderate Traffic',
+    color: "#00C06D",
+    trafficColor: "#FF9800",
+    trafficLabel: "Moderate Traffic",
     isRecommended: false,
   },
   {
-    id: '3',
-    label: 'Shortest',
-    via: 'via Eastern Peripheral Expy',
-    time: '2h 28m',
-    distance: '154.7 km',
-    toll: '₹620',
+    id: "3",
+    label: "Shortest",
+    via: "via Eastern Peripheral Expy",
+    time: "2h 28m",
+    distance: "154.7 km",
+    toll: "₹620",
     tollPlazas: 5,
     ecoScore: 58,
-    color: '#FF9800',
-    trafficColor: '#F44336',
-    trafficLabel: 'Heavy Traffic',
+    color: "#FF9800",
+    trafficColor: "#F44336",
+    trafficLabel: "Heavy Traffic",
     isRecommended: false,
   },
 ];
 
 const TOLL_BREAKDOWN = [
-  { id: 't_1', plaza: 'Kherki Daula Toll', highway: 'NH-48', fee: '₹155', vehicleClass: 'Car/Jeep' },
-  { id: 't_2', plaza: 'Manesar Toll Gate', highway: 'NH-48', fee: '₹130', vehicleClass: 'Car/Jeep' },
-  { id: 't_3', plaza: 'Palwal Junction Toll', highway: 'NE-4', fee: '₹150', vehicleClass: 'Car/Jeep' },
+  {
+    id: "t_1",
+    plaza: "Kherki Daula Toll",
+    highway: "NH-48",
+    fee: "₹155",
+    vehicleClass: "Car/Jeep",
+  },
+  {
+    id: "t_2",
+    plaza: "Manesar Toll Gate",
+    highway: "NH-48",
+    fee: "₹130",
+    vehicleClass: "Car/Jeep",
+  },
+  {
+    id: "t_3",
+    plaza: "Palwal Junction Toll",
+    highway: "NE-4",
+    fee: "₹150",
+    vehicleClass: "Car/Jeep",
+  },
 ];
 
 const TURN_STEPS = [
-  { id: 's_1', icon: 'depart', instruction: 'Head northeast on MG Road', distance: '1.2 km', lane: 'Keep center' },
-  { id: 's_2', icon: 'turn-right', instruction: 'Turn right onto NH-48 Expressway', distance: '42.6 km', lane: 'Merge right 2 lanes' },
-  { id: 's_3', icon: 'ramp', instruction: 'Take exit 14A for Yamuna Expy', distance: '0.8 km', lane: 'Exit right lane' },
-  { id: 's_4', icon: 'straight', instruction: 'Continue on Yamuna Expressway', distance: '84.2 km', lane: 'Keep left 2 lanes' },
-  { id: 's_5', icon: 'arrive', instruction: 'Arrive at destination', distance: '—', lane: '' },
+  {
+    id: "s_1",
+    icon: "depart",
+    instruction: "Head northeast on MG Road",
+    distance: "1.2 km",
+    lane: "Keep center",
+  },
+  {
+    id: "s_2",
+    icon: "turn-right",
+    instruction: "Turn right onto NH-48 Expressway",
+    distance: "42.6 km",
+    lane: "Merge right 2 lanes",
+  },
+  {
+    id: "s_3",
+    icon: "ramp",
+    instruction: "Take exit 14A for Yamuna Expy",
+    distance: "0.8 km",
+    lane: "Exit right lane",
+  },
+  {
+    id: "s_4",
+    icon: "straight",
+    instruction: "Continue on Yamuna Expressway",
+    distance: "84.2 km",
+    lane: "Keep left 2 lanes",
+  },
+  {
+    id: "s_5",
+    icon: "arrive",
+    instruction: "Arrive at destination",
+    distance: "—",
+    lane: "",
+  },
 ];
 
 const IMD_WEATHER = {
-  level: 'YELLOW',
-  color: '#FF9800',
-  title: 'Dense Fog Advisory — NH-48 Corridor',
-  description: 'Visibility may drop below 200m between 04:00–08:00 AM. Reduce speed. Use fog lamps.',
-  validUntil: 'Valid until 12 Oct 2026 09:00 IST',
+  level: "YELLOW",
+  color: "#FF9800",
+  title: "Dense Fog Advisory — NH-48 Corridor",
+  description:
+    "Visibility may drop below 200m between 04:00–08:00 AM. Reduce speed. Use fog lamps.",
+  validUntil: "Valid until 12 Oct 2026 09:00 IST",
 };
 
 export default function RoutesScreen() {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
 
-  const [activeProfile, setActiveProfile] = useState<RouteProfile>('drive');
-  const [selectedRoute, setSelectedRoute] = useState('1');
-  const [origin, setOrigin] = useState('Cyber Hub, Gurugram');
-  const [destination, setDestination] = useState('Agra Fort, Uttar Pradesh');
+  const [activeProfile, setActiveProfile] = useState<RouteProfile>("drive");
+  const [selectedRoute, setSelectedRoute] = useState("1");
+  const [origin, setOrigin] = useState("Cyber Hub, Gurugram");
+  const [destination, setDestination] = useState("Agra Fort, Uttar Pradesh");
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
+
+  const handleVoiceResult = useCallback((result: VoiceRecognitionResult) => {
+    if (result.intent.params?.destination) {
+      setDestination(result.intent.params.destination);
+    } else if (result.transcript && result.transcript.trim()) {
+      setDestination(result.transcript.trim());
+    }
+  }, []);
 
   const selectedRouteData = useMemo(() => {
-    return ROUTE_ALTERNATIVES.find((r) => r.id === selectedRoute) || ROUTE_ALTERNATIVES[0];
+    return (
+      ROUTE_ALTERNATIVES.find((r) => r.id === selectedRoute) ||
+      ROUTE_ALTERNATIVES[0]
+    );
   }, [selectedRoute]);
 
   const handleSwap = useCallback(() => {
@@ -153,54 +219,93 @@ export default function RoutesScreen() {
 
   const handleStartNavigation = useCallback(() => {
     haptics.medium();
-    const current = ROUTE_ALTERNATIVES.find((r) => r.id === selectedRoute) || ROUTE_ALTERNATIVES[0];
+    const current =
+      ROUTE_ALTERNATIVES.find((r) => r.id === selectedRoute) ||
+      ROUTE_ALTERNATIVES[0];
     notificationService.addNotification({
-      title: 'Active Navigation Engaged 🛣️',
+      title: "Active Navigation Engaged 🛣️",
       message: `${current.label} route: ${current.via} (${current.time}, ${current.distance})`,
-      type: 'traffic',
-      actionRoute: '/modal',
+      type: "traffic",
+      actionRoute: "/modal",
     });
-    router.push('/modal');
+    router.push("/modal");
   }, [selectedRoute]);
 
-  const profiles = useMemo(() => [
-    {
-      key: 'drive' as RouteProfile,
-      label: 'Drive',
-      icon: (focused: boolean) => (
-        <Car size={18} color={focused ? colors.onPrimary : colors.onSurfaceVariant} />
-      ),
-    },
-    {
-      key: 'bike' as RouteProfile,
-      label: 'Rider',
-      icon: (focused: boolean) => (
-        <Bike size={18} color={focused ? colors.onPrimary : colors.onSurfaceVariant} />
-      ),
-    },
-    {
-      key: 'walk' as RouteProfile,
-      label: 'Walk',
-      icon: (focused: boolean) => (
-        <Footprints size={18} color={focused ? colors.onPrimary : colors.onSurfaceVariant} />
-      ),
-    },
-    {
-      key: 'transit' as RouteProfile,
-      label: 'Transit',
-      icon: (focused: boolean) => (
-        <TrainFront size={18} color={focused ? colors.onPrimary : colors.onSurfaceVariant} />
-      ),
-    },
-  ], [colors]);
+  const profiles = useMemo(
+    () => [
+      {
+        key: "drive" as RouteProfile,
+        label: "Drive",
+        icon: (focused: boolean) => (
+          <Car
+            size={18}
+            color={focused ? colors.onPrimary : colors.onSurfaceVariant}
+          />
+        ),
+      },
+      {
+        key: "bike" as RouteProfile,
+        label: "Rider",
+        icon: (focused: boolean) => (
+          <Bike
+            size={18}
+            color={focused ? colors.onPrimary : colors.onSurfaceVariant}
+          />
+        ),
+      },
+      {
+        key: "walk" as RouteProfile,
+        label: "Walk",
+        icon: (focused: boolean) => (
+          <Footprints
+            size={18}
+            color={focused ? colors.onPrimary : colors.onSurfaceVariant}
+          />
+        ),
+      },
+      {
+        key: "transit" as RouteProfile,
+        label: "Transit",
+        icon: (focused: boolean) => (
+          <TrainFront
+            size={18}
+            color={focused ? colors.onPrimary : colors.onSurfaceVariant}
+          />
+        ),
+      },
+    ],
+    [colors],
+  );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={["top"]}
+    >
       {/* Header */}
       <Header
         title="Route Planner"
         subtitle="OSRM Multi-Modal Routing · NavIC Telematics"
         showBack={false}
+        rightAction={
+          <TouchableOpacity
+            style={[
+              styles.voiceBtn,
+              {
+                backgroundColor: colors.primaryContainer,
+              },
+            ]}
+            onPress={() => {
+              haptics.medium();
+              setShowVoiceModal(true);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Speak destination or route"
+            activeOpacity={0.8}
+          >
+            <Mic size={18} color={colors.onPrimary} />
+          </TouchableOpacity>
+        }
       />
 
       <ScrollView
@@ -208,7 +313,8 @@ export default function RoutesScreen() {
           styles.scroll,
           { paddingBottom: Math.max(insets.bottom, 16) + 90 },
         ]}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+      >
         {/* Origin → Destination Input Card */}
         <Animated.View entering={fluidEntering(0)}>
           <Card variant="flat" padding="md" style={styles.routeInputCard}>
@@ -216,22 +322,42 @@ export default function RoutesScreen() {
               style={styles.routeInputRow}
               onPress={() => {
                 haptics.light();
-                router.push('/search');
+                router.push("/search");
               }}
               accessibilityRole="button"
               accessibilityLabel="Edit origin"
-              activeOpacity={0.7}>
-              <View style={[styles.dotIndicator, { backgroundColor: colors.primaryContainer }]} />
+              activeOpacity={0.7}
+            >
+              <View
+                style={[
+                  styles.dotIndicator,
+                  { backgroundColor: colors.primaryContainer },
+                ]}
+              />
               <View style={styles.routeInputField}>
-                <Text style={[styles.routeInputLabel, { color: colors.onSurfaceVariant }]}>
+                <Text
+                  style={[
+                    styles.routeInputLabel,
+                    { color: colors.onSurfaceVariant },
+                  ]}
+                >
                   FROM (TAP TO EDIT)
                 </Text>
-                <Text style={[styles.routeInputValue, { color: colors.onSurface }]}>{origin}</Text>
+                <Text
+                  style={[styles.routeInputValue, { color: colors.onSurface }]}
+                >
+                  {origin}
+                </Text>
               </View>
             </TouchableOpacity>
 
             <View style={styles.routeInputDivider}>
-              <View style={[styles.dottedLine, { borderColor: colors.outlineVariant }]} />
+              <View
+                style={[
+                  styles.dottedLine,
+                  { borderColor: colors.outlineVariant },
+                ]}
+              />
               <TouchableOpacity
                 style={[
                   styles.swapButton,
@@ -244,7 +370,8 @@ export default function RoutesScreen() {
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 accessibilityRole="button"
                 accessibilityLabel="Swap origin and destination"
-                activeOpacity={0.8}>
+                activeOpacity={0.8}
+              >
                 <ArrowDownUp size={16} color={colors.primary} />
               </TouchableOpacity>
             </View>
@@ -253,17 +380,29 @@ export default function RoutesScreen() {
               style={styles.routeInputRow}
               onPress={() => {
                 haptics.light();
-                router.push('/search');
+                router.push("/search");
               }}
               accessibilityRole="button"
               accessibilityLabel="Edit destination"
-              activeOpacity={0.7}>
-              <View style={[styles.dotIndicator, { backgroundColor: colors.error }]} />
+              activeOpacity={0.7}
+            >
+              <View
+                style={[styles.dotIndicator, { backgroundColor: colors.error }]}
+              />
               <View style={styles.routeInputField}>
-                <Text style={[styles.routeInputLabel, { color: colors.onSurfaceVariant }]}>
+                <Text
+                  style={[
+                    styles.routeInputLabel,
+                    { color: colors.onSurfaceVariant },
+                  ]}
+                >
                   TO (TAP TO EDIT)
                 </Text>
-                <Text style={[styles.routeInputValue, { color: colors.onSurface }]}>{destination}</Text>
+                <Text
+                  style={[styles.routeInputValue, { color: colors.onSurface }]}
+                >
+                  {destination}
+                </Text>
               </View>
             </TouchableOpacity>
 
@@ -278,13 +417,18 @@ export default function RoutesScreen() {
               ]}
               onPress={() => {
                 haptics.light();
-                router.push('/digipin-explorer');
-              }}>
+                router.push("/digipin-explorer");
+              }}
+            >
               <MapPin size={14} color={colors.primary} />
               <Text style={[styles.digiPinText, { color: colors.onSurface }]}>
-                DigiPIN: <Text style={{ fontWeight: '800' }}>28J4-M1K9-7P</Text>
+                DigiPIN: <Text style={{ fontWeight: "800" }}>28J4-M1K9-7P</Text>
               </Text>
-              <ChevronRight size={14} color={colors.onSurfaceVariant} style={{ marginLeft: 'auto' }} />
+              <ChevronRight
+                size={14}
+                color={colors.onSurfaceVariant}
+                style={{ marginLeft: "auto" }}
+              />
             </TouchableOpacity>
           </Card>
         </Animated.View>
@@ -311,7 +455,8 @@ export default function RoutesScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={`${p.label} route profile`}
                 accessibilityState={{ selected: isSelected }}
-                activeOpacity={0.8}>
+                activeOpacity={0.8}
+              >
                 {p.icon(isSelected)}
                 <Text
                   numberOfLines={1}
@@ -321,9 +466,10 @@ export default function RoutesScreen() {
                       color: isSelected
                         ? colors.onPrimary
                         : colors.onSurfaceVariant,
-                      fontWeight: isSelected ? '700' : '500',
+                      fontWeight: isSelected ? "700" : "500",
                     },
-                  ]}>
+                  ]}
+                >
                   {p.label}
                 </Text>
               </TouchableOpacity>
@@ -336,14 +482,28 @@ export default function RoutesScreen() {
           <Card
             variant="flat"
             padding="sm"
-            style={[styles.weatherCard, { backgroundColor: colors.tertiaryContainer }]}>
+            style={[
+              styles.weatherCard,
+              { backgroundColor: colors.tertiaryContainer },
+            ]}
+          >
             <View style={styles.weatherRow}>
               <AlertTriangle size={18} color={IMD_WEATHER.color} />
               <View style={{ flex: 1, marginLeft: 8 }}>
-                <Text style={[styles.weatherTitle, { color: colors.onTertiaryContainer }]}>
+                <Text
+                  style={[
+                    styles.weatherTitle,
+                    { color: colors.onTertiaryContainer },
+                  ]}
+                >
                   {IMD_WEATHER.title}
                 </Text>
-                <Text style={[styles.weatherDesc, { color: colors.onTertiaryContainer }]}>
+                <Text
+                  style={[
+                    styles.weatherDesc,
+                    { color: colors.onTertiaryContainer },
+                  ]}
+                >
                   {IMD_WEATHER.description}
                 </Text>
               </View>
@@ -363,13 +523,14 @@ export default function RoutesScreen() {
             <Animated.View
               key={item.id}
               entering={fluidEntering(idx * 25)}
-              layout={fluidLayout}>
+              layout={fluidLayout}
+            >
               <TouchableOpacity
                 onPress={() => handleRouteSelect(item.id)}
-                activeOpacity={0.85}>
-
+                activeOpacity={0.85}
+              >
                 <Card
-                  variant={isSelected ? 'elevated' : 'flat'}
+                  variant={isSelected ? "elevated" : "flat"}
                   padding="md"
                   style={[
                     styles.routeCard,
@@ -377,7 +538,8 @@ export default function RoutesScreen() {
                       borderColor: colors.primary,
                       borderWidth: 2,
                     },
-                  ]}>
+                  ]}
+                >
                   <View style={styles.routeHeader}>
                     <View style={styles.routeTitleGroup}>
                       <View
@@ -388,7 +550,8 @@ export default function RoutesScreen() {
                               ? colors.primaryContainer
                               : colors.surfaceContainerHigh,
                           },
-                        ]}>
+                        ]}
+                      >
                         <Text
                           style={[
                             styles.badgeText,
@@ -397,19 +560,26 @@ export default function RoutesScreen() {
                                 ? colors.onPrimary
                                 : colors.onSurface,
                             },
-                          ]}>
+                          ]}
+                        >
                           {item.label}
                         </Text>
                       </View>
-                      <Text style={[styles.viaText, { color: colors.onSurfaceVariant }]}>
+                      <Text
+                        style={[
+                          styles.viaText,
+                          { color: colors.onSurfaceVariant },
+                        ]}
+                      >
                         {item.via}
                       </Text>
                     </View>
                     <View
                       style={[
                         styles.trafficBadge,
-                        { backgroundColor: item.trafficColor + '20' },
-                      ]}>
+                        { backgroundColor: item.trafficColor + "20" },
+                      ]}
+                    >
                       <View
                         style={[
                           styles.trafficDot,
@@ -420,7 +590,8 @@ export default function RoutesScreen() {
                         style={[
                           styles.trafficLabel,
                           { color: item.trafficColor },
-                        ]}>
+                        ]}
+                      >
                         {item.trafficLabel}
                       </Text>
                     </View>
@@ -428,24 +599,33 @@ export default function RoutesScreen() {
 
                   <View style={styles.routeMetricsRow}>
                     <View>
-                      <Text style={[styles.timeText, { color: colors.onSurface }]}>
+                      <Text
+                        style={[styles.timeText, { color: colors.onSurface }]}
+                      >
                         {item.time}
                       </Text>
-                      <Text style={[styles.distText, { color: colors.onSurfaceVariant }]}>
+                      <Text
+                        style={[
+                          styles.distText,
+                          { color: colors.onSurfaceVariant },
+                        ]}
+                      >
                         {item.distance}
                       </Text>
                     </View>
 
                     <View style={styles.tollPill}>
                       <IndianRupee size={12} color={colors.primary} />
-                      <Text style={[styles.tollText, { color: colors.onSurface }]}>
+                      <Text
+                        style={[styles.tollText, { color: colors.onSurface }]}
+                      >
                         FASTag: {item.toll} ({item.tollPlazas} plazas)
                       </Text>
                     </View>
 
                     <View style={styles.ecoPill}>
                       <Leaf size={12} color="#00C06D" />
-                      <Text style={[styles.ecoText, { color: '#00C06D' }]}>
+                      <Text style={[styles.ecoText, { color: "#00C06D" }]}>
                         Eco {item.ecoScore}/100
                       </Text>
                     </View>
@@ -474,16 +654,21 @@ export default function RoutesScreen() {
                   paddingTop: 8,
                   marginTop: 8,
                 },
-              ]}>
+              ]}
+            >
               <View style={{ flex: 1 }}>
                 <Text style={[styles.plazaName, { color: colors.onSurface }]}>
                   {plaza.plaza}
                 </Text>
-                <Text style={[styles.plazaSub, { color: colors.onSurfaceVariant }]}>
+                <Text
+                  style={[styles.plazaSub, { color: colors.onSurfaceVariant }]}
+                >
                   {plaza.highway} · {plaza.vehicleClass}
                 </Text>
               </View>
-              <Text style={[styles.plazaFee, { color: colors.primary }]}>{plaza.fee}</Text>
+              <Text style={[styles.plazaFee, { color: colors.primary }]}>
+                {plaza.fee}
+              </Text>
             </View>
           ))}
         </Card>
@@ -497,7 +682,12 @@ export default function RoutesScreen() {
         <Card variant="flat" padding="md" style={styles.stepsCard}>
           {TURN_STEPS.map((step) => (
             <View key={step.id} style={styles.stepRow}>
-              <View style={[styles.stepIconBox, { backgroundColor: colors.surfaceContainerLow }]}>
+              <View
+                style={[
+                  styles.stepIconBox,
+                  { backgroundColor: colors.surfaceContainerLow },
+                ]}
+              >
                 <CornerDownRight size={14} color={colors.primary} />
               </View>
               <View style={{ flex: 1, marginLeft: 10 }}>
@@ -505,12 +695,19 @@ export default function RoutesScreen() {
                   {step.instruction}
                 </Text>
                 {step.lane ? (
-                  <Text style={[styles.stepLane, { color: colors.onSurfaceVariant }]}>
+                  <Text
+                    style={[
+                      styles.stepLane,
+                      { color: colors.onSurfaceVariant },
+                    ]}
+                  >
                     {step.lane}
                   </Text>
                 ) : null}
               </View>
-              <Text style={[styles.stepDist, { color: colors.onSurfaceVariant }]}>
+              <Text
+                style={[styles.stepDist, { color: colors.onSurfaceVariant }]}
+              >
                 {step.distance}
               </Text>
             </View>
@@ -527,16 +724,24 @@ export default function RoutesScreen() {
             borderTopColor: colors.surfaceContainerHigh,
             paddingBottom: Math.max(insets.bottom, 12) + 68,
           },
-        ]}>
+        ]}
+      >
         <View style={styles.dockContent}>
           <View style={styles.dockSummary}>
             <View style={styles.dockTimeRow}>
               <Text style={[styles.dockTimeText, { color: colors.onSurface }]}>
                 {selectedRouteData.time}
               </Text>
-              <View style={[styles.dockTrafficDot, { backgroundColor: selectedRouteData.trafficColor }]} />
+              <View
+                style={[
+                  styles.dockTrafficDot,
+                  { backgroundColor: selectedRouteData.trafficColor },
+                ]}
+              />
             </View>
-            <Text style={[styles.dockSubText, { color: colors.onSurfaceVariant }]}>
+            <Text
+              style={[styles.dockSubText, { color: colors.onSurfaceVariant }]}
+            >
               {selectedRouteData.distance} · {selectedRouteData.toll}
             </Text>
           </View>
@@ -552,6 +757,12 @@ export default function RoutesScreen() {
           </View>
         </View>
       </View>
+
+      <VoiceListeningModal
+        visible={showVoiceModal}
+        onClose={() => setShowVoiceModal(false)}
+        onResult={handleVoiceResult}
+      />
     </SafeAreaView>
   );
 }
@@ -559,6 +770,13 @@ export default function RoutesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  voiceBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: Radius.full,
+    alignItems: "center",
+    justifyContent: "center",
   },
   scroll: {
     paddingHorizontal: Spacing.lg,
@@ -569,8 +787,8 @@ const styles = StyleSheet.create({
     borderRadius: Radius.xl,
   },
   routeInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 4,
   },
   dotIndicator: {
@@ -589,33 +807,33 @@ const styles = StyleSheet.create({
   },
   routeInputValue: {
     ...Typography.titleSmall,
-    fontWeight: '700',
+    fontWeight: "700",
     marginTop: 1,
   },
   routeInputDivider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginVertical: 4,
   },
   dottedLine: {
     flex: 1,
     height: 1,
-    borderStyle: 'dashed',
+    borderStyle: "dashed",
     borderWidth: 0.5,
   },
   swapButton: {
     width: 32,
     height: 32,
     borderRadius: Radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
     marginHorizontal: Spacing.sm,
   },
   digiPinRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -627,14 +845,14 @@ const styles = StyleSheet.create({
     ...Typography.bodySmall,
   },
   profileRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
   },
   profileTab: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 6,
     height: 44,
     borderRadius: Radius.lg,
@@ -647,12 +865,12 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
   },
   weatherRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
   },
   weatherTitle: {
     ...Typography.titleSmall,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   weatherDesc: {
     ...Typography.bodySmall,
@@ -662,13 +880,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   routeHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   routeTitleGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     flex: 1,
   },
@@ -679,15 +897,15 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     ...Typography.labelSmall,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   viaText: {
     ...Typography.bodySmall,
     flex: 1,
   },
   trafficBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -700,78 +918,78 @@ const styles = StyleSheet.create({
   },
   trafficLabel: {
     ...Typography.labelSmall,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   routeMetricsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
     gap: 8,
     marginTop: 12,
   },
   timeText: {
     ...Typography.titleLarge,
-    fontWeight: '800',
+    fontWeight: "800",
   },
   distText: {
     ...Typography.bodySmall,
   },
   tollPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 3,
   },
   tollText: {
     ...Typography.labelSmall,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   ecoPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 3,
   },
   ecoText: {
     ...Typography.labelSmall,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   tollBreakdownCard: {
     borderRadius: Radius.lg,
   },
   plazaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   plazaName: {
     ...Typography.titleSmall,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   plazaSub: {
     ...Typography.bodySmall,
   },
   plazaFee: {
     ...Typography.titleMedium,
-    fontWeight: '800',
+    fontWeight: "800",
   },
   stepsCard: {
     borderRadius: Radius.lg,
     gap: 12,
   },
   stepRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   stepIconBox: {
     width: 28,
     height: 28,
     borderRadius: Radius.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   stepInst: {
     ...Typography.bodySmall,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   stepLane: {
     ...Typography.labelSmall,
@@ -779,10 +997,10 @@ const styles = StyleSheet.create({
   },
   stepDist: {
     ...Typography.labelSmall,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   bottomDock: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
@@ -792,25 +1010,25 @@ const styles = StyleSheet.create({
     ...Shadows.lg,
   },
   dockContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     maxWidth: 600,
-    width: '100%',
-    alignSelf: 'center',
+    width: "100%",
+    alignSelf: "center",
     gap: 12,
   },
   dockSummary: {
     flex: 1,
   },
   dockTimeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
   },
   dockTimeText: {
     ...Typography.titleMedium,
-    fontWeight: '800',
+    fontWeight: "800",
     fontSize: 18,
   },
   dockTrafficDot: {

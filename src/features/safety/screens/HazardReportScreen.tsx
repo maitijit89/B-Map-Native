@@ -12,22 +12,23 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
 import Animated from 'react-native-reanimated';
-import { fluidEntering } from '@/shared/animations';
+import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import { fluidEntering } from '@/shared/animations';
 import {
-  TriangleAlert,
   Camera,
-  MapPin,
-  ShieldCheck,
-  Send,
-  Droplets,
-  Cone,
   CarFront,
-  Zap,
-  X,
   CheckCircle2,
+  Cone,
+  Droplets,
+  MapPin,
+  Send,
+  ShieldCheck,
+  TriangleAlert,
+  X,
+  Zap,
+  Award,
 } from 'lucide-react-native';
 import { useThemeColors } from '@/shared/hooks';
 import { Radius, Shadows, Spacing, Typography } from '@/shared/constants/tokens';
@@ -36,46 +37,82 @@ import { haptics } from '@/shared/utils/haptics';
 import { notificationService } from '@/shared/services';
 
 const HAZARD_TYPES = [
-  { id: 'pothole', label: 'Pothole / Road Damage', icon: TriangleAlert, color: '#F44336' },
-  { id: 'waterlogging', label: 'Waterlogging / Flood', icon: Droplets, color: '#2196F3' },
-  { id: 'speed_trap', label: 'Speed Radar / Interceptor', icon: Camera, color: '#FF9800' },
-  { id: 'accident', label: 'Traffic Accident', icon: CarFront, color: '#D32F2F' },
-  { id: 'roadwork', label: 'Road Construction', icon: Cone, color: '#FFB300' },
-  { id: 'breakdown', label: 'Vehicle Breakdown', icon: Zap, color: '#7E57C2' },
+  {
+    id: "pothole",
+    label: "Pothole / Road Damage",
+    icon: TriangleAlert,
+    color: "#F44336",
+  },
+  {
+    id: "waterlogging",
+    label: "Waterlogging / Flood",
+    icon: Droplets,
+    color: "#2196F3",
+  },
+  {
+    id: "speed_trap",
+    label: "Speed Radar / Interceptor",
+    icon: Camera,
+    color: "#FF9800",
+  },
+  {
+    id: "accident",
+    label: "Traffic Accident",
+    icon: CarFront,
+    color: "#D32F2F",
+  },
+  { id: "roadwork", label: "Road Construction", icon: Cone, color: "#FFB300" },
+  { id: "breakdown", label: "Vehicle Breakdown", icon: Zap, color: "#7E57C2" },
 ];
 
 const SEVERITY_LEVELS = [
-  { id: 'low', label: 'Low', desc: 'Passable with caution', color: '#00C06D' },
-  { id: 'medium', label: 'Medium', desc: 'Lane partially blocked', color: '#FF9800' },
-  { id: 'high', label: 'Severe', desc: 'Hazardous, avoid lane', color: '#F44336' },
+  { id: "low", label: "Low", desc: "Passable with caution", color: "#00C06D" },
+  {
+    id: "medium",
+    label: "Medium",
+    desc: "Lane partially blocked",
+    color: "#FF9800",
+  },
+  {
+    id: "high",
+    label: "Severe",
+    desc: "Hazardous, avoid lane",
+    color: "#F44336",
+  },
 ];
 
 export default function HazardReportModal() {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
-  const [selectedHazard, setSelectedHazard] = useState('pothole');
-  const [selectedSeverity, setSelectedSeverity] = useState('high');
-  const [lanePosition, setLanePosition] = useState('Right Lane');
-  const [description, setDescription] = useState('');
+  const [selectedHazard, setSelectedHazard] = useState("pothole");
+  const [selectedSeverity, setSelectedSeverity] = useState("high");
+  const [lanePosition, setLanePosition] = useState("Right Lane");
+  const [description, setDescription] = useState("");
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+
+  const currentHazard = HAZARD_TYPES.find((h) => h.id === selectedHazard);
 
   const handlePickPhoto = () => {
     haptics.light();
     Alert.alert(
-      'Attach Road Hazard Photo',
-      'Capture live evidence or upload photo for community verification:',
+      "Attach Road Hazard Photo",
+      "Capture live evidence or upload photo for community verification:",
       [
         {
-          text: 'Take Photo with Camera',
+          text: "Take Photo with Camera",
           onPress: async () => {
             try {
-              const { status } = await ImagePicker.requestCameraPermissionsAsync();
-              if (status !== 'granted') {
-                Alert.alert('Permission Needed', 'Camera permission is required to capture hazard photos.');
+              const { status } =
+                await ImagePicker.requestCameraPermissionsAsync();
+              if (status !== "granted") {
+                Alert.alert(
+                  "Permission Needed",
+                  "Camera permission is required to capture hazard photos.",
+                );
                 return;
               }
               const res = await ImagePicker.launchCameraAsync({
-                mediaTypes: ['images'],
+                mediaTypes: ["images"],
                 quality: 0.8,
               });
               if (!res.canceled && res.assets?.[0]?.uri) {
@@ -83,16 +120,18 @@ export default function HazardReportModal() {
                 haptics.success();
               }
             } catch {
-              setPhotoUri('https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=600');
+              setPhotoUri(
+                "https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=600",
+              );
             }
           },
         },
         {
-          text: 'Choose from Gallery',
+          text: "Choose from Gallery",
           onPress: async () => {
             try {
               const res = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ['images'],
+                mediaTypes: ["images"],
                 quality: 0.8,
               });
               if (!res.canceled && res.assets?.[0]?.uri) {
@@ -100,12 +139,14 @@ export default function HazardReportModal() {
                 haptics.success();
               }
             } catch {
-              setPhotoUri('https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=600');
+              setPhotoUri(
+                "https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=600",
+              );
             }
           },
         },
-        { text: 'Cancel', style: 'cancel' },
-      ]
+        { text: "Cancel", style: "cancel" },
+      ],
     );
   };
 
@@ -113,21 +154,24 @@ export default function HazardReportModal() {
     haptics.success();
     const hazardObj = HAZARD_TYPES.find((h) => h.id === selectedHazard);
     notificationService.addNotification({
-      title: 'Road Hazard Broadcasted ⚠️',
-      message: `${hazardObj?.label || 'Hazard'} reported at NH-48 km 42.4 (DigiPIN: 28J4-K8M2-9P)`,
-      type: 'hazard',
-      actionRoute: '/hazard-report',
+      title: "Road Hazard Broadcasted ⚠️",
+      message: `${hazardObj?.label || "Hazard"} reported at NH-48 km 42.4 (DigiPIN: 28J4-K8M2-9P)`,
+      type: "hazard",
+      actionRoute: "/hazard-report",
     });
 
     Alert.alert(
-      'Hazard Report Broadcasted! 📡',
+      "Hazard Report Broadcasted! 📡",
       `Thank you! Your report for ${hazardObj?.label} has been tagged with DigiPIN 28J4-K8M2-9P and dispatched to drivers within 5km via Socket.IO community telemetry. Trust Score: +5 XP gained.`,
-      [{ text: 'Done', onPress: () => router.back() }]
+      [{ text: "Done", onPress: () => router.back() }],
     );
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+      edges={["top", "bottom"]}
+    >
       {/* Header */}
       <Header
         title="Report Road Hazard"
@@ -139,234 +183,500 @@ export default function HazardReportModal() {
 
       <KeyboardAvoidingView
         style={styles.keyboardAvoid}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}>
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0}
+      >
         <ScrollView
           contentContainerStyle={[
             styles.scroll,
-            { paddingBottom: Math.max(insets.bottom, 20) + 80 },
+            { paddingBottom: Math.max(insets.bottom, 20) + 100 },
           ]}
           keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
-        {/* Location & Sovereign DigiPIN Card */}
-        <Animated.View entering={fluidEntering(0)}>
-          <Card variant="elevated" padding="md" style={styles.locationCard}>
-            <View style={styles.locationHeader}>
-              <MapPin size={16} color={colors.primary} />
-              <Text style={[styles.locationTitle, { color: colors.primary }]}>Current GPS Coordinates (Locked)</Text>
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Flowstep Multi-Step Progress Tracker */}
+          <Animated.View
+            entering={fluidEntering(0)}
+            style={styles.flowstepStepsRow}
+          >
+            <View
+              style={[
+                styles.stepPill,
+                { backgroundColor: colors.primaryContainer },
+              ]}
+            >
+              <View
+                style={[styles.stepDot, { backgroundColor: colors.primary }]}
+              />
+              <Text style={[styles.stepText, { color: colors.primary }]}>
+                1. Category
+              </Text>
             </View>
-            <Text style={[styles.locationAddress, { color: colors.onSurface }]}>
-              NH-48 Jaipur Highway Corridor, km 42.4 (Near Manesar)
-            </Text>
+            <View
+              style={[
+                styles.stepDivider,
+                { backgroundColor: colors.surfaceContainerHigh },
+              ]}
+            />
+            <View
+              style={[
+                styles.stepPill,
+                { backgroundColor: colors.surfaceContainerLow },
+              ]}
+            >
+              <View
+                style={[
+                  styles.stepDot,
+                  { backgroundColor: colors.onSurfaceVariant },
+                ]}
+              />
+              <Text
+                style={[styles.stepText, { color: colors.onSurfaceVariant }]}
+              >
+                2. Severity
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.stepDivider,
+                { backgroundColor: colors.surfaceContainerHigh },
+              ]}
+            />
+            <View
+              style={[
+                styles.stepPill,
+                { backgroundColor: colors.surfaceContainerLow },
+              ]}
+            >
+              <View
+                style={[
+                  styles.stepDot,
+                  {
+                    backgroundColor: photoUri
+                      ? colors.trafficGreen
+                      : colors.onSurfaceVariant,
+                  },
+                ]}
+              />
+              <Text
+                style={[styles.stepText, { color: colors.onSurfaceVariant }]}
+              >
+                3. Evidence
+              </Text>
+            </View>
+          </Animated.View>
 
-            <View style={[styles.digiRow, { backgroundColor: colors.surfaceContainerLow }]}>
-              <View style={[styles.digiBadge, { backgroundColor: colors.primaryContainer }]}>
-                <Text style={[styles.digiBadgeText, { color: colors.onPrimary }]}>DigiPIN</Text>
+          {/* Location & Sovereign DigiPIN Card */}
+          <Animated.View entering={fluidEntering(0)}>
+            <Card variant="elevated" padding="md" style={styles.locationCard}>
+              <View style={styles.locationHeader}>
+                <MapPin size={16} color={colors.primary} />
+                <Text style={[styles.locationTitle, { color: colors.primary }]}>
+                  Current GPS Coordinates (Locked)
+                </Text>
               </View>
-              <Text style={[styles.digiCode, { color: colors.primary }]}>28J4-K8M2-9P</Text>
-              <Text style={[styles.digiAccuracy, { color: colors.onSurfaceVariant }]}>4m × 4m Grid Precision</Text>
-            </View>
-          </Card>
-        </Animated.View>
+              <Text
+                style={[styles.locationAddress, { color: colors.onSurface }]}
+              >
+                NH-48 Jaipur Highway Corridor, km 42.4 (Near Manesar)
+              </Text>
 
-        {/* Hazard Type Selector */}
-        <Text style={[styles.sectionTitle, { color: colors.onSurface }]}>Select Hazard Category</Text>
-        <View style={styles.hazardGrid}>
-          {HAZARD_TYPES.map((ht, idx) => {
-            const IconComp = ht.icon;
-            const isSelected = selectedHazard === ht.id;
-            return (
-              <Animated.View
-                key={ht.id}
-                entering={fluidEntering(20 + idx * 20)}
-                style={styles.hazardChipWrapper}>
-
-                <TouchableOpacity
+              <View
+                style={[
+                  styles.digiRow,
+                  { backgroundColor: colors.surfaceContainerLow },
+                ]}
+              >
+                <View
                   style={[
-                    styles.hazardChip,
+                    styles.digiBadge,
+                    { backgroundColor: colors.primaryContainer },
+                  ]}
+                >
+                  <Text
+                    style={[styles.digiBadgeText, { color: colors.onPrimary }]}
+                  >
+                    DigiPIN
+                  </Text>
+                </View>
+                <Text style={[styles.digiCode, { color: colors.primary }]}>
+                  28J4-K8M2-9P
+                </Text>
+                <Text
+                  style={[
+                    styles.digiAccuracy,
+                    { color: colors.onSurfaceVariant },
+                  ]}
+                >
+                  4m × 4m Grid Precision
+                </Text>
+              </View>
+            </Card>
+          </Animated.View>
+
+          {/* Hazard Type Selector */}
+          <Text style={[styles.sectionTitle, { color: colors.onSurface }]}>
+            Select Hazard Category
+          </Text>
+          <View style={styles.hazardGrid}>
+            {HAZARD_TYPES.map((ht, idx) => {
+              const IconComp = ht.icon;
+              const isSelected = selectedHazard === ht.id;
+              return (
+                <Animated.View
+                  key={ht.id}
+                  entering={fluidEntering(20 + idx * 20)}
+                  style={styles.hazardChipWrapper}
+                >
+                  <TouchableOpacity
+                    style={[
+                      styles.hazardChip,
+                      {
+                        backgroundColor: isSelected
+                          ? ht.color + "20"
+                          : colors.surfaceContainerLowest,
+                        borderColor: isSelected
+                          ? ht.color
+                          : colors.surfaceContainerHigh,
+                      },
+                    ]}
+                    onPress={() => {
+                      haptics.selection();
+                      setSelectedHazard(ht.id);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Select hazard ${ht.label}`}
+                    accessibilityState={{ selected: isSelected }}
+                    activeOpacity={0.8}
+                  >
+                    <View
+                      style={[
+                        styles.hazardIconBox,
+                        {
+                          backgroundColor: isSelected
+                            ? ht.color
+                            : colors.surfaceContainerLow,
+                        },
+                      ]}
+                    >
+                      <IconComp
+                        size={18}
+                        color={isSelected ? "#fff" : ht.color}
+                      />
+                    </View>
+                    <Text
+                      style={[
+                        styles.hazardChipLabel,
+                        { color: colors.onSurface },
+                        isSelected && { fontWeight: "800" },
+                      ]}
+                    >
+                      {ht.label}
+                    </Text>
+                  </TouchableOpacity>
+                </Animated.View>
+              );
+            })}
+          </View>
+
+          {/* Severity Level Selector */}
+          <Text style={[styles.sectionTitle, { color: colors.onSurface }]}>
+            Severity Level
+          </Text>
+          <View style={styles.severityRow}>
+            {SEVERITY_LEVELS.map((sl) => {
+              const isSelected = selectedSeverity === sl.id;
+              return (
+                <TouchableOpacity
+                  key={sl.id}
+                  style={[
+                    styles.severityChip,
                     {
-                      backgroundColor: isSelected ? ht.color + '20' : colors.surfaceContainerLowest,
-                      borderColor: isSelected ? ht.color : colors.surfaceContainerHigh,
+                      backgroundColor: isSelected
+                        ? sl.color + "20"
+                        : colors.surfaceContainerLowest,
+                      borderColor: isSelected
+                        ? sl.color
+                        : colors.surfaceContainerHigh,
                     },
                   ]}
                   onPress={() => {
                     haptics.selection();
-                    setSelectedHazard(ht.id);
+                    setSelectedSeverity(sl.id);
                   }}
                   accessibilityRole="button"
-                  accessibilityLabel={`Select hazard ${ht.label}`}
+                  accessibilityLabel={`Select severity ${sl.label}, ${sl.desc}`}
                   accessibilityState={{ selected: isSelected }}
-                  activeOpacity={0.8}>
-                  <View
-                    style={[
-                      styles.hazardIconBox,
-                      { backgroundColor: isSelected ? ht.color : colors.surfaceContainerLow },
-                    ]}>
-                    <IconComp size={18} color={isSelected ? '#fff' : ht.color} />
-                  </View>
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.severityLabel, { color: sl.color }]}>
+                    {sl.label}
+                  </Text>
                   <Text
                     style={[
-                      styles.hazardChipLabel,
-                      { color: colors.onSurface },
-                      isSelected && { fontWeight: '800' },
-                    ]}>
-                    {ht.label}
+                      styles.severityDesc,
+                      { color: colors.onSurfaceVariant },
+                    ]}
+                  >
+                    {sl.desc}
                   </Text>
+                  {isSelected && (
+                    <CheckCircle2
+                      size={14}
+                      color={sl.color}
+                      style={styles.hazardCheckBadge}
+                    />
+                  )}
                 </TouchableOpacity>
-              </Animated.View>
-            );
-          })}
-        </View>
+              );
+            })}
+          </View>
 
-        {/* Severity Level Selector */}
-        <Text style={[styles.sectionTitle, { color: colors.onSurface }]}>Severity Level</Text>
-        <View style={styles.severityRow}>
-          {SEVERITY_LEVELS.map((sl) => {
-            const isSelected = selectedSeverity === sl.id;
-            return (
+          {/* Highway Lane Location */}
+          <Text style={[styles.sectionTitle, { color: colors.onSurface }]}>
+            Corridor Lane Position
+          </Text>
+          <View style={styles.laneRow}>
+            {[
+              "Left Lane",
+              "Center Lane",
+              "Right Lane",
+              "Shoulder / Flyover",
+            ].map((lane) => (
               <TouchableOpacity
-                key={sl.id}
+                key={lane}
                 style={[
-                  styles.severityChip,
+                  styles.laneChip,
                   {
-                    backgroundColor: isSelected ? sl.color + '20' : colors.surfaceContainerLowest,
-                    borderColor: isSelected ? sl.color : colors.surfaceContainerHigh,
+                    backgroundColor: colors.surfaceContainerLow,
+                    borderColor: colors.surfaceContainerHigh,
+                  },
+                  lanePosition === lane && {
+                    backgroundColor: colors.primaryContainer,
+                    borderColor: colors.primary,
                   },
                 ]}
                 onPress={() => {
                   haptics.selection();
-                  setSelectedSeverity(sl.id);
+                  setLanePosition(lane);
                 }}
                 accessibilityRole="button"
-                accessibilityLabel={`Select severity ${sl.label}, ${sl.desc}`}
-                accessibilityState={{ selected: isSelected }}
-                activeOpacity={0.8}>
-                <Text style={[styles.severityLabel, { color: sl.color }]}>{sl.label}</Text>
-                <Text style={[styles.severityDesc, { color: colors.onSurfaceVariant }]}>{sl.desc}</Text>
+                accessibilityLabel={`Select corridor lane ${lane}`}
+                accessibilityState={{ selected: lanePosition === lane }}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={[
+                    styles.laneChipText,
+                    { color: colors.onSurfaceVariant },
+                    lanePosition === lane && {
+                      color: colors.onPrimary,
+                      fontWeight: "700",
+                    },
+                  ]}
+                >
+                  {lane}
+                </Text>
               </TouchableOpacity>
-            );
-          })}
-        </View>
+            ))}
+          </View>
 
-        {/* Highway Lane Location */}
-        <Text style={[styles.sectionTitle, { color: colors.onSurface }]}>Corridor Lane Position</Text>
-        <View style={styles.laneRow}>
-          {['Left Lane', 'Center Lane', 'Right Lane', 'Shoulder / Flyover'].map((lane) => (
-            <TouchableOpacity
-              key={lane}
+          {/* Notes & Optional Description */}
+          <Text style={[styles.sectionTitle, { color: colors.onSurface }]}>
+            Additional Driver Warning Notes
+          </Text>
+          <TextInput
+            style={[
+              styles.textInput,
+              {
+                backgroundColor: colors.surfaceContainerLowest,
+                borderColor: colors.surfaceContainerHigh,
+                color: colors.onSurface,
+              },
+            ]}
+            placeholder="E.g., Deep pothole after flyover descent, reduce speed to 40 km/h..."
+            placeholderTextColor={colors.outline}
+            multiline
+            numberOfLines={3}
+            value={description}
+            onChangeText={setDescription}
+          />
+
+          {/* Photo Upload Attachment */}
+          {photoUri ? (
+            <View
               style={[
-                styles.laneChip,
-                { backgroundColor: colors.surfaceContainerLow, borderColor: colors.surfaceContainerHigh },
-                lanePosition === lane && {
-                  backgroundColor: colors.primaryContainer,
-                  borderColor: colors.primary,
+                styles.photoCard,
+                {
+                  backgroundColor: colors.surfaceContainerLow,
+                  borderColor: colors.trafficGreen,
                 },
               ]}
-              onPress={() => {
-                haptics.selection();
-                setLanePosition(lane);
-              }}
+            >
+              <Image
+                source={{ uri: photoUri }}
+                style={styles.photoPreview}
+                resizeMode="cover"
+              />
+              <View style={{ flex: 1 }}>
+                <View
+                  style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+                >
+                  <CheckCircle2 size={16} color={colors.trafficGreen} />
+                  <Text
+                    style={[styles.photoTitle, { color: colors.onSurface }]}
+                  >
+                    Evidence Photo Attached
+                  </Text>
+                </View>
+                <Text
+                  style={[styles.photoSub, { color: colors.onSurfaceVariant }]}
+                >
+                  Verified via EXIF GPS & DigiPIN centroid
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  haptics.selection();
+                  setPhotoUri(null);
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Remove photo"
+              >
+                <X size={18} color={colors.error} />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={[
+                styles.photoCard,
+                {
+                  backgroundColor: colors.surfaceContainerLowest,
+                  borderColor: colors.surfaceContainerHigh,
+                },
+              ]}
+              onPress={handlePickPhoto}
               accessibilityRole="button"
-              accessibilityLabel={`Select corridor lane ${lane}`}
-              accessibilityState={{ selected: lanePosition === lane }}
-              activeOpacity={0.8}>
-              <Text
-                style={[
-                  styles.laneChipText,
-                  { color: colors.onSurfaceVariant },
-                  lanePosition === lane && { color: colors.onPrimary, fontWeight: '700' },
-                ]}>
-                {lane}
-              </Text>
+              accessibilityLabel="Attach dashcam or camera photo"
+              activeOpacity={0.8}
+            >
+              <Camera size={20} color={colors.primary} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.photoTitle, { color: colors.onSurface }]}>
+                  Attach Dashcam / Camera Photo
+                </Text>
+                <Text
+                  style={[styles.photoSub, { color: colors.onSurfaceVariant }]}
+                >
+                  Increases community report verification trust score by +25%
+                </Text>
+              </View>
             </TouchableOpacity>
-          ))}
-        </View>
+          )}
 
-        {/* Notes & Optional Description */}
-        <Text style={[styles.sectionTitle, { color: colors.onSurface }]}>Additional Driver Warning Notes</Text>
-        <TextInput
-          style={[
-            styles.textInput,
-            {
-              backgroundColor: colors.surfaceContainerLowest,
-              borderColor: colors.surfaceContainerHigh,
-              color: colors.onSurface,
-            },
-          ]}
-          placeholder="E.g., Deep pothole after flyover descent, reduce speed to 40 km/h..."
-          placeholderTextColor={colors.outline}
-          multiline
-          numberOfLines={3}
-          value={description}
-          onChangeText={setDescription}
-        />
-
-        {/* Photo Upload Attachment */}
-        {photoUri ? (
+          {/* Visual Highway Lane Schematic (Flowstep UI/UX Pattern) */}
           <View
             style={[
-              styles.photoCard,
-              { backgroundColor: colors.surfaceContainerLow, borderColor: colors.trafficGreen },
-            ]}>
-            <Image source={{ uri: photoUri }} style={styles.photoPreview} resizeMode="cover" />
-            <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <CheckCircle2 size={16} color={colors.trafficGreen} />
-                <Text style={[styles.photoTitle, { color: colors.onSurface }]}>Evidence Photo Attached</Text>
-              </View>
-              <Text style={[styles.photoSub, { color: colors.onSurfaceVariant }]}>
-                Verified via EXIF GPS & DigiPIN centroid
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => {
-                haptics.selection();
-                setPhotoUri(null);
-              }}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              accessibilityRole="button"
-              accessibilityLabel="Remove photo">
-              <X size={18} color={colors.error} />
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <TouchableOpacity
-            style={[
-              styles.photoCard,
-              { backgroundColor: colors.surfaceContainerLowest, borderColor: colors.surfaceContainerHigh },
+              styles.highwaySchematic,
+              {
+                backgroundColor: colors.surfaceContainerLow,
+                borderColor: colors.surfaceContainerHigh,
+              },
             ]}
-            onPress={handlePickPhoto}
-            accessibilityRole="button"
-            accessibilityLabel="Attach dashcam or camera photo"
-            activeOpacity={0.8}>
-            <Camera size={20} color={colors.primary} />
+          >
+            <Text
+              style={[
+                styles.schematicLabel,
+                { color: colors.onSurfaceVariant },
+              ]}
+            >
+              HIGHWAY CORRIDOR CROSS-SECTION
+            </Text>
+            <View style={styles.schematicRoad}>
+              {[
+                "Left Lane",
+                "Center Lane",
+                "Right Lane",
+                "Shoulder / Flyover",
+              ].map((lane) => {
+                const isLaneActive = lanePosition === lane;
+                return (
+                  <TouchableOpacity
+                    key={lane}
+                    style={[
+                      styles.schematicLane,
+                      { borderColor: colors.outlineVariant },
+                      isLaneActive && {
+                        backgroundColor:
+                          (currentHazard?.color || colors.primary) + "25",
+                        borderColor: currentHazard?.color || colors.primary,
+                      },
+                    ]}
+                    onPress={() => {
+                      haptics.selection();
+                      setLanePosition(lane);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Select lane ${lane}`}
+                  >
+                    {isLaneActive && (
+                      <View
+                        style={[
+                          styles.hazardPointMarker,
+                          {
+                            backgroundColor:
+                              currentHazard?.color || colors.error,
+                          },
+                        ]}
+                      >
+                        <TriangleAlert size={10} color="#fff" />
+                      </View>
+                    )}
+                    <Text
+                      style={[
+                        styles.schematicLaneText,
+                        {
+                          color: isLaneActive
+                            ? colors.onSurface
+                            : colors.onSurfaceVariant,
+                        },
+                        isLaneActive && { fontWeight: "800" },
+                      ]}
+                    >
+                      {lane.split(" ")[0]}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Trust Score Banner */}
+          <View
+            style={[
+              styles.trustBanner,
+              { backgroundColor: colors.surfaceContainerLow },
+            ]}
+          >
+            <ShieldCheck size={18} color={colors.trafficGreen} />
             <View style={{ flex: 1 }}>
-              <Text style={[styles.photoTitle, { color: colors.onSurface }]}>
-                Attach Dashcam / Camera Photo
+              <Text style={[styles.trustTitle, { color: colors.onSurface }]}>
+                Reporter Trust Score: 98.4% (VIP Navigator)
               </Text>
-              <Text style={[styles.photoSub, { color: colors.onSurfaceVariant }]}>
-                Increases community report verification trust score by +25%
+              <Text
+                style={[styles.trustSub, { color: colors.onSurfaceVariant }]}
+              >
+                Instant high-priority broadcast to connected V2X nodes
               </Text>
             </View>
-          </TouchableOpacity>
-        )}
-
-        {/* Trust Score Banner */}
-        <View style={[styles.trustBanner, { backgroundColor: colors.surfaceContainerLow }]}>
-          <ShieldCheck size={18} color={colors.trafficGreen} />
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.trustTitle, { color: colors.onSurface }]}>Reporter Trust Score: 98.4% (VIP Navigator)</Text>
-            <Text style={[styles.trustSub, { color: colors.onSurfaceVariant }]}>
-              Instant high-priority broadcast to connected V2X nodes
-            </Text>
           </View>
-        </View>
 
           <View style={{ height: Spacing.xl }} />
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Docked Sticky Broadcast Action Bar */}
+      {/* Docked Sticky Broadcast Action Bar (Flowstep Thumb-Zone Pattern) */}
       <View
         style={[
           styles.bottomDock,
@@ -375,10 +685,29 @@ export default function HazardReportModal() {
             borderTopColor: colors.surfaceContainerHigh,
             paddingBottom: Math.max(insets.bottom, 12) + 8,
           },
-        ]}>
+        ]}
+      >
+        <View style={styles.dockRewardRow}>
+          <View
+            style={[
+              styles.rewardBadge,
+              { backgroundColor: colors.primaryContainer },
+            ]}
+          >
+            <Award size={13} color={colors.primary} />
+            <Text style={[styles.rewardText, { color: colors.primary }]}>
+              +5 Community Trust XP
+            </Text>
+          </View>
+          <Text
+            style={[styles.dockMetaText, { color: colors.onSurfaceVariant }]}
+          >
+            Live V2X Telemetry
+          </Text>
+        </View>
         <View style={styles.dockContent}>
           <Button
-            title="Broadcast Road Hazard Report"
+            title={`Broadcast ${currentHazard?.label || "Hazard"} Report`}
             variant="primary"
             size="lg"
             fullWidth
@@ -396,28 +725,49 @@ const styles = StyleSheet.create({
   scroll: { padding: Spacing.md, gap: Spacing.md, paddingBottom: 100 },
 
   locationCard: { gap: Spacing.xs },
-  locationHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  locationTitle: { ...Typography.labelSmall, fontWeight: '700' },
-  locationAddress: { ...Typography.bodyMedium, fontWeight: '700', marginTop: 2 },
+  locationHeader: { flexDirection: "row", alignItems: "center", gap: 6 },
+  locationTitle: { ...Typography.labelSmall, fontWeight: "700" },
+  locationAddress: {
+    ...Typography.bodyMedium,
+    fontWeight: "700",
+    marginTop: 2,
+  },
   digiRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     padding: 8,
     borderRadius: Radius.md,
     marginTop: 6,
   },
-  digiBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: Radius.xs },
-  digiBadgeText: { fontSize: 9, fontWeight: '800' },
-  digiCode: { ...Typography.labelMedium, fontWeight: '800', letterSpacing: 0.5 },
+  digiBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radius.xs,
+  },
+  digiBadgeText: { fontSize: 9, fontWeight: "800" },
+  digiCode: {
+    ...Typography.labelMedium,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
   digiAccuracy: { ...Typography.bodySmall, fontSize: 10, flex: 1 },
 
-  sectionTitle: { ...Typography.titleSmall, fontWeight: '800', marginTop: Spacing.xs },
-  hazardGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between' },
-  hazardChipWrapper: { width: '48%' },
+  sectionTitle: {
+    ...Typography.titleSmall,
+    fontWeight: "800",
+    marginTop: Spacing.xs,
+  },
+  hazardGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    justifyContent: "space-between",
+  },
+  hazardChipWrapper: { width: "48%" },
   hazardChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     padding: 10,
     borderRadius: Radius.lg,
@@ -427,43 +777,48 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: Radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
-  hazardChipLabel: { ...Typography.labelSmall, fontWeight: '700', flex: 1 },
+  hazardChipLabel: { ...Typography.labelSmall, fontWeight: "700", flex: 1 },
 
-  severityRow: { flexDirection: 'row', gap: 8 },
+  severityRow: { flexDirection: "row", gap: 8 },
   severityChip: {
     flex: 1,
     padding: 10,
     borderRadius: Radius.md,
     borderWidth: 1.5,
-    alignItems: 'center',
+    alignItems: "center",
   },
-  severityLabel: { ...Typography.labelMedium, fontWeight: '800' },
-  severityDesc: { ...Typography.bodySmall, fontSize: 9, textAlign: 'center', marginTop: 2 },
+  severityLabel: { ...Typography.labelMedium, fontWeight: "800" },
+  severityDesc: {
+    ...Typography.bodySmall,
+    fontSize: 9,
+    textAlign: "center",
+    marginTop: 2,
+  },
 
-  laneRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  laneRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   laneChip: {
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: Radius.full,
     borderWidth: 1,
   },
-  laneChipText: { ...Typography.labelSmall, fontWeight: '600' },
+  laneChipText: { ...Typography.labelSmall, fontWeight: "600" },
 
   textInput: {
     borderWidth: 1,
     borderRadius: Radius.lg,
     padding: 12,
     minHeight: 70,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
     ...Typography.bodyMedium,
   },
 
   photoCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
     padding: 12,
     borderRadius: Radius.lg,
@@ -474,21 +829,101 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: Radius.sm,
   },
-  photoTitle: { ...Typography.labelMedium, fontWeight: '700' },
+  photoTitle: { ...Typography.labelMedium, fontWeight: "700" },
   photoSub: { ...Typography.bodySmall, fontSize: 10, marginTop: 1 },
 
   trustBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
     padding: 12,
     borderRadius: Radius.lg,
   },
-  trustTitle: { ...Typography.labelSmall, fontWeight: '700' },
+  trustTitle: { ...Typography.labelSmall, fontWeight: "700" },
   trustSub: { ...Typography.bodySmall, fontSize: 10, marginTop: 1 },
   keyboardAvoid: { flex: 1 },
+
+  /* Flowstep Step Tracker Styles */
+  flowstepStepsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 4,
+  },
+  stepPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Radius.full,
+  },
+  stepDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  stepText: {
+    ...Typography.labelSmall,
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  stepDivider: {
+    flex: 1,
+    height: 1,
+    marginHorizontal: 4,
+  },
+  hazardCheckBadge: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+  },
+
+  /* Flowstep Highway Cross-Section Visualizer */
+  highwaySchematic: {
+    padding: 12,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    gap: 8,
+    marginTop: 4,
+  },
+  schematicLabel: {
+    ...Typography.labelSmall,
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  schematicRoad: {
+    flexDirection: "row",
+    gap: 6,
+  },
+  schematicLane: {
+    flex: 1,
+    height: 48,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  schematicLaneText: {
+    ...Typography.labelSmall,
+    fontSize: 10,
+  },
+  hazardPointMarker: {
+    position: "absolute",
+    top: 4,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  /* Flowstep Thumb-Zone Bottom Dock */
   bottomDock: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
@@ -497,9 +932,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     ...Shadows.lg,
   },
+  dockRewardRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+    maxWidth: 600,
+    width: "100%",
+    alignSelf: "center",
+  },
+  rewardBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: Radius.full,
+  },
+  rewardText: {
+    ...Typography.labelSmall,
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  dockMetaText: {
+    ...Typography.bodySmall,
+    fontSize: 10,
+  },
   dockContent: {
     maxWidth: 600,
-    width: '100%',
-    alignSelf: 'center',
+    width: "100%",
+    alignSelf: "center",
   },
 });

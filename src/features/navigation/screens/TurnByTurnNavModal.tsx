@@ -26,6 +26,7 @@ import {
   Share2,
   Phone,
   Globe,
+  Mic,
 } from 'lucide-react-native';
 import Svg, {
   Defs,
@@ -38,10 +39,13 @@ import Svg, {
   Polygon,
 } from 'react-native-svg';
 import { Button } from '@/shared/components/ui';
+import { VoiceListeningModal } from '@/shared/components/voice/VoiceListeningModal';
 import {
   speechService,
   voiceLanguageService,
   VoiceLanguageCode,
+  VoiceGender,
+  VoiceRecognitionResult,
   notificationService,
 } from '@/shared/services';
 
@@ -51,6 +55,8 @@ export default function ActiveNavigationModal() {
   const [isMuted, setIsMuted] = useState(false);
   const [currentSpeed, setCurrentSpeed] = useState(74);
   const [xtdMeters] = useState(2.3);
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
+  const [voiceGender, setVoiceGender] = useState<VoiceGender>(speechService.getVoiceGender());
   const [voiceLang, setVoiceLang] = useState<VoiceLanguageCode>(
     voiceLanguageService.getLanguage()
   );
@@ -74,8 +80,8 @@ export default function ActiveNavigationModal() {
   const handleSelectVoiceLanguage = () => {
     haptics.medium();
     Alert.alert(
-      'Turn-by-Turn Voice Language',
-      'Select active voice language for spoken directions & vernacular alerts:',
+      'Turn-by-Turn Voice & Gender',
+      `Active Language: ${langInfo.name} · Voice: ${voiceGender === 'female' ? '♀ Female' : '♂ Male'}`,
       [
         {
           text: `English (Default) ${voiceLang === 'en' ? '✓' : ''}`,
@@ -88,6 +94,14 @@ export default function ActiveNavigationModal() {
         {
           text: `हिन्दी (Hindi) ${voiceLang === 'hi' ? '✓' : ''}`,
           onPress: () => speechService.switchLanguageAndSpeak('hi'),
+        },
+        {
+          text: `Switch Voice: ${voiceGender === 'female' ? 'Switch to ♂ Male' : 'Switch to ♀ Female'}`,
+          onPress: async () => {
+            const nextVoice = voiceGender === 'female' ? 'male' : 'female';
+            await speechService.setVoiceGender(nextVoice);
+            await speechService.speakVoiceSample(voiceLang);
+          },
         },
         {
           text: 'More Dialects (Profile Settings)',
@@ -109,6 +123,10 @@ export default function ActiveNavigationModal() {
       if (isMounted) setVoiceLang(lang);
     });
 
+    const unsubSpeech = speechService.subscribe((vGender) => {
+      if (isMounted) setVoiceGender(vGender);
+    });
+
     // Speak initial route prompt in active language
     speechService.speakPrompt('startRoute');
 
@@ -127,6 +145,7 @@ export default function ActiveNavigationModal() {
     return () => {
       isMounted = false;
       unsubscribe();
+      unsubSpeech();
       speechService.stop();
       if (speedInterval) clearInterval(speedInterval);
       subscription.remove();
@@ -187,6 +206,55 @@ export default function ActiveNavigationModal() {
   const handleTripOverview = () => {
     haptics.selection();
     router.push('/(tabs)/routes');
+  };
+
+  const handleVoiceCommandResult = async (result: VoiceRecognitionResult) => {
+    const text = (result.transcript || '').toLowerCase();
+    const intent = result.intent;
+
+    if (
+      text.includes('mute') ||
+      text.includes('sound off') ||
+      text.includes('শোন না') ||
+      text.includes('मौन')
+    ) {
+      toggleMute();
+      return;
+    }
+
+    if (
+      intent.type === 'hazard' ||
+      text.includes('hazard') ||
+      text.includes('pothole') ||
+      text.includes('accident') ||
+      text.includes('গর্ত') ||
+      text.includes('गड्ढा')
+    ) {
+      handleReportHazard();
+      return;
+    }
+
+    if (
+      intent.type === 'recalculate' ||
+      text.includes('recalculate') ||
+      text.includes('reroute') ||
+      text.includes('রাস্তা বদল') ||
+      text.includes('मार्ग बदलें')
+    ) {
+      await handleRecalculate();
+      return;
+    }
+
+    const activeLang = voiceLang;
+    const spokenText =
+      intent.spokenResponse[activeLang] ||
+      intent.spokenResponse.en ||
+      result.transcript;
+    await speechService.speak(spokenText);
+
+    if (intent.targetRoute) {
+      router.push(intent.targetRoute as any);
+    }
   };
 
   const handleShareTrip = async () => {
@@ -389,7 +457,9 @@ export default function ActiveNavigationModal() {
           activeOpacity={0.85}>
           <View style={styles.vernacularBadgeWrapper}>
             <Volume2 size={11} color="#0096FF" />
-            <Text style={styles.vernacularBadge}>{langInfo.ttsBadge}</Text>
+            <Text style={styles.vernacularBadge}>
+              {langInfo.ttsBadge} · {voiceGender === 'female' ? '♀ Female' : '♂ Male'}
+            </Text>
           </View>
           <Text style={styles.vernacularPrompt} numberOfLines={1}>
             {`“${voiceLanguageService.getPrompt('turnRight', voiceLang)}”`}
@@ -419,6 +489,18 @@ export default function ActiveNavigationModal() {
 
       {/* Right Floating FAB Controls */}
       <View style={[styles.rightFloatingControls, { top: clusterTop }]}>
+        <TouchableOpacity
+          style={[styles.floatingFab, { backgroundColor: '#F3E8FF', borderColor: '#A855F7' }]}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel="Voice copilot hands-free commands"
+          onPress={() => {
+            haptics.medium();
+            setShowVoiceModal(true);
+          }}>
+          <Mic size={20} color="#7E22CE" />
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.floatingFab, { backgroundColor: '#E8F4FF', borderColor: '#0096FF' }]}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -531,6 +613,12 @@ export default function ActiveNavigationModal() {
           />
         </View>
       </View>
+
+      <VoiceListeningModal
+        visible={showVoiceModal}
+        onClose={() => setShowVoiceModal(false)}
+        onResult={handleVoiceCommandResult}
+      />
     </View>
   );
 }

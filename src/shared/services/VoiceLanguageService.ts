@@ -1,6 +1,8 @@
 import { storageService } from './StorageService';
 import type { VoiceLanguageCode } from './StorageService';
 
+export type { VoiceLanguageCode };
+
 export interface VoiceLanguageConfig {
   code: VoiceLanguageCode;
   name: string;

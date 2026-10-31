@@ -12,17 +12,10 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { fluidEntering, fluidEnteringUp } from '@/shared/animations';
 import {
   Mic,
-  MicOff,
   Send,
   Sparkles,
   Bot,
@@ -37,7 +30,10 @@ import {
   speechService,
   voiceLanguageService,
   VoiceLanguageCode,
+  VoiceGender,
+  VoiceRecognitionResult,
 } from '@/shared/services';
+import { VoiceListeningModal } from '@/shared/components/voice/VoiceListeningModal';
 import { Radius, Shadows, Spacing, Typography } from '@/shared/constants/tokens';
 import {
   Header,
@@ -88,12 +84,24 @@ export default function AiCopilotModal() {
     },
   ]);
   const [inputText, setInputText] = useState('');
-  const [isListening, setIsListening] = useState(false);
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
+  const [voiceGender, setVoiceGender] = useState<VoiceGender>(speechService.getVoiceGender());
   const [voiceLang, setVoiceLang] = useState<VoiceLanguageCode>(
     voiceLanguageService.getLanguage()
   );
 
   const langInfo = voiceLanguageService.getLanguageInfo(voiceLang);
+
+  useEffect(() => {
+    let isMounted = true;
+    const unsub = speechService.subscribe((vGender) => {
+      if (isMounted) setVoiceGender(vGender);
+    });
+    return () => {
+      isMounted = false;
+      unsub();
+    };
+  }, []);
 
   const handleCycleLanguage = async () => {
     haptics.selection();
@@ -103,29 +111,6 @@ export default function AiCopilotModal() {
     setVoiceLang(nextLang);
     await speechService.switchLanguageAndSpeak(nextLang);
   };
-
-  const pulseScale = useSharedValue(1);
-
-  useEffect(() => {
-    if (isListening) {
-      pulseScale.value = withRepeat(
-        withSequence(
-          withTiming(1.35, { duration: 700 }),
-          withTiming(1, { duration: 700 })
-        ),
-        -1,
-        true
-      );
-    } else {
-      pulseScale.value = 1;
-    }
-  }, [isListening, pulseScale]);
-
-  const haloAnimatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: pulseScale.value }],
-    };
-  });
 
   const handleSendPrompt = (promptText?: string) => {
     haptics.light();
@@ -206,22 +191,12 @@ export default function AiCopilotModal() {
 
   const handleVoiceToggle = () => {
     haptics.medium();
-    if (isListening) {
-      setIsListening(false);
-      speechService.stop();
-    } else {
-      setIsListening(true);
-      // Simulate speech recognition capture after 2.5 seconds
-      setTimeout(() => {
-        setIsListening(false);
-        const sampleVoiceInputs = [
-          'Find vegetarian dhaba with clean restrooms on NH-48',
-          'Find 150kW CCS2 EV fast charger along route',
-          'Check fog alerts on Yamuna Expressway',
-        ];
-        const randomPick = sampleVoiceInputs[Math.floor(Math.random() * sampleVoiceInputs.length)];
-        handleSendPrompt(randomPick);
-      }, 2500);
+    setShowVoiceModal(true);
+  };
+
+  const handleVoiceResult = (result: VoiceRecognitionResult) => {
+    if (result.transcript && result.transcript.trim()) {
+      handleSendPrompt(result.transcript.trim());
     }
   };
 
@@ -236,6 +211,23 @@ export default function AiCopilotModal() {
         }}
         rightAction={
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <TouchableOpacity
+              style={[
+                styles.langCycleBtn,
+                { backgroundColor: colors.surfaceContainerLow, borderColor: colors.secondary },
+              ]}
+              onPress={async () => {
+                haptics.selection();
+                const next = voiceGender === 'female' ? 'male' : 'female';
+                await speechService.setVoiceGender(next);
+                await speechService.speakVoiceSample(voiceLang);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`Voice gender: ${voiceGender}. Tap to toggle`}>
+              <Text style={[styles.langCycleText, { color: colors.secondary, fontWeight: '800' }]}>
+                {voiceGender === 'female' ? '♀ FEM' : '♂ MALE'}
+              </Text>
+            </TouchableOpacity>
             <TouchableOpacity
               style={[
                 styles.langCycleBtn,
@@ -416,25 +408,6 @@ export default function AiCopilotModal() {
         ))}
       </ScrollView>
 
-      {/* Voice Halo Feedback State */}
-      {isListening && (
-        <View style={[styles.listeningBar, { backgroundColor: colors.primaryContainer }]}>
-          <Animated.View
-            style={[
-              styles.listeningHalo,
-              {
-                backgroundColor: colors.primary,
-              },
-              haloAnimatedStyle,
-            ]}
-          />
-          <Mic size={18} color={colors.onPrimary} />
-          <Text style={[styles.listeningText, { color: colors.onPrimary }]}>
-            Listening in Hindi/English... Speak naturally
-          </Text>
-        </View>
-      )}
-
       {/* Input Composer Dock */}
       <View
         style={[
@@ -446,21 +419,12 @@ export default function AiCopilotModal() {
           },
         ]}>
         <TouchableOpacity
-          style={[
-            styles.micToggleBtn,
-            isListening
-              ? { backgroundColor: colors.error }
-              : { backgroundColor: colors.primaryContainer },
-          ]}
+          style={[styles.micToggleBtn, { backgroundColor: colors.primaryContainer }]}
           onPress={handleVoiceToggle}
           accessibilityRole="button"
-          accessibilityLabel="Toggle voice recording"
+          accessibilityLabel="Start voice copilot"
           activeOpacity={0.8}>
-          {isListening ? (
-            <MicOff size={20} color="#fff" />
-          ) : (
-            <Mic size={20} color={colors.onPrimary} />
-          )}
+          <Mic size={20} color={colors.onPrimary} />
         </TouchableOpacity>
 
         <TextInput
@@ -501,6 +465,12 @@ export default function AiCopilotModal() {
         </TouchableOpacity>
       </View>
       </KeyboardAvoidingView>
+
+      <VoiceListeningModal
+        visible={showVoiceModal}
+        onClose={() => setShowVoiceModal(false)}
+        onResult={handleVoiceResult}
+      />
     </SafeAreaView>
   );
 }
@@ -598,27 +568,6 @@ const styles = StyleSheet.create({
   },
   actionBtnFlex: {
     flex: 1,
-  },
-  listeningBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 10,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  listeningHalo: {
-    position: 'absolute',
-    left: 12,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    opacity: 0.35,
-  },
-  listeningText: {
-    ...Typography.labelSmall,
-    fontWeight: '700',
   },
   composerContainer: {
     flexDirection: 'row',

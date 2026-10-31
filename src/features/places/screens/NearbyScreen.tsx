@@ -32,6 +32,7 @@ import {
   ArrowRight,
   MapPin,
   CheckCircle2,
+  Mic,
 } from 'lucide-react-native';
 import { useThemeColors } from '@/shared/hooks';
 import { Radius, Spacing, Typography } from '@/shared/constants/tokens';
@@ -41,6 +42,8 @@ import {
   Card,
   SectionHeader,
 } from '@/shared/components/ui';
+import { VoiceListeningModal } from '@/shared/components/voice/VoiceListeningModal';
+import { VoiceRecognitionResult } from '@/shared/services';
 import { haptics } from '@/shared/utils/haptics';
 
 type NearbyCategory = 'ev' | 'fuel' | 'transit' | 'parking' | 'food' | 'pharmacy';
@@ -303,6 +306,16 @@ export default function NearbyScreen() {
   const [activeCategory, setActiveCategory] = useState<NearbyCategory>('ev');
   const [evFilter, setEvFilter] = useState<'all' | 'fast' | '24_7'>('all');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
+
+  const handleVoiceResult = useCallback((res: VoiceRecognitionResult) => {
+    if (res.intent.params?.category) {
+      const cat = res.intent.params.category as NearbyCategory;
+      if (['ev', 'fuel', 'transit', 'parking', 'food', 'pharmacy'].includes(cat)) {
+        setActiveCategory(cat);
+      }
+    }
+  }, []);
 
   const handleRefresh = useCallback(() => {
     haptics.light();
@@ -941,6 +954,20 @@ export default function NearbyScreen() {
         title="Explore Nearby POIs"
         subtitle="EV Fast Chargers · Smart Parking · Transit · Dhabas"
         showBack={false}
+        rightAction={
+          <TouchableOpacity
+            style={[styles.voiceBtn, { backgroundColor: colors.primaryContainer }]}
+            onPress={() => {
+              haptics.medium();
+              setShowVoiceModal(true);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Voice search nearby places"
+            activeOpacity={0.8}
+          >
+            <Mic size={18} color={colors.onPrimary} />
+          </TouchableOpacity>
+        }
       />
 
       {/* Category Selection Bar using Virtualized FlatList */}
@@ -974,6 +1001,12 @@ export default function NearbyScreen() {
           { paddingBottom: Math.max(insets.bottom, 16) + 90 },
         ]}
       />
+
+      <VoiceListeningModal
+        visible={showVoiceModal}
+        onClose={() => setShowVoiceModal(false)}
+        onResult={handleVoiceResult}
+      />
     </SafeAreaView>
   );
 }
@@ -981,6 +1014,13 @@ export default function NearbyScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  voiceBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   categoryContainer: {
     paddingVertical: Spacing.sm,
