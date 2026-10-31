@@ -22,7 +22,7 @@ import {
   CheckCircle2,
   Copy,
 } from 'lucide-react-native';
-import { storageService } from '@/shared/services';
+import { storageService, notificationService } from '@/shared/services';
 import { useThemeColors } from '@/shared/hooks';
 import { Radius, Shadows, Spacing, Typography } from '@/shared/constants/tokens';
 import { Header, Card, Button, Badge } from '@/shared/components/ui';
@@ -72,8 +72,8 @@ export default function EvStationScreen() {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const [selectedBayId, setSelectedBayId] = useState<string>('1');
-  const targetSoc = 80;
-  const currentSoc = 22;
+  const [targetSoc, setTargetSoc] = useState<number>(80);
+  const [currentSoc, setCurrentSoc] = useState<number>(22);
 
   const activeBay = useMemo(() => {
     return CONNECTOR_BAYS.find((b) => b.id === selectedBayId) || CONNECTOR_BAYS[0];
@@ -81,10 +81,11 @@ export default function EvStationScreen() {
 
   const batteryCapacityKwh = 60;
   const energyNeededKwh = useMemo(() => {
-    return ((targetSoc - currentSoc) / 100) * batteryCapacityKwh;
+    return (Math.max(0, targetSoc - currentSoc) / 100) * batteryCapacityKwh;
   }, [targetSoc, currentSoc]);
 
   const chargingTimeMinutes = useMemo(() => {
+    if (energyNeededKwh <= 0) return 0;
     return Math.round((energyNeededKwh / activeBay.powerKw) * 60 + 4);
   }, [energyNeededKwh, activeBay.powerKw]);
 
@@ -97,6 +98,14 @@ export default function EvStationScreen() {
     const reservationId = `EZ-${Math.floor(1000 + Math.random() * 9000)}`;
     await storageService.savePreferences({
       evConnectorTypes: [activeBay.type],
+    });
+
+    // Broadcast EV charging reservation in-app notification
+    notificationService.addNotification({
+      title: 'EV Charging Gun Reserved ⚡',
+      message: `Gun #1 (${activeBay.type}) held for 15 mins. Token: #${reservationId}. Est: ₹${totalCost}`,
+      type: 'system',
+      actionRoute: '/ev-station',
     });
 
     Alert.alert(
@@ -273,14 +282,56 @@ export default function EvStationScreen() {
             <View style={styles.socRow}>
               <View style={styles.socBlock}>
                 <Text style={[styles.socLabel, { color: colors.onSurfaceVariant }]}>CURRENT SOC</Text>
-                <Text style={[styles.socVal, { color: colors.onSurface }]}>{currentSoc}%</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                  <TouchableOpacity
+                    style={[styles.socAdjustBtn, { backgroundColor: colors.surfaceContainerLow }]}
+                    onPress={() => {
+                      haptics.selection();
+                      setCurrentSoc((prev) => Math.max(5, prev - 10));
+                    }}>
+                    <Text style={[styles.socAdjustText, { color: colors.onSurface }]}>-10</Text>
+                  </TouchableOpacity>
+                  <Text style={[styles.socVal, { color: colors.onSurface }]}>{currentSoc}%</Text>
+                  <TouchableOpacity
+                    style={[styles.socAdjustBtn, { backgroundColor: colors.surfaceContainerLow }]}
+                    onPress={() => {
+                      haptics.selection();
+                      setCurrentSoc((prev) => Math.min(targetSoc - 5, prev + 10));
+                    }}>
+                    <Text style={[styles.socAdjustText, { color: colors.onSurface }]}>+10</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
 
               <View style={[styles.socArrow, { backgroundColor: colors.surfaceContainerHigh }]} />
 
               <View style={styles.socBlock}>
                 <Text style={[styles.socLabel, { color: colors.onSurfaceVariant }]}>TARGET SOC</Text>
-                <Text style={[styles.socVal, { color: colors.primary }]}>{targetSoc}%</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                  {[80, 90, 100].map((soc) => (
+                    <TouchableOpacity
+                      key={soc}
+                      style={[
+                        styles.targetChip,
+                        {
+                          backgroundColor: targetSoc === soc ? colors.primaryContainer : colors.surfaceContainerLow,
+                          borderColor: targetSoc === soc ? colors.primary : colors.surfaceContainerHigh,
+                        },
+                      ]}
+                      onPress={() => {
+                        haptics.selection();
+                        setTargetSoc(soc);
+                      }}>
+                      <Text
+                        style={[
+                          styles.targetChipText,
+                          { color: targetSoc === soc ? colors.primary : colors.onSurfaceVariant },
+                        ]}>
+                        {soc}%
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
             </View>
 
@@ -531,6 +582,27 @@ const styles = StyleSheet.create({
   socVal: {
     ...Typography.titleLarge,
     fontWeight: '800',
+  },
+  socAdjustBtn: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radius.xs,
+  },
+  socAdjustText: {
+    ...Typography.labelSmall,
+    fontWeight: '700',
+    fontSize: 9,
+  },
+  targetChip: {
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: Radius.xs,
+    borderWidth: 1,
+  },
+  targetChipText: {
+    ...Typography.labelSmall,
+    fontWeight: '700',
+    fontSize: 10,
   },
   socArrow: {
     width: 24,

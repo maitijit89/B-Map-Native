@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,9 @@ import {
   CheckCircle2,
   Phone,
   ShieldCheck,
+  Volume2,
+  Bell,
+  ChevronRight,
 } from 'lucide-react-native';
 import { useThemeColors } from '@/shared/hooks';
 import { Radius, Spacing, Typography } from '@/shared/constants/tokens';
@@ -33,27 +36,15 @@ import {
 } from '@/shared/components/ui';
 import { DynamicAppIconSettingsCard } from '@/features/compass';
 import { haptics } from '@/shared/utils/haptics';
-
-interface LanguageItem {
-  code: string;
-  name: string;
-  script: string;
-}
-
-const INDIAN_LANGUAGES: LanguageItem[] = [
-  { code: 'en', name: 'English', script: 'English' },
-  { code: 'hi', name: 'Hindi', script: 'हिन्दी' },
-  { code: 'ta', name: 'Tamil', script: 'தமிழ்' },
-  { code: 'te', name: 'Telugu', script: 'తెలుగు' },
-  { code: 'bn', name: 'Bengali', script: 'বাংলা' },
-  { code: 'mr', name: 'Marathi', script: 'मराठी' },
-  { code: 'gu', name: 'Gujarati', script: 'ગુજરાતી' },
-  { code: 'kn', name: 'Kannada', script: 'கன்னட' },
-  { code: 'ml', name: 'Malayalam', script: 'മലയാളം' },
-  { code: 'pa', name: 'Punjabi', script: 'ਪੰਜਾਬੀ' },
-  { code: 'or', name: 'Odia', script: 'ଓଡ଼ିଆ' },
-  { code: 'as', name: 'Assamese', script: 'অসমীয়া' },
-];
+import {
+  speechService,
+  voiceLanguageService,
+  VoiceLanguageCode,
+  SUPPORTED_VOICE_LANGUAGES,
+  storageService,
+  UserProfileData,
+  DEFAULT_USER_PROFILE,
+} from '@/shared/services';
 
 const SAVED_PLACES = [
   {
@@ -104,19 +95,44 @@ export default function ProfileScreen() {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
 
-  const [selectedLanguage, setSelectedLanguage] = useState('hi');
+  const [selectedLanguage, setSelectedLanguage] = useState<VoiceLanguageCode>(
+    voiceLanguageService.getLanguage()
+  );
+  const [userProfile, setUserProfile] = useState<UserProfileData>(DEFAULT_USER_PROFILE);
   const [navicMode, setNavicMode] = useState(true);
   const [differentialPrivacy, setDifferentialPrivacy] = useState(false);
   const [speedAlerts, setSpeedAlerts] = useState(true);
+
+  // Sync user profile & voice language preference from storage & subscriptions
+  useEffect(() => {
+    let isMounted = true;
+    storageService.getUserProfile().then((prof) => {
+      if (isMounted) setUserProfile(prof);
+    });
+
+    voiceLanguageService.init().then((lang) => {
+      if (isMounted) setSelectedLanguage(lang);
+    });
+
+    const unsubscribe = voiceLanguageService.subscribe((lang) => {
+      if (isMounted) setSelectedLanguage(lang);
+    });
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, []);
 
   const handleCopyDigiPin = useCallback((pin: string) => {
     haptics.success();
     Alert.alert('DigiPIN Copied', `Copied ${pin} to clipboard (4m × 4m sovereign grid code).`);
   }, []);
 
-  const handleLanguageSelect = useCallback((code: string) => {
+  const handleLanguageSelect = useCallback(async (code: VoiceLanguageCode) => {
     haptics.selection();
     setSelectedLanguage(code);
+    await speechService.switchLanguageAndSpeak(code);
   }, []);
 
   return (
@@ -152,14 +168,14 @@ export default function ProfileScreen() {
         <Animated.View entering={fluidEntering(0)}>
           <Card variant="elevated" padding="md" style={styles.cardGap}>
             <View style={styles.profileTop}>
-              <Avatar name="Aarav Sharma" size="lg" status="online" />
+              <Avatar name={userProfile.name} size="lg" status="online" />
               <View style={styles.profileInfo}>
                 <View style={styles.nameRow}>
-                  <Text style={[styles.profileName, { color: colors.onSurface }]}>Aarav Sharma</Text>
+                  <Text style={[styles.profileName, { color: colors.onSurface }]}>{userProfile.name}</Text>
                   <CheckCircle2 size={16} color={colors.primary} />
                 </View>
                 <Text style={[styles.profileContact, { color: colors.onSurfaceVariant }]}>
-                  +91 98765 43210 · aarav.sharma@example.com
+                  {userProfile.phone} · {userProfile.email}
                 </Text>
                 <View style={styles.badgeRow}>
                   <Badge label="VIP Navigator Level 4" variant="primary" size="sm" showDot />
@@ -253,51 +269,77 @@ export default function ProfileScreen() {
 
         {/* Multilingual Voice Guidance */}
         <Animated.View entering={fluidEntering(60)}>
-          <SectionHeader title="Multilingual Voice Guidance" subtitle="Supported Regional Dialects" />
+          <SectionHeader
+            title="Multilingual Voice Guidance"
+            subtitle={`Default: English · Spoken Vernacular TTS (${voiceLanguageService.getLanguageInfo(selectedLanguage).nativeName})`}
+          />
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.langScroll}>
-            {INDIAN_LANGUAGES.map((item) => {
-              const isSelected = selectedLanguage === item.code;
-              return (
-                <TouchableOpacity
-                  key={item.code}
-                  style={[
-                    styles.langChip,
-                    {
-                      backgroundColor: isSelected
-                        ? colors.primaryContainer
-                        : colors.surfaceContainerLow,
-                      borderColor: isSelected
-                        ? colors.primary
-                        : colors.surfaceContainerHigh,
-                    },
-                  ]}
-                  onPress={() => handleLanguageSelect(item.code)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Select language ${item.name} (${item.script})`}
-                  accessibilityState={{ selected: isSelected }}
-                  activeOpacity={0.8}>
-                  <Text
-                    style={[
-                      styles.langName,
-                      { color: isSelected ? colors.onPrimary : colors.onSurface },
-                    ]}>
-                    {item.name}
+          <Card variant="flat" padding="md" style={styles.cardGap}>
+            <View style={styles.voiceHeaderRow}>
+              <View style={styles.voiceHeaderLeft}>
+                <View style={[styles.voiceIconRing, { backgroundColor: colors.primaryContainer }]}>
+                  <Volume2 size={18} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.voiceActiveTitle, { color: colors.onSurface }]}>
+                    Active Voice: {voiceLanguageService.getLanguageInfo(selectedLanguage).name} ({voiceLanguageService.getLanguageInfo(selectedLanguage).nativeName})
                   </Text>
-                  <Text
-                    style={[
-                      styles.langScript,
-                      { color: isSelected ? colors.onPrimary : colors.onSurfaceVariant },
-                    ]}>
-                    {item.script}
+                  <Text style={[styles.voiceActiveSub, { color: colors.onSurfaceVariant }]}>
+                    Spoken turn prompts, distance alerts & rerouting
                   </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+                </View>
+              </View>
+              <StatusBadge
+                status="success"
+                label={voiceLanguageService.getLanguageInfo(selectedLanguage).ttsBadge}
+                size="sm"
+              />
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.langScroll}>
+              {SUPPORTED_VOICE_LANGUAGES.map((item) => {
+                const isSelected = selectedLanguage === item.code;
+                return (
+                  <TouchableOpacity
+                    key={item.code}
+                    style={[
+                      styles.langChip,
+                      {
+                        backgroundColor: isSelected
+                          ? colors.primaryContainer
+                          : colors.surfaceContainerLow,
+                        borderColor: isSelected
+                          ? colors.primary
+                          : colors.surfaceContainerHigh,
+                      },
+                    ]}
+                    onPress={() => handleLanguageSelect(item.code)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Select voice language ${item.name} (${item.nativeName})`}
+                    accessibilityState={{ selected: isSelected }}
+                    activeOpacity={0.8}>
+                    <Text
+                      style={[
+                        styles.langName,
+                        { color: isSelected ? colors.primary : colors.onSurface },
+                      ]}>
+                      {item.name}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.langScript,
+                        { color: isSelected ? colors.primary : colors.onSurfaceVariant },
+                      ]}>
+                      {item.nativeName}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </Card>
         </Animated.View>
 
         {/* Recent Navigation Trips */}
@@ -378,6 +420,27 @@ export default function ProfileScreen() {
                 }}
               />
             </View>
+
+            <View style={[styles.toggleDivider, { backgroundColor: colors.surfaceContainerHigh }]} />
+
+            <TouchableOpacity
+              style={[styles.toggleRow, { paddingTop: 4 }]}
+              onPress={() => {
+                haptics.selection();
+                router.push('/notifications');
+              }}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Open notification center">
+              <View style={[styles.activityIconRing, { backgroundColor: colors.primaryContainer, marginRight: 10 }]}>
+                <Bell size={16} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.toggleTitle, { color: colors.onSurface }]}>Alerts & Notifications Center</Text>
+                <Text style={[styles.toggleSub, { color: colors.onSurfaceVariant }]}>FASTag, speed radar & hazard history</Text>
+              </View>
+              <ChevronRight size={18} color={colors.primary} />
+            </TouchableOpacity>
           </Card>
         </Animated.View>
 
@@ -572,6 +635,34 @@ const styles = StyleSheet.create({
   digiCopyText: {
     ...Typography.labelSmall,
     fontWeight: '700',
+    fontSize: 11,
+  },
+  voiceHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.sm,
+  },
+  voiceHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+    marginRight: 8,
+  },
+  voiceIconRing: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  voiceActiveTitle: {
+    ...Typography.titleSmall,
+    fontWeight: '700',
+  },
+  voiceActiveSub: {
+    ...Typography.bodySmall,
     fontSize: 11,
   },
   langScroll: {

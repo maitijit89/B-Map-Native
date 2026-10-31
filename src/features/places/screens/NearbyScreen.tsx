@@ -4,10 +4,10 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   Linking,
   FlatList,
   ListRenderItem,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -22,13 +22,16 @@ import {
   Pill,
   Star,
   Clock,
-  Filter,
   Navigation,
   Plug,
   CircleDot,
   Bus,
   Phone,
   ShieldCheck,
+  Compass,
+  ArrowRight,
+  MapPin,
+  CheckCircle2,
 } from 'lucide-react-native';
 import { useThemeColors } from '@/shared/hooks';
 import { Radius, Spacing, Typography } from '@/shared/constants/tokens';
@@ -249,10 +252,65 @@ const PHARMACY_PLACES = [
   },
 ];
 
+const PARKING_PLACES = [
+  {
+    id: 'park_1',
+    name: 'DLF Cyber Hub Multilevel Smart Parking',
+    location: 'DLF Phase 2, Sector 24, Gurugram',
+    distance: '1.1 km',
+    rate: '₹50/hr',
+    freeBays: 148,
+    totalBays: 320,
+    evChargersFree: 12,
+    digiPin: '28J4-K8M2-9P',
+    levels: 'Level B1, B2, B3',
+    status: 'Automated FASTag Entry',
+    hasIndoorMap: true,
+  },
+  {
+    id: 'park_2',
+    name: 'Palika Underground Smart Parking',
+    location: 'Connaught Place Outer Circle, New Delhi',
+    distance: '24.2 km',
+    rate: '₹20/hr',
+    freeBays: 210,
+    totalBays: 450,
+    evChargersFree: 8,
+    digiPin: '28J4-C2M1-4K',
+    levels: 'Level -1, Level -2',
+    status: '24/7 Monitored CCTV',
+    hasIndoorMap: false,
+  },
+  {
+    id: 'park_3',
+    name: 'IGI Airport T3 Multi-Level Car Park',
+    location: 'Terminal 3 Departure & Arrival, Palam',
+    distance: '11.8 km',
+    rate: '₹120/2hrs',
+    freeBays: 640,
+    totalBays: 1200,
+    evChargersFree: 24,
+    digiPin: '28J3-H7K1-8X',
+    levels: 'G, 1, 2, 3, 4',
+    status: 'Valet & Covered Bays',
+    hasIndoorMap: true,
+  },
+];
+
 export default function NearbyScreen() {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const [activeCategory, setActiveCategory] = useState<NearbyCategory>('ev');
+  const [evFilter, setEvFilter] = useState<'all' | 'fast' | '24_7'>('all');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = useCallback(() => {
+    haptics.light();
+    setIsRefreshing(true);
+    setTimeout(() => {
+      setIsRefreshing(false);
+    }, 600);
+  }, []);
 
   const handleCategorySelect = useCallback((key: NearbyCategory) => {
     haptics.selection();
@@ -278,19 +336,92 @@ export default function NearbyScreen() {
 
   const categoryKeyExtractor = useCallback((item: CategoryItem) => item.key, []);
 
+  const filteredEvStations = useMemo(() => {
+    if (evFilter === 'fast') {
+      return EV_STATIONS.filter((s) => s.connectors.some((c) => c.includes('150kW') || c.includes('120kW') || c.includes('60kW')));
+    }
+    if (evFilter === '24_7') {
+      return EV_STATIONS.filter((s) => s.status.includes('24/7'));
+    }
+    return EV_STATIONS;
+  }, [evFilter]);
+
   const renderEVContent = useCallback(() => (
     <View style={styles.sectionContainer}>
       <SectionHeader
         title="EV Charging Stations"
         subtitle="Live OCPP 2.0.1 Connector Availability"
-        actionText="Filter"
-        actionIcon={<Filter size={14} color={colors.primary} />}
-        onActionPress={() => {
-          haptics.light();
-          Alert.alert('Filter EV Stations', 'Filter by CCS2, Type 2, fast charging speed (>50kW), or 24/7 access.');
-        }}
       />
-      {EV_STATIONS.map((station, idx) => (
+
+      {/* Interactive EV Filter Chips */}
+      <View style={styles.filterChipRow}>
+        <TouchableOpacity
+          style={[
+            styles.filterChip,
+            {
+              backgroundColor: evFilter === 'all' ? colors.primaryContainer : colors.surfaceContainerLow,
+              borderColor: evFilter === 'all' ? colors.primary : colors.outlineVariant,
+            },
+          ]}
+          onPress={() => {
+            haptics.selection();
+            setEvFilter('all');
+          }}>
+          <Text
+            style={[
+              styles.filterChipText,
+              { color: evFilter === 'all' ? colors.onPrimaryContainer : colors.onSurfaceVariant },
+            ]}>
+            All Chargers ({EV_STATIONS.length})
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.filterChip,
+            {
+              backgroundColor: evFilter === 'fast' ? colors.primaryContainer : colors.surfaceContainerLow,
+              borderColor: evFilter === 'fast' ? colors.primary : colors.outlineVariant,
+            },
+          ]}
+          onPress={() => {
+            haptics.selection();
+            setEvFilter('fast');
+          }}>
+          <Zap size={12} color={evFilter === 'fast' ? colors.primary : colors.onSurfaceVariant} />
+          <Text
+            style={[
+              styles.filterChipText,
+              { color: evFilter === 'fast' ? colors.onPrimaryContainer : colors.onSurfaceVariant },
+            ]}>
+            Fast &gt;50kW
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.filterChip,
+            {
+              backgroundColor: evFilter === '24_7' ? colors.primaryContainer : colors.surfaceContainerLow,
+              borderColor: evFilter === '24_7' ? colors.primary : colors.outlineVariant,
+            },
+          ]}
+          onPress={() => {
+            haptics.selection();
+            setEvFilter('24_7');
+          }}>
+          <Clock size={12} color={evFilter === '24_7' ? colors.primary : colors.onSurfaceVariant} />
+          <Text
+            style={[
+              styles.filterChipText,
+              { color: evFilter === '24_7' ? colors.onPrimaryContainer : colors.onSurfaceVariant },
+            ]}>
+            Open 24/7
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {filteredEvStations.map((station, idx) => (
         <Animated.View
           key={station.id}
           entering={fluidEntering(idx * 25)}>
@@ -362,9 +493,113 @@ export default function NearbyScreen() {
                 <Text style={[styles.priceHighlight, { color: colors.primary }]}>{station.price}</Text>
                 <Text style={[styles.statusText, { color: colors.onSurfaceVariant }]}>{station.status}</Text>
               </View>
-              <View style={[styles.ratingPill, { backgroundColor: colors.surfaceContainerLow }]}>
-                <Star size={12} color="#FF9800" fill="#FF9800" />
-                <Text style={[styles.ratingText, { color: colors.onSurface }]}>{station.rating}</Text>
+              <View style={styles.footerActionsRight}>
+                <View style={[styles.ratingPill, { backgroundColor: colors.surfaceContainerLow }]}>
+                  <Star size={12} color="#FF9800" fill="#FF9800" />
+                  <Text style={[styles.ratingText, { color: colors.onSurface }]}>{station.rating}</Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.navMiniBtn, { backgroundColor: colors.primary }]}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    haptics.medium();
+                    router.push('/modal');
+                  }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Navigate to ${station.name}`}>
+                  <Navigation size={13} color="#ffffff" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Card>
+        </Animated.View>
+      ))}
+    </View>
+  ), [colors, evFilter, filteredEvStations]);
+
+  const renderParkingContent = useCallback(() => (
+    <View style={styles.sectionContainer}>
+      <SectionHeader
+        title="Smart Parking Facilities"
+        subtitle="Real-Time Vacancy Sensors · Multilevel Guidance"
+        actionText="Indoor Map"
+        actionIcon={<Compass size={14} color={colors.primary} />}
+        onActionPress={() => {
+          haptics.medium();
+          router.push('/indoor-parking');
+        }}
+      />
+      {PARKING_PLACES.map((park, idx) => (
+        <Animated.View
+          key={park.id}
+          entering={fluidEntering(idx * 25)}>
+          <Card
+            variant="flat"
+            padding="md"
+            style={styles.card}
+            onPress={() => {
+              haptics.light();
+              router.push('/indoor-parking');
+            }}>
+            <View style={styles.cardHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.cardTitle, { color: colors.onSurface }]}>{park.name}</Text>
+                <Text style={[styles.cardSubtitle, { color: colors.onSurfaceVariant }]}>
+                  {park.location} · {park.distance}
+                </Text>
+              </View>
+              <View style={[styles.availBadge, { backgroundColor: colors.secondaryContainer }]}>
+                <CheckCircle2 size={11} color={colors.secondary} />
+                <Text style={[styles.availBadgeText, { color: colors.onSecondaryContainer }]}>
+                  {park.freeBays} free
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.parkingMetaRow}>
+              <View style={[styles.amenityChip, { backgroundColor: colors.surfaceContainerLow }]}>
+                <SquareParking size={11} color={colors.primary} />
+                <Text style={[styles.amenityText, { color: colors.onSurface }]}>{park.levels}</Text>
+              </View>
+              <View style={[styles.amenityChip, { backgroundColor: colors.primaryContainer + '30' }]}>
+                <Zap size={11} color={colors.primary} />
+                <Text style={[styles.amenityText, { color: colors.primary }]}>{park.evChargersFree} EV Bays Free</Text>
+              </View>
+              <View style={[styles.amenityChip, { backgroundColor: colors.surfaceContainerLow }]}>
+                <Text style={[styles.amenityText, { color: colors.onSurfaceVariant }]}>{park.status}</Text>
+              </View>
+            </View>
+
+            <View style={[styles.cardFooter, { borderTopColor: colors.surfaceContainerHigh }]}>
+              <View style={styles.footerLeft}>
+                <Text style={[styles.priceHighlight, { color: colors.primary }]}>{park.rate}</Text>
+                <Text style={[styles.statusText, { color: colors.onSurfaceVariant }]}>{park.digiPin}</Text>
+              </View>
+              <View style={styles.footerActionsRight}>
+                {park.hasIndoorMap && (
+                  <TouchableOpacity
+                    style={[styles.indoorMapBtn, { backgroundColor: colors.surfaceContainerLow, borderColor: colors.primary }]}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      haptics.selection();
+                      router.push('/indoor-parking');
+                    }}>
+                    <Text style={[styles.indoorMapBtnText, { color: colors.primary }]}>Floor Bays</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={[styles.navMiniBtn, { backgroundColor: colors.primary }]}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    haptics.medium();
+                    router.push('/modal');
+                  }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Navigate to ${park.name}`}>
+                  <Navigation size={13} color="#ffffff" />
+                </TouchableOpacity>
               </View>
             </View>
           </Card>
@@ -378,6 +613,12 @@ export default function NearbyScreen() {
       <SectionHeader
         title="Public Transit"
         subtitle="Metro & DTC Bus Real-Time Telematics"
+        actionText="Planner"
+        actionIcon={<ArrowRight size={14} color={colors.primary} />}
+        onActionPress={() => {
+          haptics.light();
+          router.push('/transit-planner');
+        }}
       />
       {TRANSIT_ROUTES.map((route, idx) => (
         <Animated.View
@@ -497,15 +738,15 @@ export default function NearbyScreen() {
                 </Text>
               </View>
               <TouchableOpacity
-                style={[styles.navMiniBtn, { backgroundColor: colors.primaryContainer }]}
+                style={[styles.navMiniBtn, { backgroundColor: colors.primary }]}
                 onPress={() => {
-                  haptics.light();
-                  Alert.alert('Navigate', `Routing to ${st.name}`);
+                  haptics.medium();
+                  router.push('/modal');
                 }}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 accessibilityRole="button"
                 accessibilityLabel={`Route to ${st.name}`}>
-                <Navigation size={14} color={colors.onPrimary} />
+                <Navigation size={14} color="#ffffff" />
               </TouchableOpacity>
             </View>
 
@@ -551,9 +792,22 @@ export default function NearbyScreen() {
                   {place.cuisine}
                 </Text>
               </View>
-              <View style={[styles.ratingPill, { backgroundColor: colors.surfaceContainerLow }]}>
-                <Star size={12} color="#FF9800" fill="#FF9800" />
-                <Text style={[styles.ratingText, { color: colors.onSurface }]}>{place.rating}</Text>
+              <View style={styles.footerActionsRight}>
+                <View style={[styles.ratingPill, { backgroundColor: colors.surfaceContainerLow }]}>
+                  <Star size={12} color="#FF9800" fill="#FF9800" />
+                  <Text style={[styles.ratingText, { color: colors.onSurface }]}>{place.rating}</Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.navMiniBtn, { backgroundColor: colors.primary }]}
+                  onPress={() => {
+                    haptics.medium();
+                    router.push('/modal');
+                  }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Route to ${place.name}`}>
+                  <Navigation size={13} color="#ffffff" />
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -567,7 +821,18 @@ export default function NearbyScreen() {
 
             <View style={[styles.cardFooter, { borderTopColor: colors.surfaceContainerHigh }]}>
               <Text style={[styles.statusText, { color: colors.secondary }]}>{place.hygiene}</Text>
-              <Text style={[styles.metaText, { color: colors.onSurfaceVariant }]}>{place.distance}</Text>
+              <View style={styles.footerActionsRight}>
+                <Text style={[styles.metaText, { color: colors.onSurfaceVariant }]}>{place.distance}</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    haptics.selection();
+                    router.push('/digipin-explorer');
+                  }}
+                  style={[styles.digiBadge, { backgroundColor: colors.surfaceContainerLow }]}>
+                  <MapPin size={10} color={colors.primary} />
+                  <Text style={[styles.digiText, { color: colors.primary }]}>{place.digiPin}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </Card>
         </Animated.View>
@@ -593,17 +858,30 @@ export default function NearbyScreen() {
                   {ph.type} · {ph.distance}
                 </Text>
               </View>
-              <TouchableOpacity
-                style={[styles.navMiniBtn, { backgroundColor: colors.secondaryContainer }]}
-                onPress={() => {
-                  haptics.medium();
-                  Linking.openURL(`tel:${ph.phone}`);
-                }}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                accessibilityRole="button"
-                accessibilityLabel={`Call ${ph.name}`}>
-                <Phone size={14} color={colors.onSecondaryContainer} />
-              </TouchableOpacity>
+              <View style={styles.footerActionsRight}>
+                <TouchableOpacity
+                  style={[styles.navMiniBtn, { backgroundColor: colors.secondaryContainer }]}
+                  onPress={() => {
+                    haptics.medium();
+                    Linking.openURL(`tel:${ph.phone}`);
+                  }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Call ${ph.name}`}>
+                  <Phone size={14} color={colors.onSecondaryContainer} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.navMiniBtn, { backgroundColor: colors.primary }]}
+                  onPress={() => {
+                    haptics.medium();
+                    router.push('/modal');
+                  }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Route to ${ph.name}`}>
+                  <Navigation size={13} color="#ffffff" />
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.amenitiesRow}>
@@ -634,6 +912,8 @@ export default function NearbyScreen() {
     switch (activeCategory) {
       case 'ev':
         return renderEVContent();
+      case 'parking':
+        return renderParkingContent();
       case 'transit':
         return renderTransitContent();
       case 'fuel':
@@ -648,6 +928,7 @@ export default function NearbyScreen() {
   }, [
     activeCategory,
     renderEVContent,
+    renderParkingContent,
     renderTransitContent,
     renderFuelContent,
     renderDiningContent,
@@ -658,7 +939,7 @@ export default function NearbyScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <Header
         title="Explore Nearby POIs"
-        subtitle="EV Fast Chargers · Public Transit · Dhabas · Pharmacies"
+        subtitle="EV Fast Chargers · Smart Parking · Transit · Dhabas"
         showBack={false}
       />
 
@@ -674,12 +955,20 @@ export default function NearbyScreen() {
         />
       </Animated.View>
 
-      {/* Dynamic Main Body Content */}
+      {/* Dynamic Main Body Content with Pull-To-Refresh */}
       <FlatList
         data={[1]}
         renderItem={() => activeContent}
         keyExtractor={() => 'active_body'}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+          />
+        }
         contentContainerStyle={[
           styles.contentContainer,
           { paddingBottom: Math.max(insets.bottom, 16) + 90 },
@@ -918,5 +1207,61 @@ const styles = StyleSheet.create({
   amenityText: {
     ...Typography.labelSmall,
     fontSize: 11,
+  },
+  filterChipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: Spacing.sm,
+    flexWrap: 'wrap',
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+  },
+  filterChipText: {
+    ...Typography.labelSmall,
+    fontWeight: '700',
+  },
+  footerActionsRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  parkingMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+  },
+  indoorMapBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+  },
+  indoorMapBtnText: {
+    ...Typography.labelSmall,
+    fontWeight: '700',
+    fontSize: 10,
+  },
+  digiBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radius.xs,
+  },
+  digiText: {
+    ...Typography.labelSmall,
+    fontSize: 10,
+    fontFamily: 'monospace',
+    fontWeight: '700',
   },
 });

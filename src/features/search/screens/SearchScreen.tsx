@@ -24,6 +24,7 @@ import {
   Sparkles,
   ChevronRight,
   Search,
+  Camera,
 } from 'lucide-react-native';
 import { useThemeColors } from '@/shared/hooks';
 import { Radius, Shadows, Spacing, Typography } from '@/shared/constants/tokens';
@@ -255,9 +256,13 @@ export default function SearchScreen() {
 
                   <TouchableOpacity
                     style={[styles.routeActionBtn, { backgroundColor: colors.primary }]}
-                    onPress={() => handleSelectResult(result)}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      haptics.medium();
+                      router.push('/modal');
+                    }}
                     accessibilityRole="button"
-                    accessibilityLabel={`Route to ${result.name}`}>
+                    accessibilityLabel={`Navigate immediately to ${result.name}`}>
                     <Navigation size={14} color={colors.onPrimary} />
                   </TouchableOpacity>
                 </Card>
@@ -276,6 +281,48 @@ export default function SearchScreen() {
           </View>
         ) : (
           <>
+            {/* AR Visual Positioning Banner */}
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: colors.primaryContainer + '20',
+                borderColor: colors.primary + '60',
+                borderWidth: 1,
+                borderRadius: Radius.lg,
+                padding: Spacing.md,
+                gap: 12,
+                marginBottom: Spacing.sm,
+              }}
+              onPress={() => {
+                haptics.medium();
+                router.push('/ar-navigation');
+              }}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="AR Photo Navigation">
+              <View
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 18,
+                  backgroundColor: colors.primary,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                <Camera size={18} color={colors.onPrimary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ ...Typography.titleSmall, fontWeight: '700', color: colors.onSurface }}>
+                  AR Photo Navigation
+                </Text>
+                <Text style={{ ...Typography.bodySmall, color: colors.onSurfaceVariant }}>
+                  Upload a place photo to find DigiPIN and follow 3D holographic AR arrows
+                </Text>
+              </View>
+              <ChevronRight size={18} color={colors.primary} />
+            </TouchableOpacity>
+
             {/* Quick Category Carousel */}
             <View style={styles.section}>
               <ScrollView

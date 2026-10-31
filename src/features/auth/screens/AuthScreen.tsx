@@ -36,6 +36,7 @@ import {
   Input,
   Divider,
 } from '@/shared/components/ui';
+import { storageService, notificationService } from '@/shared/services';
 
 const LOGO_URI =
   'https://lh3.googleusercontent.com/aida/AEtjO1VN3H4tzgmXs2ZRa0LcSjl67XdRLkUoaSPeH_CWrj-KjJJn-jxm5Ry5BCuQEgauBA2ThJbop3aKeUWeQ6SIdguokZoxbQ03I2vdvAUunO_QvAU8m1DCVcEXQYq8TxLTr2sWs2k07ep1c3xBFVp7H3inSTj60j6IHieJAYPLhMEQKWUapTBKMbNFv4M-1wMcH_cGS00_NluNZE-s9nOPbjxB6lGgQyLc1ATdoWESAGL1bzNPnljLN2abiRf-';
@@ -112,8 +113,24 @@ export default function AuthScreen() {
     }
 
     setIsLoading(true);
-    setTimeout(() => {
+    setTimeout(async () => {
       setIsLoading(false);
+      try {
+        await storageService.saveUserProfile({
+          name: name.trim() || 'Aarav Sharma',
+          email: email.trim(),
+          phone: phone.trim(),
+        });
+        notificationService.addNotification({
+          title: 'Identity Verified 🎉',
+          message: `Welcome, ${name.trim() || 'Aarav'}! Logged into B-Map Sovereign Navigation.`,
+          type: 'system',
+          actionRoute: '/(tabs)/mine',
+        });
+      } catch {
+        // storage fallback
+      }
+
       Alert.alert(
         'Identity Verified! 🎉',
         'Welcome to B-Map Sovereign Navigation. Session JWT token established.',
@@ -125,6 +142,20 @@ export default function AuthScreen() {
         ]
       );
     }, 700);
+  };
+
+  const handleGuestLogin = async () => {
+    triggerHaptic();
+    try {
+      await storageService.saveUserProfile({
+        name: 'Sovereign Guest',
+        email: 'guest@bmap.in',
+        phone: '+91 90000 00000',
+      });
+    } catch {
+      // fallback
+    }
+    router.replace('/(tabs)');
   };
 
   const handleResendOtp = () => {
@@ -301,6 +332,15 @@ export default function AuthScreen() {
                   leftIcon={<Fingerprint size={20} color={colors.primary} />}
                   onPress={handleBiometricMock}
                   style={styles.secondaryActionBtn}
+                />
+
+                <Button
+                  title="Continue as Guest (Anonymous Navigation)"
+                  variant="ghost"
+                  size="sm"
+                  fullWidth
+                  onPress={handleGuestLogin}
+                  style={{ marginTop: 8 }}
                 />
               </Card>
             )}

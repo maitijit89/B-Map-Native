@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,8 +18,10 @@ import {
   Layers,
   CheckCircle2,
   Wifi,
+  Car,
+  Trash2,
 } from 'lucide-react-native';
-import { storageService } from '@/shared/services';
+import { storageService, notificationService } from '@/shared/services';
 import { useThemeColors } from '@/shared/hooks';
 import { Radius, Shadows, Spacing, Typography } from '@/shared/constants/tokens';
 import { Header, Card, Button } from '@/shared/components/ui';
@@ -41,6 +43,21 @@ const BEACONS = [
   { id: 'BLE_BCN_03', name: 'Central EV Transformer', rssi: -78, distance: '7.2m', status: 'Locked' },
 ];
 
+const BAYS_B1: ParkingBay[] = [
+  { id: 'b1_1', code: 'B1-01', type: 'standard', isAvailable: true },
+  { id: 'b1_2', code: 'B1-02', type: 'standard', isAvailable: false },
+  { id: 'b1_3', code: 'B1-03', type: 'reserved', isAvailable: false },
+  { id: 'b1_4', code: 'B1-04', type: 'standard', isAvailable: true },
+  { id: 'b1_5', code: 'B1-05', type: 'standard', isAvailable: true },
+  { id: 'b1_6', code: 'B1-06', type: 'standard', isAvailable: false },
+  { id: 'b1_7', code: 'B1-07', type: 'standard', isAvailable: true },
+  { id: 'b1_8', code: 'B1-08', type: 'standard', isAvailable: false },
+  { id: 'b1_9', code: 'B1-09', type: 'standard', isAvailable: true },
+  { id: 'b1_10', code: 'B1-10', type: 'standard', isAvailable: false },
+  { id: 'b1_11', code: 'B1-11', type: 'standard', isAvailable: true },
+  { id: 'b1_12', code: 'B1-12', type: 'standard', isAvailable: true },
+];
+
 const BAYS_B2: ParkingBay[] = [
   { id: '1', code: 'B2-01', type: 'standard', isAvailable: false },
   { id: '2', code: 'B2-02', type: 'standard', isAvailable: false },
@@ -56,21 +73,57 @@ const BAYS_B2: ParkingBay[] = [
   { id: '12', code: 'B2-12', type: 'ev', isAvailable: false, powerKw: 150 },
 ];
 
+const BAYS_B3: ParkingBay[] = [
+  { id: 'b3_1', code: 'B3-01', type: 'standard', isAvailable: true },
+  { id: 'b3_2', code: 'B3-02', type: 'standard', isAvailable: true },
+  { id: 'b3_3', code: 'B3-03', type: 'standard', isAvailable: true },
+  { id: 'b3_4', code: 'B3-04', type: 'reserved', isAvailable: false },
+  { id: 'b3_5', code: 'B3-05', type: 'standard', isAvailable: true },
+  { id: 'b3_6', code: 'B3-06', type: 'standard', isAvailable: false },
+  { id: 'b3_7', code: 'B3-07', type: 'standard', isAvailable: true },
+  { id: 'b3_8', code: 'B3-08', type: 'standard', isAvailable: true },
+  { id: 'b3_9', code: 'B3-09', type: 'standard', isAvailable: false },
+  { id: 'b3_10', code: 'B3-10', type: 'standard', isAvailable: true },
+  { id: 'b3_11', code: 'B3-11', type: 'standard', isAvailable: true },
+  { id: 'b3_12', code: 'B3-12', type: 'standard', isAvailable: true },
+];
+
 export default function IndoorParkingModal() {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const [selectedFloor, setSelectedFloor] = useState(1); // B2
   const [selectedBay, setSelectedBay] = useState<ParkingBay | null>(BAYS_B2[3]); // B2-04 (150kW EV)
+  const [parkedCar, setParkedCar] = useState<{ slot: string; floor: string } | null>({
+    slot: 'B2-04',
+    floor: 'Floor B2 (EV Hub)',
+  });
+
+  const currentFloorBays = useMemo(() => {
+    if (selectedFloor === 0) return BAYS_B1;
+    if (selectedFloor === 2) return BAYS_B3;
+    return BAYS_B2;
+  }, [selectedFloor]);
 
   const handleReserve = async () => {
     if (!selectedBay) return;
     haptics.success();
+    const floorName = FLOORS[selectedFloor];
     await storageService.addSavedPlace({
       name: `Parked Vehicle: Slot ${selectedBay.code}`,
-      address: `DLF Cyber Hub Parking Garage (${FLOORS[selectedFloor]})`,
+      address: `DLF Cyber Hub Parking Garage (${floorName})`,
       latitude: 28.4952,
       longitude: 77.0888,
       category: 'Parking',
+    });
+
+    setParkedCar({ slot: selectedBay.code, floor: floorName });
+
+    // Broadcast indoor parking reservation notification
+    notificationService.addNotification({
+      title: 'Parking Bay Reserved 🚗',
+      message: `Bay ${selectedBay.code} (${floorName}) held for 15 mins. Saved to 'Find My Car'.`,
+      type: 'system',
+      actionRoute: '/indoor-parking',
     });
 
     Alert.alert(
@@ -105,6 +158,47 @@ export default function IndoorParkingModal() {
           { paddingBottom: Math.max(insets.bottom, 20) + 40 },
         ]}
         showsVerticalScrollIndicator={false}>
+        {/* Saved Parked Car Banner */}
+        {parkedCar && (
+          <Animated.View entering={fluidEntering(0)}>
+            <Card
+              variant="elevated"
+              padding="md"
+              style={[styles.parkedCarCard, { backgroundColor: colors.primaryContainer + '20', borderColor: colors.primary, borderWidth: 1.5 }]}>
+              <View style={styles.parkedCarTop}>
+                <View style={[styles.carIconBox, { backgroundColor: colors.primary }]}>
+                  <Car size={18} color="#ffffff" />
+                </View>
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={[styles.parkedCarTitle, { color: colors.onSurface }]}>Active Parked Vehicle</Text>
+                  <Text style={[styles.parkedCarSub, { color: colors.primary, fontWeight: '800' }]}>
+                    Bay {parkedCar.slot} · {parkedCar.floor}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => {
+                    haptics.medium();
+                    setParkedCar(null);
+                    Alert.alert('Bay Vacated', 'Your parked car record has been cleared.');
+                  }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear parked spot">
+                  <Trash2 size={16} color={colors.error} />
+                </TouchableOpacity>
+              </View>
+              <Button
+                title="Walk to My Car (Indoor Guidance)"
+                size="sm"
+                variant="primary"
+                leftIcon={<NavIcon size={14} color="#ffffff" />}
+                onPress={() => router.push('/modal')}
+                style={{ marginTop: 8 }}
+              />
+            </Card>
+          </Animated.View>
+        )}
+
         {/* Facility Info Card */}
         <Animated.View entering={fluidEntering(0)}>
           <Card variant="elevated" padding="md" style={styles.facilityCard}>
@@ -205,7 +299,7 @@ export default function IndoorParkingModal() {
         <Animated.View entering={fluidEntering(40)}>
           <Card variant="elevated" padding="md" style={styles.baysCard}>
             <View style={styles.baysHeader}>
-              <Text style={[styles.baysTitle, { color: colors.onSurface }]}>Select Parking Bay on Floor B2</Text>
+              <Text style={[styles.baysTitle, { color: colors.onSurface }]}>Select Parking Bay on {FLOORS[selectedFloor]}</Text>
               <View style={styles.baysLegend}>
                 <View style={styles.legendItem}>
                   <View style={[styles.legendDot, { backgroundColor: colors.trafficGreen }]} />
@@ -224,7 +318,7 @@ export default function IndoorParkingModal() {
 
             {/* 3x4 Bay Grid */}
             <View style={styles.bayGrid}>
-              {BAYS_B2.map((bay) => {
+              {currentFloorBays.map((bay) => {
                 const isSelected = selectedBay?.id === bay.id;
                 let bayBg = colors.surfaceContainerLow;
                 let bayBorder = colors.surfaceContainerHigh;
@@ -331,6 +425,30 @@ export default function IndoorParkingModal() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { padding: Spacing.md, gap: Spacing.md, paddingBottom: 100 },
+  parkedCarCard: {
+    borderRadius: Radius.xl,
+    gap: 8,
+  },
+  parkedCarTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  carIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: Radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  parkedCarTitle: {
+    ...Typography.titleSmall,
+    fontWeight: '700',
+  },
+  parkedCarSub: {
+    ...Typography.bodySmall,
+    marginTop: 1,
+  },
   facilityCard: { gap: Spacing.sm },
   facilityTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   facilityName: { ...Typography.titleMedium, fontWeight: '800' },

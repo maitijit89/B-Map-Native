@@ -28,6 +28,7 @@ import {
   SectionHeader,
 } from '@/shared/components/ui';
 import { haptics } from '@/shared/utils/haptics';
+import { notificationService } from '@/shared/services';
 
 interface Vehicle {
   id: string;
@@ -106,17 +107,27 @@ const RECENT_TOLL_TRANSACTIONS = [
 export default function VehicleFleetScreen() {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
+  const [vehiclesList, setVehiclesList] = useState<Vehicle[]>(VEHICLES);
   const [selectedVehicleId, setSelectedVehicleId] = useState('1');
   const [fastagBalance, setFastagBalance] = useState(1840);
 
   const activeVehicle = useMemo(() => {
-    return VEHICLES.find((v) => v.id === selectedVehicleId) || VEHICLES[0];
-  }, [selectedVehicleId]);
+    return vehiclesList.find((v) => v.id === selectedVehicleId) || vehiclesList[0];
+  }, [vehiclesList, selectedVehicleId]);
 
   const handleInstantRecharge = useCallback((amount: number) => {
     haptics.medium();
     setFastagBalance((prev) => {
       const next = prev + amount;
+
+      // Broadcast FASTag recharge notification
+      notificationService.addNotification({
+        title: 'FASTag Recharged 💳',
+        message: `₹${amount} added to FASTag Wallet. New NETC balance: ₹${next.toLocaleString('en-IN')}`,
+        type: 'toll',
+        actionRoute: '/vehicle-fleet',
+      });
+
       Alert.alert(
         'Recharge Successful! 💳',
         `₹${amount} added to FASTag Wallet via UPI. Fresh NETC balance: ₹${next}.`
@@ -128,17 +139,52 @@ export default function VehicleFleetScreen() {
   const handleAddNewVehicle = useCallback(() => {
     haptics.light();
     Alert.alert(
-      'Register New Vehicle',
-      'Enter Registration Certificate (RC) details and link NPCI FASTag RFID barcode.',
+      'Register Vehicle to Fleet',
+      'Select a verified VAHAN vehicle profile to link NPCI FASTag:',
       [
-        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Scan RC Card',
+          text: 'Hyundai Ioniq 5 (EV)',
           onPress: () => {
-            haptics.medium();
-            Alert.alert('Camera Scanning', 'Scanning VAHAN QR Code on RC card...');
+            haptics.success();
+            const newVeh: Vehicle = {
+              id: `veh_${Date.now()}`,
+              name: 'Hyundai Ioniq 5 Long Range',
+              numberPlate: 'DL-3C-CC-7788',
+              type: 'car',
+              powertrain: 'EV',
+              vehicleClass: 'Class 4 (Car/EV)',
+              fastagTagId: 'NETC-HDFC-99201948',
+              isDefault: false,
+            };
+            setVehiclesList((prev) => [...prev, newVeh]);
+            setSelectedVehicleId(newVeh.id);
+            notificationService.addNotification({
+              title: 'Vehicle Linked 🚗',
+              message: 'Hyundai Ioniq 5 linked with NETC FASTag wallet.',
+              type: 'system',
+              actionRoute: '/vehicle-fleet',
+            });
           },
         },
+        {
+          text: 'Ather 450X (Smart EV Scooter)',
+          onPress: () => {
+            haptics.success();
+            const newVeh: Vehicle = {
+              id: `veh_${Date.now()}`,
+              name: 'Ather 450X Gen 3',
+              numberPlate: 'HR-26-AT-4509',
+              type: 'bike',
+              powertrain: 'EV',
+              vehicleClass: 'Two-Wheeler (Toll Free)',
+              fastagTagId: 'N/A',
+              isDefault: false,
+            };
+            setVehiclesList((prev) => [...prev, newVeh]);
+            setSelectedVehicleId(newVeh.id);
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
       ]
     );
   }, []);
@@ -247,7 +293,7 @@ export default function VehicleFleetScreen() {
         />
 
         <View style={styles.vehicleList}>
-          {VEHICLES.map((v, index) => {
+          {vehiclesList.map((v, index) => {
             const isSelected = v.id === selectedVehicleId;
             return (
               <Animated.View

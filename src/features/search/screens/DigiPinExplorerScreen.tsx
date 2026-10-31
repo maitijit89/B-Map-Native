@@ -5,6 +5,8 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  Share,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -15,10 +17,13 @@ import {
   Navigation,
   Sparkles,
   MapPin,
+  Share2,
+  Search,
+  CheckCircle2,
 } from 'lucide-react-native';
 import { useThemeColors } from '@/shared/hooks';
-import { encodeDigiPin } from '@/shared/utils';
-import { Spacing, Typography } from '@/shared/constants/tokens';
+import { encodeDigiPin, decodeDigiPin } from '@/shared/utils';
+import { Radius, Spacing, Typography } from '@/shared/constants/tokens';
 import {
   Header,
   Card,
@@ -47,10 +52,23 @@ const HIERARCHICAL_TIERS = [
 export default function DigiPinExplorerModal() {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
+  const [activeTab, setActiveTab] = useState<'encode' | 'decode'>('encode');
   const [latInput, setLatInput] = useState('28.4986');
   const [lonInput, setLonInput] = useState('77.0878');
   const [activeDigiPin, setActiveDigiPin] = useState('28J4-K8M2-9P');
   const [activePlaceName, setActivePlaceName] = useState('Cyber Hub, Gurugram');
+
+  // Decode mode state
+  const [pinToDecode, setPinToDecode] = useState('28J4-K8M2-9P');
+  const [decodedCoords, setDecodedCoords] = useState<{
+    lat: number;
+    lon: number;
+    accuracy: number;
+  } | null>({
+    lat: 28.4986,
+    lon: 77.0878,
+    accuracy: 4.2,
+  });
 
   const handleSelectPreset = (p: typeof PRESET_PLACES[0]) => {
     haptics.selection();
@@ -58,6 +76,7 @@ export default function DigiPinExplorerModal() {
     setLonInput(p.lon);
     setActiveDigiPin(p.digiPin);
     setActivePlaceName(p.name);
+    setPinToDecode(p.digiPin);
   };
 
   const handleEncode = () => {
@@ -71,12 +90,48 @@ export default function DigiPinExplorerModal() {
     const pin = encodeDigiPin(lat, lon);
     setActiveDigiPin(pin);
     setActivePlaceName(`Location (${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E)`);
+    setPinToDecode(pin);
     Alert.alert('DigiPIN Encoded', `Generated DigiPIN: ${pin}\n4m × 4m doorstep resolution.`);
+  };
+
+  const handleDecode = () => {
+    haptics.selection();
+    const result = decodeDigiPin(pinToDecode);
+    if (!result) {
+      Alert.alert(
+        'Invalid DigiPIN Format',
+        'Please enter a valid 10-character sovereign DigiPIN (symbols: 2-9, C, F, G, J, K, L, M, P, Q, R, T, V, W, X, Y, Z).'
+      );
+      return;
+    }
+    setDecodedCoords({
+      lat: result.latitude,
+      lon: result.longitude,
+      accuracy: Math.round(result.accuracyMeters * 10) / 10,
+    });
+    setActiveDigiPin(result.pin);
+    setActivePlaceName(`Decoded Sovereign Pin: ${result.pin}`);
+    Alert.alert(
+      'DigiPIN Decoded Successfully! 🎯',
+      `Latitude: ${result.latitude.toFixed(5)}°N\nLongitude: ${result.longitude.toFixed(5)}°E\nDoorstep Accuracy: ±${Math.round(result.accuracyMeters)}m`
+    );
   };
 
   const handleCopy = () => {
     haptics.success();
     Alert.alert('Copied to Clipboard', `DigiPIN ${activeDigiPin} copied. Share with courier or emergency dispatch.`);
+  };
+
+  const handleShare = async () => {
+    haptics.medium();
+    try {
+      await Share.share({
+        title: 'B-Map Sovereign DigiPIN',
+        message: `B-Map Sovereign DigiPIN: ${activeDigiPin}\nLocation: ${activePlaceName}\nCoordinates: ${latInput}°N, ${lonInput}°E (4m × 4m National Grid Centroid)`,
+      });
+    } catch {
+      handleCopy();
+    }
   };
 
   return (
@@ -114,19 +169,28 @@ export default function DigiPinExplorerModal() {
 
             <View style={styles.digiActionRow}>
               <Button
-                title="Copy DigiPIN"
+                title="Copy"
                 variant="outline"
                 size="md"
-                leftIcon={<Copy size={16} color={colors.primary} />}
+                leftIcon={<Copy size={15} color={colors.primary} />}
                 onPress={handleCopy}
                 style={styles.actionBtnFlex}
               />
 
               <Button
-                title="Route to DigiPIN"
+                title="Share"
+                variant="secondary"
+                size="md"
+                leftIcon={<Share2 size={15} color={colors.onSecondary} />}
+                onPress={handleShare}
+                style={styles.actionBtnFlex}
+              />
+
+              <Button
+                title="Route"
                 variant="primary"
                 size="md"
-                leftIcon={<Navigation size={16} color="#fff" />}
+                leftIcon={<Navigation size={15} color="#fff" />}
                 onPress={() => {
                   haptics.medium();
                   router.back();
@@ -138,96 +202,211 @@ export default function DigiPinExplorerModal() {
           </Card>
         </Animated.View>
 
-        {/* Preset Popular Locations Carousel */}
-        <SectionHeader
-          title="Preset Sovereign Hubs"
-          subtitle="Top destinations with certified postal centroid"
-        />
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.presetsTrack}>
-          {PRESET_PLACES.map((p, idx) => {
-            const isSelected = activeDigiPin === p.digiPin;
-            return (
-              <Card
-                key={idx}
-                variant={isSelected ? 'elevated' : 'outlined'}
-                padding="sm"
-                onPress={() => handleSelectPreset(p)}
-                accessibilityLabel={`Preset location ${p.name}`}
-                style={[
-                  styles.presetCard,
-                  isSelected && {
-                    backgroundColor: colors.primaryContainer,
-                    borderColor: colors.primary,
-                  },
-                ]}>
-                <View style={styles.presetContent}>
-                  <MapPin
-                    size={14}
-                    color={isSelected ? colors.primary : colors.onSurfaceVariant}
+        {/* Mode Switcher: Encode vs Decode */}
+        <View style={styles.modeTabContainer}>
+          <TouchableOpacity
+            style={[
+              styles.modeTab,
+              { backgroundColor: activeTab === 'encode' ? colors.primary : colors.surfaceContainerLow },
+            ]}
+            onPress={() => {
+              haptics.selection();
+              setActiveTab('encode');
+            }}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: activeTab === 'encode' }}>
+            <Sparkles size={14} color={activeTab === 'encode' ? '#fff' : colors.onSurfaceVariant} />
+            <Text
+              style={[
+                styles.modeTabText,
+                { color: activeTab === 'encode' ? '#fff' : colors.onSurfaceVariant },
+              ]}>
+              Encode Coordinates
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.modeTab,
+              { backgroundColor: activeTab === 'decode' ? colors.primary : colors.surfaceContainerLow },
+            ]}
+            onPress={() => {
+              haptics.selection();
+              setActiveTab('decode');
+            }}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: activeTab === 'decode' }}>
+            <Search size={14} color={activeTab === 'decode' ? '#fff' : colors.onSurfaceVariant} />
+            <Text
+              style={[
+                styles.modeTabText,
+                { color: activeTab === 'decode' ? '#fff' : colors.onSurfaceVariant },
+              ]}>
+              Decode DigiPIN
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {activeTab === 'encode' ? (
+          <>
+            {/* Preset Popular Locations Carousel */}
+            <SectionHeader
+              title="Preset Sovereign Hubs"
+              subtitle="Top destinations with certified postal centroid"
+            />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.presetsTrack}>
+              {PRESET_PLACES.map((p, idx) => {
+                const isSelected = activeDigiPin === p.digiPin;
+                return (
+                  <Card
+                    key={idx}
+                    variant={isSelected ? 'elevated' : 'outlined'}
+                    padding="sm"
+                    onPress={() => handleSelectPreset(p)}
+                    accessibilityLabel={`Preset location ${p.name}`}
+                    style={[
+                      styles.presetCard,
+                      isSelected && {
+                        backgroundColor: colors.primaryContainer,
+                        borderColor: colors.primary,
+                      },
+                    ]}>
+                    <View style={styles.presetContent}>
+                      <MapPin
+                        size={14}
+                        color={isSelected ? colors.primary : colors.onSurfaceVariant}
+                      />
+                      <Text
+                        style={[
+                          styles.presetName,
+                          {
+                            color: isSelected ? colors.primary : colors.onSurface,
+                            fontWeight: isSelected ? '700' : '600',
+                          },
+                        ]}>
+                        {p.name}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.presetPin,
+                          {
+                            color: isSelected ? colors.primary : colors.onSurfaceVariant,
+                          },
+                        ]}>
+                        {p.digiPin}
+                      </Text>
+                    </View>
+                  </Card>
+                );
+              })}
+            </ScrollView>
+
+            {/* Custom Lat / Lon Geocoding Inputs */}
+            <Card variant="elevated" padding="md" style={styles.geocoderCard}>
+              <Text style={[styles.geocoderTitle, { color: colors.onSurface }]}>
+                Custom Coordinate Geocoder
+              </Text>
+              <View style={styles.coordInputsRow}>
+                <View style={styles.coordInputBox}>
+                  <Input
+                    label="Latitude (°N)"
+                    value={latInput}
+                    onChangeText={setLatInput}
+                    keyboardType="numeric"
                   />
-                  <Text
-                    style={[
-                      styles.presetName,
-                      {
-                        color: isSelected ? colors.primary : colors.onSurface,
-                        fontWeight: isSelected ? '700' : '600',
-                      },
-                    ]}>
-                    {p.name}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.presetPin,
-                      {
-                        color: isSelected ? colors.primary : colors.onSurfaceVariant,
-                      },
-                    ]}>
-                    {p.digiPin}
+                </View>
+
+                <View style={styles.coordInputBox}>
+                  <Input
+                    label="Longitude (°E)"
+                    value={lonInput}
+                    onChangeText={setLonInput}
+                    keyboardType="numeric"
+                  />
+                </View>
+              </View>
+
+              <Button
+                title="Encode to 10-Char DigiPIN"
+                variant="primary"
+                size="lg"
+                fullWidth
+                leftIcon={<Sparkles size={16} color="#fff" />}
+                onPress={handleEncode}
+                style={{ marginTop: 4 }}
+              />
+            </Card>
+          </>
+        ) : (
+          <Card variant="elevated" padding="md" style={styles.geocoderCard}>
+            <Text style={[styles.geocoderTitle, { color: colors.onSurface }]}>
+              Reverse DigiPIN Decoder
+            </Text>
+            <Text style={[styles.hierarchySub, { color: colors.onSurfaceVariant, marginBottom: 8 }]}>
+              Decode any 10-character sovereign postal index into geographic WGS-84 coordinates
+            </Text>
+
+            <Input
+              label="10-Character DigiPIN (e.g. 28J4-K8M2-9P)"
+              value={pinToDecode}
+              onChangeText={(text) => setPinToDecode(text.toUpperCase())}
+              autoCapitalize="characters"
+              placeholder="e.g. 28J4-K8M2-9P"
+            />
+
+            <Button
+              title="Decode DigiPIN to Coordinates"
+              variant="primary"
+              size="lg"
+              fullWidth
+              leftIcon={<Search size={16} color="#fff" />}
+              onPress={handleDecode}
+              style={{ marginTop: 10 }}
+            />
+
+            {decodedCoords && (
+              <View style={[styles.decodedResultBox, { backgroundColor: colors.surfaceContainerLow, borderColor: colors.outlineVariant }]}>
+                <View style={styles.decodedRow}>
+                  <CheckCircle2 size={16} color={colors.trafficGreen} />
+                  <Text style={[styles.decodedTitle, { color: colors.onSurface }]}>
+                    Decoded Centroid Resolved
                   </Text>
                 </View>
-              </Card>
-            );
-          })}
-        </ScrollView>
+                <View style={styles.decodedCoordsGrid}>
+                  <View style={styles.decodedCol}>
+                    <Text style={[styles.decodedLabel, { color: colors.onSurfaceVariant }]}>LATITUDE</Text>
+                    <Text style={[styles.decodedVal, { color: colors.primary }]}>{decodedCoords.lat.toFixed(5)}°N</Text>
+                  </View>
+                  <View style={styles.decodedCol}>
+                    <Text style={[styles.decodedLabel, { color: colors.onSurfaceVariant }]}>LONGITUDE</Text>
+                    <Text style={[styles.decodedVal, { color: colors.primary }]}>{decodedCoords.lon.toFixed(5)}°E</Text>
+                  </View>
+                  <View style={styles.decodedCol}>
+                    <Text style={[styles.decodedLabel, { color: colors.onSurfaceVariant }]}>PRECISION</Text>
+                    <Text style={[styles.decodedVal, { color: colors.trafficGreen }]}>±{decodedCoords.accuracy}m</Text>
+                  </View>
+                </View>
 
-        {/* Custom Lat / Lon Geocoding Inputs */}
-        <Card variant="elevated" padding="md" style={styles.geocoderCard}>
-          <Text style={[styles.geocoderTitle, { color: colors.onSurface }]}>
-            Custom Coordinate Geocoder
-          </Text>
-          <View style={styles.coordInputsRow}>
-            <View style={styles.coordInputBox}>
-              <Input
-                label="Latitude (°N)"
-                value={latInput}
-                onChangeText={setLatInput}
-                keyboardType="numeric"
-              />
-            </View>
-
-            <View style={styles.coordInputBox}>
-              <Input
-                label="Longitude (°E)"
-                value={lonInput}
-                onChangeText={setLonInput}
-                keyboardType="numeric"
-              />
-            </View>
-          </View>
-
-          <Button
-            title="Encode to 10-Char DigiPIN"
-            variant="primary"
-            size="lg"
-            fullWidth
-            leftIcon={<Sparkles size={16} color="#fff" />}
-            onPress={handleEncode}
-            style={{ marginTop: 4 }}
-          />
-        </Card>
+                <Button
+                  title="Navigate to Decoded Centroid"
+                  variant="primary"
+                  size="md"
+                  fullWidth
+                  leftIcon={<Navigation size={14} color="#fff" />}
+                  onPress={() => {
+                    haptics.medium();
+                    router.back();
+                    router.push('/modal');
+                  }}
+                  style={{ marginTop: 12 }}
+                />
+              </View>
+            )}
+          </Card>
+        )}
 
         {/* 10-Tier Hierarchy Breakdown Table */}
         <Card variant="outlined" padding="md" style={styles.hierarchyCard}>
@@ -368,5 +547,58 @@ const styles = StyleSheet.create({
   tierDesc: {
     ...Typography.bodySmall,
     fontSize: 10,
+  },
+  modeTabContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginVertical: 4,
+  },
+  modeTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: Radius.md,
+  },
+  modeTabText: {
+    ...Typography.labelSmall,
+    fontWeight: '700',
+  },
+  decodedResultBox: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+  },
+  decodedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+  },
+  decodedTitle: {
+    ...Typography.labelMedium,
+    fontWeight: '700',
+  },
+  decodedCoordsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  decodedCol: {
+    flex: 1,
+  },
+  decodedLabel: {
+    ...Typography.labelSmall,
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  decodedVal: {
+    ...Typography.bodyMedium,
+    fontWeight: '800',
+    fontFamily: 'monospace',
+    marginTop: 2,
   },
 });

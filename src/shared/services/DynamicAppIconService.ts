@@ -1,15 +1,16 @@
 import { Platform, AppState, AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { requireOptionalNativeModule } from 'expo-modules-core';
 import { compassService } from './CompassService';
 
-// Lazy loader for @howincodes/expo-dynamic-app-icon to prevent crash in Expo Go
+// Safe native module loader: returns null in Expo Go or unlinked builds without throwing
 function getNativeIconModule(): {
   setAppIcon?: (icon: string | null, inBackground?: boolean) => Promise<boolean | string>;
   getAppIcon?: () => Promise<string | null>;
 } | null {
+  if (Platform.OS === 'web') return null;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return require('@howincodes/expo-dynamic-app-icon');
+    return requireOptionalNativeModule('ExpoDynamicAppIcon');
   } catch {
     return null;
   }

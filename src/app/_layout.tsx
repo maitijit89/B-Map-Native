@@ -7,6 +7,7 @@ import 'react-native-reanimated';
 
 import { useColorScheme, ThemeProvider } from '@/shared/hooks';
 import { ErrorBoundary as GlobalErrorBoundary } from '@/shared/components';
+import { InAppNotificationBanner } from '@/shared/components/notifications/InAppNotificationBanner';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { LogBox } from 'react-native';
 
@@ -65,6 +66,7 @@ function RootLayoutNav() {
   return (
     <ThemeProvider>
       <NavThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <InAppNotificationBanner />
         <Stack
           screenOptions={{
             headerShown: false,
@@ -88,6 +90,8 @@ function RootLayoutNav() {
           <Stack.Screen name="vehicle-fleet" options={{ presentation: 'modal', animation: 'slide_from_bottom', headerShown: false }} />
           <Stack.Screen name="compass-hud" options={{ presentation: 'fullScreenModal', animation: 'fade', headerShown: false }} />
           <Stack.Screen name="device-signals" options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom', headerShown: false }} />
+          <Stack.Screen name="ar-navigation" options={{ presentation: 'fullScreenModal', animation: 'fade', headerShown: false }} />
+          <Stack.Screen name="notifications" options={{ presentation: 'modal', animation: 'slide_from_right', headerShown: false }} />
         </Stack>
       </NavThemeProvider>
     </ThemeProvider>

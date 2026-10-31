@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Linking,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -28,6 +29,7 @@ import { Radius, Shadows, Spacing, Typography } from '@/shared/constants/tokens'
 import { useThemeColors } from '@/shared/hooks';
 import { Header, Card, Button } from '@/shared/components/ui';
 import { haptics } from '@/shared/utils/haptics';
+import { notificationService, speechService } from '@/shared/services';
 
 const EMERGENCY_SERVICES = [
   {
@@ -96,6 +98,16 @@ export default function SosDistressModal() {
           setIsCountdownActive(false);
           setBeaconDispatched(true);
           haptics.heavy();
+
+          // Broadcast high-priority emergency distress signal
+          speechService.speak('SOS emergency distress signal broadcasted.');
+          notificationService.addNotification({
+            title: '112 SOS Distress Signal Broadcasted 🚨',
+            message: 'Coordinates & telemetry dispatched to 112 National Control Room with DigiPIN 28J4-K8M2-9P.',
+            type: 'safety',
+            actionRoute: '/sos-distress',
+          });
+
           return 0;
         }
         haptics.warning();
@@ -120,13 +132,33 @@ export default function SosDistressModal() {
       `Calling ${service.name}. Your exact DigiPIN coordinates (28J4-K8M2-9P) will be transmitted.`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: `Dial ${service.code}`, style: 'destructive' },
+        {
+          text: `Dial ${service.code}`,
+          style: 'destructive',
+          onPress: () => {
+            Linking.openURL(`tel:${service.code}`).catch(() => {
+              Alert.alert('Dialing Error', `Unable to open phone dialer for ${service.code}`);
+            });
+          },
+        },
       ]
     );
   };
 
   const handleSendContactSms = () => {
     haptics.heavy();
+    const smsBody = encodeURIComponent(
+      'EMERGENCY SOS: I need help! My location: NH-48 km 42.4, Gurugram. DigiPIN: 28J4-K8M2-9P. Map: https://maps.google.com/?q=28.4595,77.0266'
+    );
+    Linking.openURL(`sms:+919811122334?body=${smsBody}`).catch(() => {});
+
+    notificationService.addNotification({
+      title: 'Distress SMS Broadcasted 📲',
+      message: 'Sent GPS coordinates & DigiPIN to Dr. Priya Sharma (+91 98111 22334)',
+      type: 'safety',
+      actionRoute: '/sos-distress',
+    });
+
     Alert.alert(
       'Emergency Alert Broadcasted! 📲',
       'Distress SMS containing live GPS tracking link and 4m × 4m DigiPIN sent to Emergency Contact: Dr. Priya Sharma (+91 98111 22334).'

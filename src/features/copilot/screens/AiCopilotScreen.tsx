@@ -29,9 +29,15 @@ import {
   User,
   Navigation,
   Plus,
+  Globe,
+  Trash2,
 } from 'lucide-react-native';
 import { useThemeColors } from '@/shared/hooks';
-import { speechService } from '@/shared/services';
+import {
+  speechService,
+  voiceLanguageService,
+  VoiceLanguageCode,
+} from '@/shared/services';
 import { Radius, Shadows, Spacing, Typography } from '@/shared/constants/tokens';
 import {
   Header,
@@ -83,6 +89,20 @@ export default function AiCopilotModal() {
   ]);
   const [inputText, setInputText] = useState('');
   const [isListening, setIsListening] = useState(false);
+  const [voiceLang, setVoiceLang] = useState<VoiceLanguageCode>(
+    voiceLanguageService.getLanguage()
+  );
+
+  const langInfo = voiceLanguageService.getLanguageInfo(voiceLang);
+
+  const handleCycleLanguage = async () => {
+    haptics.selection();
+    const cycle: VoiceLanguageCode[] = ['en', 'bn', 'hi'];
+    const currIdx = cycle.indexOf(voiceLang);
+    const nextLang = currIdx >= 0 && currIdx < cycle.length - 1 ? cycle[currIdx + 1] : cycle[0];
+    setVoiceLang(nextLang);
+    await speechService.switchLanguageAndSpeak(nextLang);
+  };
 
   const pulseScale = useSharedValue(1);
 
@@ -215,7 +235,39 @@ export default function AiCopilotModal() {
           router.back();
         }}
         rightAction={
-          <Badge label="ISRO NavIC AI Engine" variant="primary" size="sm" />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <TouchableOpacity
+              style={[
+                styles.langCycleBtn,
+                { backgroundColor: colors.surfaceContainerLow, borderColor: colors.primary },
+              ]}
+              onPress={handleCycleLanguage}
+              accessibilityRole="button"
+              accessibilityLabel={`Voice language: ${langInfo.nativeName}. Tap to switch language`}>
+              <Globe size={13} color={colors.primary} />
+              <Text style={[styles.langCycleText, { color: colors.primary }]}>{langInfo.code.toUpperCase()}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.clearChatBtn,
+                { backgroundColor: colors.surfaceContainerLow },
+              ]}
+              onPress={() => {
+                haptics.selection();
+                setMessages([
+                  {
+                    id: '1',
+                    sender: 'ai',
+                    text: 'Chat history cleared. How can I assist your navigation trajectory today?',
+                    timestamp: 'Just now',
+                  },
+                ]);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Clear chat messages">
+              <Trash2 size={14} color={colors.onSurfaceVariant} />
+            </TouchableOpacity>
+          </View>
         }
       />
 
@@ -594,6 +646,27 @@ const styles = StyleSheet.create({
   sendBtn: {
     width: 42,
     height: 42,
+    borderRadius: Radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  langCycleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+  },
+  langCycleText: {
+    ...Typography.labelSmall,
+    fontWeight: '800',
+    fontSize: 10,
+  },
+  clearChatBtn: {
+    width: 28,
+    height: 28,
     borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',

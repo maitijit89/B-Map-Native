@@ -15,8 +15,8 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Explore',
-          tabBarIcon: ({ focused }) => (
-            <DynamicCompassIcon size={focused ? 26 : 24} dynamic={false} />
+          tabBarIcon: ({ size }) => (
+            <DynamicCompassIcon size={size || 22} dynamic={false} />
           ),
         }}
       />
@@ -24,8 +24,8 @@ export default function TabLayout() {
         name="routes"
         options={{
           title: 'Routes',
-          tabBarIcon: ({ color, focused }) => (
-            <Route size={22} color={color} strokeWidth={focused ? 2.5 : 1.8} />
+          tabBarIcon: ({ color, focused, size }) => (
+            <Route size={size || 22} color={color} strokeWidth={focused ? 2.3 : 1.8} />
           ),
         }}
       />
@@ -33,8 +33,8 @@ export default function TabLayout() {
         name="nearby"
         options={{
           title: 'Nearby',
-          tabBarIcon: ({ color, focused }) => (
-            <Store size={22} color={color} strokeWidth={focused ? 2.5 : 1.8} />
+          tabBarIcon: ({ color, focused, size }) => (
+            <Store size={size || 22} color={color} strokeWidth={focused ? 2.3 : 1.8} />
           ),
         }}
       />
@@ -42,8 +42,8 @@ export default function TabLayout() {
         name="services"
         options={{
           title: 'Services',
-          tabBarIcon: ({ color, focused }) => (
-            <Car size={22} color={color} strokeWidth={focused ? 2.5 : 1.8} />
+          tabBarIcon: ({ color, focused, size }) => (
+            <Car size={size || 22} color={color} strokeWidth={focused ? 2.3 : 1.8} />
           ),
         }}
       />
@@ -51,8 +51,8 @@ export default function TabLayout() {
         name="mine"
         options={{
           title: 'Mine',
-          tabBarIcon: ({ color, focused }) => (
-            <User size={22} color={color} strokeWidth={focused ? 2.5 : 1.8} />
+          tabBarIcon: ({ color, focused, size }) => (
+            <User size={size || 22} color={color} strokeWidth={focused ? 2.3 : 1.8} />
           ),
         }}
       />

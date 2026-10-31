@@ -22,9 +22,12 @@ import {
   Clock,
   Gauge,
   IndianRupee,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react-native';
 import { haptics } from '../../../shared/utils/haptics';
 import { useThemeColors } from '@/shared/hooks';
+import { notificationService } from '@/shared/services';
 
 
 interface Waypoint {
@@ -75,8 +78,96 @@ export default function TspOptimizerModal() {
       setIsOptimized(true);
       setIsCalculating(false);
       haptics.success();
-    }, 600);
 
+      // Broadcast sovereign fleet optimization notification
+      notificationService.addNotification({
+        title: 'TSP Tour Optimized 🚀',
+        message: 'Calculated optimal 2-opt sequence. Saved 8.8 km & 24 min fuel savings.',
+        type: 'traffic',
+        actionRoute: '/tsp-optimizer',
+      });
+    }, 600);
+  };
+
+  const handleMoveWaypoint = (index: number, direction: 'up' | 'down') => {
+    if (index <= 1 && direction === 'up') return;
+    if (index >= waypoints.length - 2 && direction === 'down') return;
+    const target = direction === 'up' ? index - 1 : index + 1;
+    haptics.selection();
+    const next = [...waypoints];
+    const item = next[index];
+    next[index] = next[target];
+    next[target] = item;
+    setWaypoints(next);
+    setIsOptimized(false);
+  };
+
+  const handleAddStop = () => {
+    haptics.light();
+    Alert.alert(
+      'Add Scheduled Delivery Stop',
+      'Select a priority logistics point to insert into current TSP circuit:',
+      [
+        {
+          text: 'Blinkit Darkstore Sec 43',
+          onPress: () => {
+            haptics.selection();
+            const newStop: Waypoint = {
+              id: `custom_${Date.now()}`,
+              name: 'Stop: Blinkit Quick Darkstore',
+              address: 'Sector 43 Rapid Metro Corridor',
+              digiPin: '28J4-B2C3-4D',
+              originalIndex: waypoints.length - 1,
+            };
+            setWaypoints((prev) => [
+              ...prev.slice(0, prev.length - 1),
+              newStop,
+              prev[prev.length - 1],
+            ]);
+            setIsOptimized(false);
+          },
+        },
+        {
+          text: 'Swiggy Cloud Kitchen (Galleria)',
+          onPress: () => {
+            haptics.selection();
+            const newStop: Waypoint = {
+              id: `custom_${Date.now()}`,
+              name: 'Stop: Swiggy Cloud Kitchen',
+              address: 'Galleria Commercial Market DLF 4',
+              digiPin: '28J4-S9T8-7U',
+              originalIndex: waypoints.length - 1,
+            };
+            setWaypoints((prev) => [
+              ...prev.slice(0, prev.length - 1),
+              newStop,
+              prev[prev.length - 1],
+            ]);
+            setIsOptimized(false);
+          },
+        },
+        {
+          text: 'Delhivery Sorting Terminal',
+          onPress: () => {
+            haptics.selection();
+            const newStop: Waypoint = {
+              id: `custom_${Date.now()}`,
+              name: 'Stop: Delhivery Hub',
+              address: 'Old Delhi Gurgaon Road Logistics Park',
+              digiPin: '28J4-D1E2-3F',
+              originalIndex: waypoints.length - 1,
+            };
+            setWaypoints((prev) => [
+              ...prev.slice(0, prev.length - 1),
+              newStop,
+              prev[prev.length - 1],
+            ]);
+            setIsOptimized(false);
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
   };
 
   const handleReset = () => {
@@ -215,11 +306,16 @@ export default function TspOptimizerModal() {
           <Text style={[styles.sectionTitle, { color: colors.onSurface }]}>
             Scheduled Stops ({waypoints.length} / 25 Waypoints)
           </Text>
-          {isOptimized ? (
-            <TouchableOpacity onPress={handleReset} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Text style={[styles.resetAction, { color: colors.primary }]}>Reset Order</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <TouchableOpacity onPress={handleAddStop} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={[styles.resetAction, { color: colors.primary }]}>+ Add Stop</Text>
             </TouchableOpacity>
-          ) : null}
+            {isOptimized ? (
+              <TouchableOpacity onPress={handleReset} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={[styles.resetAction, { color: colors.onSurfaceVariant }]}>Reset</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
         </View>
 
         {waypoints.map((wp, idx) => {
@@ -260,15 +356,35 @@ export default function TspOptimizerModal() {
               </View>
 
               {!isStart && !isEnd && (
-                <TouchableOpacity
-                  style={styles.deleteStopBtn}
-                  onPress={() => handleRemoveWaypoint(wp.id)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Remove stop ${wp.name}`}
-                  activeOpacity={0.7}>
-                  <Trash2 size={16} color="#BA1A1A" />
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <TouchableOpacity
+                    style={styles.reorderBtn}
+                    onPress={() => handleMoveWaypoint(idx, 'up')}
+                    disabled={idx <= 1}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Move stop up`}>
+                    <ChevronUp size={16} color={idx <= 1 ? colors.outlineVariant : colors.onSurfaceVariant} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.reorderBtn}
+                    onPress={() => handleMoveWaypoint(idx, 'down')}
+                    disabled={idx >= waypoints.length - 2}
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Move stop down`}>
+                    <ChevronDown size={16} color={idx >= waypoints.length - 2 ? colors.outlineVariant : colors.onSurfaceVariant} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.deleteStopBtn}
+                    onPress={() => handleRemoveWaypoint(wp.id)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove stop ${wp.name}`}
+                    activeOpacity={0.7}>
+                    <Trash2 size={16} color="#BA1A1A" />
+                  </TouchableOpacity>
+                </View>
               )}
             </Animated.View>
           );
@@ -445,6 +561,10 @@ const styles = StyleSheet.create({
   digiBadgeText: { fontSize: 8, fontWeight: '800', color: '#fff' },
   digiCode: { fontSize: 10, fontWeight: '700', color: '#111C2D', fontFamily: 'monospace' },
   deleteStopBtn: { padding: 6 },
+  reorderBtn: {
+    padding: 6,
+    borderRadius: 8,
+  },
 
   optimizeBtn: {
     flexDirection: 'row',

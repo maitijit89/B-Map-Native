@@ -65,6 +65,7 @@ import {
   AnimatedPressable,
 } from '@/shared/components/ui';
 import { haptics } from '@/shared/utils/haptics';
+import { notificationService } from '@/shared/services';
 
 type TransitMode = 'drive' | 'transit' | 'ride' | 'bike' | 'walk';
 type MapLayerType = 'standard' | 'satellite' | 'night' | 'navic';
@@ -83,6 +84,16 @@ export default function HomeScreen() {
   const [showHazards, setShowHazards] = useState(true);
   const [isLocating, setIsLocating] = useState(false);
   const [isSheetExpanded, setIsSheetExpanded] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState<number>(() =>
+    notificationService.getUnreadCountSync()
+  );
+
+  useEffect(() => {
+    const unsubscribe = notificationService.subscribe((_, unread) => {
+      setUnreadNotifications(unread);
+    });
+    return unsubscribe;
+  }, []);
 
   // Pulse animation for weather & speed camera badge
   const alertPulse = useSharedValue(1);
@@ -223,13 +234,15 @@ export default function HomeScreen() {
               style={[styles.headerIconButton, { backgroundColor: colors.surfaceContainerLow }]}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               accessibilityRole="button"
-              accessibilityLabel="Notifications"
+              accessibilityLabel={`Notifications, ${unreadNotifications} unread alerts`}
               onPress={() => {
                 haptics.light();
-                Alert.alert('Notifications', 'No new alerts. Real-time traffic monitoring active.');
+                router.push('/notifications');
               }}>
               <Bell size={18} color={colors.onSurfaceVariant} />
-              <View style={[styles.notifDot, { backgroundColor: colors.error }]} />
+              {unreadNotifications > 0 && (
+                <View style={[styles.notifDot, { backgroundColor: colors.error }]} />
+              )}
             </AnimatedPressable>
 
             {/* User Profile */}
@@ -268,8 +281,8 @@ export default function HomeScreen() {
               <TouchableOpacity
                 style={[styles.cameraButton, { backgroundColor: colors.surfaceContainerLow }]}
                 onPress={() => {
-                  haptics.light();
-                  Alert.alert('AR Navigation', 'Opening AR Camera mode with sovereign spatial anchors...');
+                  haptics.medium();
+                  router.push('/ar-navigation');
                 }}
                 accessibilityRole="button"
                 accessibilityLabel="Visual AR Camera"
@@ -447,6 +460,25 @@ export default function HomeScreen() {
           accessibilityLabel="Route planner">
           <Route size={16} color={colors.primaryContainer} />
           <Text style={[styles.routeFabText, { color: colors.primaryContainer }]}>Route</Text>
+        </AnimatedPressable>
+
+        {/* AR Visual Positioning Navigation FAB */}
+        <AnimatedPressable
+          style={[
+            styles.fabBtn,
+            {
+              backgroundColor: colors.surfaceContainerLowest,
+              borderColor: colors.surfaceContainerHigh,
+            },
+          ]}
+          onPress={() => {
+            haptics.medium();
+            router.push('/ar-navigation');
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="AR Photo Navigation">
+          <Camera size={16} color={colors.primary} />
+          <Text style={[styles.routeFabText, { color: colors.primary }]}>AR</Text>
         </AnimatedPressable>
 
         {/* North Compass FAB */}

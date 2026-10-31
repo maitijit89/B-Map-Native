@@ -10,10 +10,25 @@ export interface SavedPlaceItem {
   createdAt: string;
 }
 
+export type VoiceLanguageCode =
+  | 'en'
+  | 'bn'
+  | 'hi'
+  | 'ta'
+  | 'te'
+  | 'mr'
+  | 'gu'
+  | 'kn'
+  | 'ml'
+  | 'pa'
+  | 'or'
+  | 'as';
+
 export interface UserPreferences {
   theme: 'light' | 'dark' | 'system';
   voiceGuidance: boolean;
   voiceVolume: number;
+  voiceLanguage: VoiceLanguageCode;
   speedLimitAlerts: boolean;
   unitSystem: 'metric' | 'imperial';
   hapticFeedback: boolean;
@@ -29,10 +44,27 @@ export interface EvVehicleProfile {
   maxChargeRateKw: number;
 }
 
+export interface UserProfileData {
+  name: string;
+  email: string;
+  phone: string;
+  digipin?: string;
+  bloodGroup?: string;
+}
+
+export const DEFAULT_USER_PROFILE: UserProfileData = {
+  name: 'Aarav Sharma',
+  email: 'aarav.sharma@example.com',
+  phone: '+91 98765 43210',
+  digipin: '28J4-K8M2-9P',
+  bloodGroup: 'O+',
+};
+
 export const DEFAULT_PREFERENCES: UserPreferences = {
   theme: 'system',
   voiceGuidance: true,
   voiceVolume: 1.0,
+  voiceLanguage: 'en',
   speedLimitAlerts: true,
   unitSystem: 'metric',
   hapticFeedback: true,
@@ -47,6 +79,7 @@ const STORAGE_KEYS = {
   EV_PROFILE: '@bmap/ev_profile',
   OFFLINE_REGIONS: '@bmap/offline_regions',
   RESERVATIONS: '@bmap/reservations',
+  USER_PROFILE: '@bmap/user_profile',
 };
 
 /**
@@ -218,6 +251,41 @@ class StorageService {
         console.debug('StorageService: Failed to save EV profile', e);
       }
     }
+  }
+
+  /**
+   * User Identity Profile
+   */
+  async getUserProfile(): Promise<UserProfileData> {
+    if (this.cache.has(STORAGE_KEYS.USER_PROFILE)) {
+      return this.cache.get(STORAGE_KEYS.USER_PROFILE);
+    }
+    try {
+      const json = await AsyncStorage.getItem(STORAGE_KEYS.USER_PROFILE);
+      if (json) {
+        const loaded = { ...DEFAULT_USER_PROFILE, ...JSON.parse(json) };
+        this.cache.set(STORAGE_KEYS.USER_PROFILE, loaded);
+        return loaded;
+      }
+    } catch {
+      // fallback
+    }
+    this.cache.set(STORAGE_KEYS.USER_PROFILE, DEFAULT_USER_PROFILE);
+    return DEFAULT_USER_PROFILE;
+  }
+
+  async saveUserProfile(profile: Partial<UserProfileData>): Promise<UserProfileData> {
+    const current = await this.getUserProfile();
+    const updated = { ...current, ...profile };
+    this.cache.set(STORAGE_KEYS.USER_PROFILE, updated);
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(updated));
+    } catch (e) {
+      if (__DEV__) {
+        console.debug('StorageService: Failed to save user profile', e);
+      }
+    }
+    return updated;
   }
 }
 

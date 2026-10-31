@@ -34,6 +34,7 @@ import {
   SectionHeader,
 } from '@/shared/components/ui';
 import { haptics } from '@/shared/utils/haptics';
+import { notificationService } from '@/shared/services';
 
 type RouteProfile = 'drive' | 'bike' | 'walk' | 'transit';
 
@@ -152,8 +153,15 @@ export default function RoutesScreen() {
 
   const handleStartNavigation = useCallback(() => {
     haptics.medium();
+    const current = ROUTE_ALTERNATIVES.find((r) => r.id === selectedRoute) || ROUTE_ALTERNATIVES[0];
+    notificationService.addNotification({
+      title: 'Active Navigation Engaged 🛣️',
+      message: `${current.label} route: ${current.via} (${current.time}, ${current.distance})`,
+      type: 'traffic',
+      actionRoute: '/modal',
+    });
     router.push('/modal');
-  }, []);
+  }, [selectedRoute]);
 
   const profiles = useMemo(() => [
     {

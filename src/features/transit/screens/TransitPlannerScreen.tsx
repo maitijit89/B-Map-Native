@@ -25,6 +25,7 @@ import { useThemeColors } from '@/shared/hooks';
 import { Radius, Shadows, Spacing, Typography } from '@/shared/constants/tokens';
 import { Header, Card, Button } from '@/shared/components/ui';
 import { haptics } from '@/shared/utils/haptics';
+import { notificationService } from '@/shared/services';
 
 interface TransitSegment {
   type: 'metro' | 'bus' | 'walk' | 'auto';
@@ -178,6 +179,15 @@ export default function TransitPlannerScreen() {
     haptics.success();
     setShowQrTicket(true);
     setTicketCountdown(180);
+
+    // Broadcast transit ticket reservation notification
+    notificationService.addNotification({
+      title: 'Digital Metro QR Pass Active 🎫',
+      message: 'Valid for Rajiv Chowk -> Cyber City. Scan at automated gates within 3 hours.',
+      type: 'toll',
+      actionRoute: '/transit-planner',
+    });
+
     Alert.alert(
       'Digital Metro QR Generated! 🎫',
       'Scan at DMRC / Rapid Metro automated entry gates within 3 hours. Fare ₹42 deducted via FASTag/UPI.'
@@ -232,6 +242,47 @@ export default function TransitPlannerScreen() {
           { paddingBottom: Math.max(insets.bottom, 20) + 24 },
         ]}
         showsVerticalScrollIndicator={false}>
+        {/* Digital QR Ticket View when active */}
+        {showQrTicket && (
+          <Animated.View entering={fluidEntering(0)}>
+            <Card
+              variant="elevated"
+              padding="md"
+              style={[
+                styles.qrTicketCard,
+                {
+                  backgroundColor: colors.surfaceContainerLowest,
+                  borderColor: colors.primary,
+                  borderWidth: 2,
+                },
+              ]}>
+              <View style={styles.qrTicketTop}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.qrTicketTitle, { color: colors.primary }]}>DMRC DIGITAL QR PASS</Text>
+                  <Text style={[styles.qrTicketSub, { color: colors.onSurfaceVariant }]}>Token #TK-DMRC-849201</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setShowQrTicket(false)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Text style={[styles.qrDismiss, { color: colors.onSurfaceVariant }]}>✕ Close</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={[styles.qrBox, { backgroundColor: colors.surfaceContainerLow, borderColor: colors.outlineVariant }]}>
+                <QrCode size={120} color={colors.onSurface} />
+                <Text style={[styles.scanGateText, { color: colors.onSurface }]}>Scan at Entry Gate Turnstile</Text>
+              </View>
+
+              <View style={styles.qrCountdownRow}>
+                <Clock size={14} color={ticketCountdown < 30 ? colors.error : colors.primary} />
+                <Text style={[styles.countdownText, { color: ticketCountdown < 30 ? colors.error : colors.primary }]}>
+                  Valid for {Math.floor(ticketCountdown / 60)}m {ticketCountdown % 60}s
+                </Text>
+              </View>
+            </Card>
+          </Animated.View>
+        )}
+
         {/* Origin & Destination Card */}
         <Animated.View entering={fluidEntering(0)}>
           <Card variant="elevated" padding="md" style={styles.routeHeaderCard}>
@@ -606,5 +657,53 @@ const styles = StyleSheet.create({
   },
   dockBookBtn: {
     height: 48,
+  },
+  qrTicketCard: {
+    borderRadius: Radius.xl,
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: Spacing.sm,
+  },
+  qrTicketTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  qrTicketTitle: {
+    ...Typography.titleSmall,
+    fontWeight: '800',
+  },
+  qrTicketSub: {
+    ...Typography.labelSmall,
+    fontSize: 10,
+    marginTop: 1,
+  },
+  qrDismiss: {
+    ...Typography.labelSmall,
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  qrBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+  },
+  scanGateText: {
+    ...Typography.labelSmall,
+    fontWeight: '700',
+    fontSize: 10,
+    marginTop: 6,
+  },
+  qrCountdownRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  countdownText: {
+    ...Typography.labelMedium,
+    fontWeight: '800',
   },
 });

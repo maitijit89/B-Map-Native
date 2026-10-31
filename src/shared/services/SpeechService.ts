@@ -1,4 +1,9 @@
 import * as Speech from 'expo-speech';
+import {
+  voiceLanguageService,
+  NavigationPromptKey,
+} from './VoiceLanguageService';
+import type { VoiceLanguageCode } from './StorageService';
 
 export interface SpeechOptions {
   language?: string;
@@ -24,15 +29,18 @@ class SpeechService {
   }
 
   /**
-   * Speak turn prompt or notification
+   * Speak turn prompt or notification using the current voice language
    */
   speak(text: string, options?: SpeechOptions): void {
     if (this.isMuted || !text.trim()) return;
 
+    const currentLangInfo = voiceLanguageService.getLanguageInfo();
+    const targetLanguage = options?.language || currentLangInfo.locale || 'en-IN';
+
     try {
       Speech.stop(); // Stop any ongoing speech first for clear prompt delivery
       Speech.speak(text, {
-        language: options?.language || 'en-US',
+        language: targetLanguage,
         pitch: options?.pitch || 1.0,
         rate: options?.rate || 0.95, // Slightly lower rate for navigation clarity
         onStart: options?.onStart,
@@ -40,8 +48,34 @@ class SpeechService {
         onError: options?.onError,
       });
     } catch (error) {
-      if (__DEV__) { console.debug('SpeechService: Error speaking text', error); }
+      if (__DEV__) {
+        console.debug('SpeechService: Error speaking text', error);
+      }
     }
+  }
+
+  /**
+   * Speak a localized navigation prompt by key (e.g., 'startRoute', 'turnRight')
+   */
+  speakPrompt(key: NavigationPromptKey, langCode?: VoiceLanguageCode, options?: SpeechOptions): void {
+    const targetCode = langCode || voiceLanguageService.getLanguage();
+    const promptText = voiceLanguageService.getPrompt(key, targetCode);
+    const langInfo = voiceLanguageService.getLanguageInfo(targetCode);
+
+    if (promptText) {
+      this.speak(promptText, {
+        ...options,
+        language: langInfo.locale,
+      });
+    }
+  }
+
+  /**
+   * Switch the voice guidance language and speak confirmation in that language
+   */
+  async switchLanguageAndSpeak(code: VoiceLanguageCode): Promise<void> {
+    await voiceLanguageService.setLanguage(code);
+    this.speakPrompt('languageChanged', code);
   }
 
   /**
@@ -51,7 +85,9 @@ class SpeechService {
     try {
       Speech.stop();
     } catch (error) {
-      if (__DEV__) { console.debug('SpeechService: Error stopping speech', error); }
+      if (__DEV__) {
+        console.debug('SpeechService: Error stopping speech', error);
+      }
     }
   }
 

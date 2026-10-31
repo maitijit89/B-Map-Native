@@ -7,6 +7,7 @@ import {
   Alert,
   StatusBar,
   AppState,
+  Share,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -24,6 +25,7 @@ import {
   Flag,
   Share2,
   Phone,
+  Globe,
 } from 'lucide-react-native';
 import Svg, {
   Defs,
@@ -36,7 +38,12 @@ import Svg, {
   Polygon,
 } from 'react-native-svg';
 import { Button } from '@/shared/components/ui';
-import { speechService } from '@/shared/services';
+import {
+  speechService,
+  voiceLanguageService,
+  VoiceLanguageCode,
+  notificationService,
+} from '@/shared/services';
 
 export default function ActiveNavigationModal() {
   const insets = useSafeAreaInsets();
@@ -44,10 +51,66 @@ export default function ActiveNavigationModal() {
   const [isMuted, setIsMuted] = useState(false);
   const [currentSpeed, setCurrentSpeed] = useState(74);
   const [xtdMeters] = useState(2.3);
+  const [voiceLang, setVoiceLang] = useState<VoiceLanguageCode>(
+    voiceLanguageService.getLanguage()
+  );
+
+  const langInfo = voiceLanguageService.getLanguageInfo(voiceLang);
+
+  // Quick cycle between English (default), Bengali, and Hindi
+  const cycleLanguages: VoiceLanguageCode[] = ['en', 'bn', 'hi'];
+
+  const handleCycleVoiceLanguage = async () => {
+    haptics.selection();
+    const currentIndex = cycleLanguages.indexOf(voiceLang);
+    const nextLang =
+      currentIndex >= 0 && currentIndex < cycleLanguages.length - 1
+        ? cycleLanguages[currentIndex + 1]
+        : cycleLanguages[0];
+
+    await speechService.switchLanguageAndSpeak(nextLang);
+  };
+
+  const handleSelectVoiceLanguage = () => {
+    haptics.medium();
+    Alert.alert(
+      'Turn-by-Turn Voice Language',
+      'Select active voice language for spoken directions & vernacular alerts:',
+      [
+        {
+          text: `English (Default) ${voiceLang === 'en' ? '✓' : ''}`,
+          onPress: () => speechService.switchLanguageAndSpeak('en'),
+        },
+        {
+          text: `বাংলা (Bengali) ${voiceLang === 'bn' ? '✓' : ''}`,
+          onPress: () => speechService.switchLanguageAndSpeak('bn'),
+        },
+        {
+          text: `हिन्दी (Hindi) ${voiceLang === 'hi' ? '✓' : ''}`,
+          onPress: () => speechService.switchLanguageAndSpeak('hi'),
+        },
+        {
+          text: 'More Dialects (Profile Settings)',
+          onPress: () => router.push('/(tabs)/mine'),
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
 
   // Speak initial turn prompt on route start & fluctuate live speed
   useEffect(() => {
-    speechService.speak('Starting route to Company. In 350 meters, turn right onto Outer Ring Road Expressway.');
+    let isMounted = true;
+    voiceLanguageService.init().then((lang) => {
+      if (isMounted) setVoiceLang(lang);
+    });
+
+    const unsubscribe = voiceLanguageService.subscribe((lang) => {
+      if (isMounted) setVoiceLang(lang);
+    });
+
+    // Speak initial route prompt in active language
+    speechService.speakPrompt('startRoute');
 
     let speedInterval: ReturnType<typeof setInterval> | null = setInterval(() => {
       if (AppState.currentState === 'active') {
@@ -62,6 +125,8 @@ export default function ActiveNavigationModal() {
     });
 
     return () => {
+      isMounted = false;
+      unsubscribe();
       speechService.stop();
       if (speedInterval) clearInterval(speedInterval);
       subscription.remove();
@@ -74,7 +139,7 @@ export default function ActiveNavigationModal() {
     setIsMuted(nextMuted);
     speechService.setMuted(nextMuted);
     if (!nextMuted) {
-      speechService.speak('Voice guidance unmuted.');
+      speechService.speakPrompt('unmuted');
     }
   };
 
@@ -97,6 +162,43 @@ export default function ActiveNavigationModal() {
   const handleReportHazard = () => {
     haptics.selection();
     router.push('/hazard-report');
+  };
+
+  const handleRecalculate = async () => {
+    haptics.medium();
+    const prompt =
+      voiceLang === 'bn'
+        ? 'নতুন দ্রুততম পথ হিসাব করা হচ্ছে'
+        : voiceLang === 'hi'
+        ? 'नया सबसे तेज़ मार्ग खोजा जा रहा है'
+        : 'Rerouting... finding fastest path via NH-48';
+    await speechService.speak(prompt);
+    await notificationService.addNotification({
+      title: 'Route Recalculated ⚡',
+      message: 'Optimal corridor updated via NH-48 Express. Estimated arrival: 01:42 AM.',
+      category: 'traffic',
+      priority: 'medium',
+      actionRoute: '/(tabs)/routes',
+      actionLabel: 'View Waypoints',
+    });
+    Alert.alert('Route Recalculated', 'Optimal corridor updated via NH-48 Express (OSRM engine). Saved 6 mins.');
+  };
+
+  const handleTripOverview = () => {
+    haptics.selection();
+    router.push('/(tabs)/routes');
+  };
+
+  const handleShareTrip = async () => {
+    haptics.selection();
+    try {
+      await Share.share({
+        message:
+          '🚗 Navigating via B-Map (ISRO NavIC Map).\nDestination: DLF Cyber Hub Gurugram\nETA: 01:42 AM · 142 km remaining\nDigiPIN: 28J4-K8M2-9P\nLive Track: https://bmap.gov.in/track/nh48-trip',
+      });
+    } catch {
+      // Ignored
+    }
   };
 
   return (
@@ -199,6 +301,8 @@ export default function ActiveNavigationModal() {
           <TouchableOpacity
             style={styles.closeBtn}
             onPress={handleEndNavigation}
+            accessibilityRole="button"
+            accessibilityLabel="End navigation"
             activeOpacity={0.8}>
             <X size={20} color="#fff" />
           </TouchableOpacity>
@@ -206,17 +310,34 @@ export default function ActiveNavigationModal() {
           <TouchableOpacity
             style={styles.navicStatusPill}
             onPress={() => router.push('/digipin-explorer')}
+            accessibilityRole="button"
+            accessibilityLabel="DigiPIN and NavIC satellite status"
             activeOpacity={0.8}>
             <Satellite size={14} color="#00C06D" />
             <Text style={styles.navicStatusText}>NavIC L5+S · HDOP 0.7 · 0.6m</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.muteBtn}
-            onPress={toggleMute}
-            activeOpacity={0.8}>
-            {isMuted ? <VolumeX size={18} color="#FF9800" /> : <Volume2 size={18} color="#fff" />}
-          </TouchableOpacity>
+          <View style={styles.topActionsGroup}>
+            <TouchableOpacity
+              style={styles.langSwitchBtn}
+              onPress={handleCycleVoiceLanguage}
+              onLongPress={handleSelectVoiceLanguage}
+              accessibilityRole="button"
+              accessibilityLabel={`Voice language: ${langInfo.name}. Tap to cycle English, Bengali, Hindi`}
+              activeOpacity={0.8}>
+              <Globe size={13} color="#00E5FF" />
+              <Text style={styles.langSwitchText}>{voiceLang.toUpperCase()}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.muteBtn}
+              onPress={toggleMute}
+              accessibilityRole="button"
+              accessibilityLabel={isMuted ? 'Unmute voice navigation' : 'Mute voice navigation'}
+              activeOpacity={0.8}>
+              {isMuted ? <VolumeX size={18} color="#FF9800" /> : <Volume2 size={18} color="#fff" />}
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Turn-by-Turn Maneuver Card */}
@@ -259,12 +380,21 @@ export default function ActiveNavigationModal() {
         </View>
 
         {/* Vernacular Voice TTS Banner */}
-        <View style={styles.vernacularBanner}>
-          <Text style={styles.vernacularBadge}>हिन्दी TTS</Text>
+        <TouchableOpacity
+          style={styles.vernacularBanner}
+          onPress={handleCycleVoiceLanguage}
+          onLongPress={handleSelectVoiceLanguage}
+          accessibilityRole="button"
+          accessibilityLabel={`Active Voice Guidance in ${langInfo.name}. Tap to cycle English, Bengali, Hindi`}
+          activeOpacity={0.85}>
+          <View style={styles.vernacularBadgeWrapper}>
+            <Volume2 size={11} color="#0096FF" />
+            <Text style={styles.vernacularBadge}>{langInfo.ttsBadge}</Text>
+          </View>
           <Text style={styles.vernacularPrompt} numberOfLines={1}>
-            {'“350 मीटर बाद दाएँ मुड़ें और NH-48 एक्सप्रेसवे पर रहें”'}
+            {`“${voiceLanguageService.getPrompt('turnRight', voiceLang)}”`}
           </Text>
-        </View>
+        </TouchableOpacity>
       </SafeAreaView>
 
       {/* Floating Speedometer Cluster & ADAS Warning */}
@@ -290,11 +420,23 @@ export default function ActiveNavigationModal() {
       {/* Right Floating FAB Controls */}
       <View style={[styles.rightFloatingControls, { top: clusterTop }]}>
         <TouchableOpacity
+          style={[styles.floatingFab, { backgroundColor: '#E8F4FF', borderColor: '#0096FF' }]}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel="Switch to Live AR Camera Navigation"
+          onPress={() => {
+            haptics.medium();
+            router.push('/ar-navigation');
+          }}>
+          <Camera size={20} color="#0096FF" />
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={styles.floatingFab}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           accessibilityRole="button"
           accessibilityLabel="Recalculate optimal route"
-          onPress={() => Alert.alert('Recalculate', 'Re-computing optimal route via OSRM state machine.')}>
+          onPress={handleRecalculate}>
           <RotateCcw size={20} color="#0096FF" />
         </TouchableOpacity>
 
@@ -303,7 +445,7 @@ export default function ActiveNavigationModal() {
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           accessibilityRole="button"
           accessibilityLabel="View trip overview"
-          onPress={() => Alert.alert('Trip Overview', 'Viewing 168 km route profile.')}>
+          onPress={handleTripOverview}>
           <Compass size={20} color="#0096FF" />
         </TouchableOpacity>
 
@@ -321,7 +463,7 @@ export default function ActiveNavigationModal() {
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           accessibilityRole="button"
           accessibilityLabel="Share live location and ETA"
-          onPress={() => Alert.alert('Share ETA', 'Shared live location & ETA via WhatsApp.')}>
+          onPress={handleShareTrip}>
           <Share2 size={20} color="#00C06D" />
         </TouchableOpacity>
       </View>
@@ -443,6 +585,29 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#E0F7FF',
   },
+  topActionsGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  langSwitchBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    height: 38,
+    paddingHorizontal: 10,
+    borderRadius: 19,
+    backgroundColor: 'rgba(17, 28, 45, 0.85)',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 229, 255, 0.35)',
+  },
+  langSwitchText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#00E5FF',
+    letterSpacing: 0.5,
+  },
   muteBtn: {
     width: 38,
     height: 38,
@@ -557,14 +722,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0, 150, 255, 0.4)',
   },
+  vernacularBadgeWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#E8F4FF',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
   vernacularBadge: {
     fontSize: 10,
     fontWeight: '800',
     color: '#0096FF',
-    backgroundColor: '#E8F4FF',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
   },
   vernacularPrompt: {
     flex: 1,
