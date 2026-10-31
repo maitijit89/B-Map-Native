@@ -11,7 +11,8 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+import { fluidEntering } from '@/shared/animations';
 import {
   Zap,
   Fuel,
@@ -292,7 +293,7 @@ export default function NearbyScreen() {
       {EV_STATIONS.map((station, idx) => (
         <Animated.View
           key={station.id}
-          entering={FadeInDown.delay(idx * 20).duration(180).springify().damping(22)}>
+          entering={fluidEntering(idx * 25)}>
           <Card
             variant="flat"
             padding="md"
@@ -381,7 +382,7 @@ export default function NearbyScreen() {
       {TRANSIT_ROUTES.map((route, idx) => (
         <Animated.View
           key={route.id}
-          entering={FadeInDown.delay(idx * 20).duration(180).springify().damping(22)}>
+          entering={fluidEntering(idx * 25)}>
           <Card
             variant="flat"
             padding="md"
@@ -431,7 +432,7 @@ export default function NearbyScreen() {
       ))}
 
       {/* Auto-Rickshaw Fare Card */}
-      <Animated.View entering={FadeInDown.delay(40).duration(180).springify().damping(22)}>
+      <Animated.View entering={fluidEntering(40)}>
         <Card variant="flat" padding="md" style={styles.fareCard}>
           <Text style={[styles.cardTitle, { color: colors.onSurface, marginBottom: 8 }]}>
             Official Auto-Rickshaw Fare Estimate
@@ -486,7 +487,7 @@ export default function NearbyScreen() {
       {FUEL_STATIONS.map((st, idx) => (
         <Animated.View
           key={st.id}
-          entering={FadeInDown.delay(idx * 20).duration(180).springify().damping(22)}>
+          entering={fluidEntering(idx * 25)}>
           <Card variant="flat" padding="md" style={styles.card}>
             <View style={styles.cardHeader}>
               <View style={{ flex: 1 }}>
@@ -541,7 +542,7 @@ export default function NearbyScreen() {
       {DINING_PLACES.map((place, idx) => (
         <Animated.View
           key={place.id}
-          entering={FadeInDown.delay(idx * 20).duration(180).springify().damping(22)}>
+          entering={fluidEntering(idx * 25)}>
           <Card variant="flat" padding="md" style={styles.card}>
             <View style={styles.cardHeader}>
               <View style={{ flex: 1 }}>
@@ -583,7 +584,7 @@ export default function NearbyScreen() {
       {PHARMACY_PLACES.map((ph, idx) => (
         <Animated.View
           key={ph.id}
-          entering={FadeInDown.delay(idx * 20).duration(180).springify().damping(22)}>
+          entering={fluidEntering(idx * 25)}>
           <Card variant="flat" padding="md" style={styles.card}>
             <View style={styles.cardHeader}>
               <View style={{ flex: 1 }}>
@@ -662,7 +663,7 @@ export default function NearbyScreen() {
       />
 
       {/* Category Selection Bar using Virtualized FlatList */}
-      <Animated.View entering={FadeInDown.duration(180).springify().damping(22)} style={styles.categoryContainer}>
+      <Animated.View entering={fluidEntering(0)} style={styles.categoryContainer}>
         <FlatList
           horizontal
           data={CATEGORIES}

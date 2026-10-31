@@ -1,59 +1,61 @@
 import {
+  Easing,
   FadeIn,
   FadeInDown,
+  FadeInUp,
+  FadeInLeft,
+  FadeInRight,
   FadeOut,
+  FadeOutDown,
   Layout,
-  WithSpringConfig,
+  LinearTransition,
 } from 'react-native-reanimated';
 
 /**
- * Minimal Animation System
+ * Fluid Smooth Animation Engine
  *
- * Design Principles:
- * 1. Zero Over-Shoot: Higher damping (22-28) ensures elements snap into place cleanly without oscillation.
- * 2. Low Travel Distance: Entrances glide 8-14dp rather than huge 40-60dp displacements.
- * 3. Immediate Micro-Interaction: Button & card taps respond in <180ms with subtle scale (0.975x).
- * 4. Ultra-smooth Layout Transitions: Lists, badges, and counters transition seamlessly without jump cuts.
+ * Core Principles:
+ * 1. Fluid Momentum Deceleration:
+ *    Uses Apple/Material 3 asymmetric cubic-bezier curves (0.16, 1, 0.3, 1).
+ *    Launches immediately with high initial velocity and gracefully glides
+ *    into rest with an infinite-smooth tail.
+ * 2. Zero Bounce Physics:
+ *    Zero spring oscillation (.springify removed) to ensure maximum 60/120fps
+ *    throughput on low-end and high-end Android/iOS devices without JS bridge lag.
+ * 3. Tactile Micro-Interactions:
+ *    Fluid 110ms press compression and 180ms ease-out release.
+ * 4. Silky Layout Transitions:
+ *    Seamless element insertion, reordering, and removal.
  */
-export const MinimalAnimation = {
-  duration: {
-    instant: 100,
-    fast: 180,
-    normal: 220,
-    slow: 300,
-  },
-  spring: {
-    // Standard subtle spring for general transitions
-    standard: {
-      damping: 24,
-      stiffness: 320,
-      mass: 0.5,
-    } as WithSpringConfig,
-    // Snappy tactile spring for button/chip/icon presses
-    press: {
-      damping: 26,
-      stiffness: 380,
-      mass: 0.4,
-    } as WithSpringConfig,
-    // Smooth layout reordering for lists & grid items
-    layout: {
-      damping: 22,
-      stiffness: 300,
-      mass: 0.5,
-    } as WithSpringConfig,
-    // BottomSheet & modal presentation
-    sheet: {
-      damping: 28,
-      stiffness: 320,
-      mass: 0.6,
-    } as WithSpringConfig,
-    // Soft gentle entrance
-    gentle: {
-      damping: 20,
-      stiffness: 260,
-      mass: 0.6,
-    } as WithSpringConfig,
-  },
+
+export const FluidCurves = {
+  /** Signature iOS / Material 3 fluid momentum curve (fast start, silky deceleration) */
+  momentum: Easing.bezier(0.16, 1, 0.3, 1),
+  /** Standard balanced ease-in-out curve for symmetrical movements */
+  standard: Easing.bezier(0.25, 0.1, 0.25, 1),
+  /** Gentle cubic deceleration for pure fades and reveals */
+  decelerate: Easing.out(Easing.cubic),
+  /** Sharp acceleration for rapid exits without lingering */
+  accelerate: Easing.bezier(0.4, 0, 1, 1),
+  /** Instant press response curve */
+  pressIn: Easing.bezier(0.25, 0.1, 0.25, 1),
+  /** Smooth tactile rebound curve */
+  pressOut: Easing.bezier(0.16, 1, 0.3, 1),
+} as const;
+
+export const FluidDuration = {
+  instant: 90,
+  pressIn: 110,
+  pressOut: 180,
+  fast: 180,
+  normal: 220,
+  smooth: 260,
+  modal: 280,
+} as const;
+
+export const FluidAnimation = {
+  duration: FluidDuration,
+  curves: FluidCurves,
   scale: {
     button: 0.975,
     card: 0.985,
@@ -62,50 +64,99 @@ export const MinimalAnimation = {
     tabActive: 1.02,
   },
   offset: {
-    micro: 6,
-    subtle: 10,
-    normal: 16,
+    micro: 4,
+    subtle: 8,
+    normal: 12,
   },
 } as const;
 
 /**
- * Minimal Entering Animation
- * Subtle vertical slide (10dp) + fade in, fast and damped.
+ * Fluid Entering Transition
+ * Vertical glide with fluid momentum curve.
  */
-export const minimalEntering = (delay = 0, duration = 180) =>
-  FadeInDown.duration(duration)
-    .delay(delay)
-    .springify()
-    .damping(24)
-    .stiffness(320)
-    .mass(0.5);
+export const fluidEntering = (delay = 0, duration = FluidDuration.normal) => {
+  let anim = FadeInDown.duration(duration).easing(FluidCurves.momentum);
+  if (delay > 0) {
+    anim = anim.delay(delay);
+  }
+  return anim;
+};
 
 /**
- * Minimal Fade In (opacity only)
+ * Fluid Entering Upward Transition (from bottom up with fluid momentum)
  */
-export const minimalFadeIn = (duration = 180) =>
-  FadeIn.duration(duration);
+export const fluidEnteringUp = (delay = 0, duration = FluidDuration.normal) => {
+  let anim = FadeInUp.duration(duration).easing(FluidCurves.momentum);
+  if (delay > 0) {
+    anim = anim.delay(delay);
+  }
+  return anim;
+};
 
 /**
- * Minimal Fade Out
+ * Fluid Entering Left Transition (from left with fluid momentum)
  */
-export const minimalFadeOut = (duration = 150) =>
-  FadeOut.duration(duration);
+export const fluidEnteringLeft = (delay = 0, duration = FluidDuration.normal) => {
+  let anim = FadeInLeft.duration(duration).easing(FluidCurves.momentum);
+  if (delay > 0) {
+    anim = anim.delay(delay);
+  }
+  return anim;
+};
 
 /**
- * Minimal Exiting Animation
+ * Fluid Entering Right Transition (from right with fluid momentum)
  */
-export const minimalExiting = (duration = 150) =>
-  FadeOut.duration(duration);
+export const fluidEnteringRight = (delay = 0, duration = FluidDuration.normal) => {
+  let anim = FadeInRight.duration(duration).easing(FluidCurves.momentum);
+  if (delay > 0) {
+    anim = anim.delay(delay);
+  }
+  return anim;
+};
 
 /**
- * Minimal Layout Transition
- * For lists and elements that reorder, resize, or shift smoothly.
+ * Fluid Fade In (opacity only with gentle deceleration)
  */
-export const minimalLayout = Layout.springify()
-  .damping(22)
-  .stiffness(300)
-  .mass(0.5);
+export const fluidFadeIn = (duration = FluidDuration.fast) =>
+  FadeIn.duration(duration).easing(FluidCurves.decelerate);
 
-export default MinimalAnimation;
+/**
+ * Fluid Fade Out
+ */
+export const fluidFadeOut = (duration = 160) =>
+  FadeOut.duration(duration).easing(FluidCurves.accelerate);
 
+/**
+ * Fluid Exiting Transition
+ */
+export const fluidExiting = (duration = 160) =>
+  FadeOutDown.duration(duration).easing(FluidCurves.accelerate);
+
+/**
+ * Fluid Smooth Layout Transition (linear glide with momentum curve)
+ */
+export const fluidLayout = Layout.duration(FluidDuration.normal).easing(FluidCurves.momentum);
+
+// --- Backwards Compatibility with Minimal Animation API ---
+export const MinimalAnimation = FluidAnimation;
+export const minimalEntering = fluidEntering;
+export const minimalFadeIn = fluidFadeIn;
+export const minimalFadeOut = fluidFadeOut;
+export const minimalExiting = fluidExiting;
+export const minimalLayout = fluidLayout;
+
+export {
+  FadeIn,
+  FadeInDown,
+  FadeInUp,
+  FadeInLeft,
+  FadeInRight,
+  FadeOut,
+  FadeOutDown,
+  Layout,
+  LinearTransition,
+  Easing,
+};
+
+export default FluidAnimation;

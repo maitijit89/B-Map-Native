@@ -71,7 +71,9 @@ class StorageService {
         return loaded;
       }
     } catch (e) {
-      console.warn('StorageService: Failed to load preferences', e);
+      if (__DEV__) {
+        console.debug('StorageService: Failed to load preferences', e);
+      }
     }
     this.cache.set(STORAGE_KEYS.PREFERENCES, DEFAULT_PREFERENCES);
     return DEFAULT_PREFERENCES;
@@ -84,7 +86,9 @@ class StorageService {
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.PREFERENCES, JSON.stringify(updated));
     } catch (e) {
-      console.warn('StorageService: Failed to save preferences', e);
+      if (__DEV__) {
+        console.debug('StorageService: Failed to save preferences', e);
+      }
     }
     return updated;
   }
@@ -102,7 +106,9 @@ class StorageService {
       this.cache.set(STORAGE_KEYS.SAVED_PLACES, loaded);
       return loaded;
     } catch (e) {
-      console.warn('StorageService: Failed to load saved places', e);
+      if (__DEV__) {
+        console.debug('StorageService: Failed to load saved places', e);
+      }
       return [];
     }
   }
@@ -119,7 +125,9 @@ class StorageService {
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.SAVED_PLACES, JSON.stringify(updated));
     } catch (e) {
-      console.warn('StorageService: Failed to add saved place', e);
+      if (__DEV__) {
+        console.debug('StorageService: Failed to add saved place', e);
+      }
     }
     return updated;
   }
@@ -131,7 +139,9 @@ class StorageService {
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.SAVED_PLACES, JSON.stringify(updated));
     } catch (e) {
-      console.warn('StorageService: Failed to remove saved place', e);
+      if (__DEV__) {
+        console.debug('StorageService: Failed to remove saved place', e);
+      }
     }
     return updated;
   }
@@ -164,7 +174,9 @@ class StorageService {
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.SEARCH_HISTORY, JSON.stringify(updated));
     } catch (e) {
-      console.warn('StorageService: Failed to add search query', e);
+      if (__DEV__) {
+        console.debug('StorageService: Failed to add search query', e);
+      }
     }
     return updated;
   }
@@ -174,7 +186,9 @@ class StorageService {
     try {
       await AsyncStorage.removeItem(STORAGE_KEYS.SEARCH_HISTORY);
     } catch (e) {
-      console.warn('StorageService: Failed to clear search history', e);
+      if (__DEV__) {
+        console.debug('StorageService: Failed to clear search history', e);
+      }
     }
   }
 
@@ -200,7 +214,9 @@ class StorageService {
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.EV_PROFILE, JSON.stringify(profile));
     } catch (e) {
-      console.warn('StorageService: Failed to save EV profile', e);
+      if (__DEV__) {
+        console.debug('StorageService: Failed to save EV profile', e);
+      }
     }
   }
 }

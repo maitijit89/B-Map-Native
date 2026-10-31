@@ -1,13 +1,21 @@
 import '../../global.css';
 import { useFonts } from 'expo-font';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider as NavThemeProvider } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
+import { preventAutoHideAsync, hideAsync } from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 import { useColorScheme, ThemeProvider } from '@/shared/hooks';
 import { ErrorBoundary as GlobalErrorBoundary } from '@/shared/components';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { LogBox } from 'react-native';
+
+LogBox.ignoreLogs([
+  '`unstable_settings.initialRouteName` is deprecated',
+  'Location request has been rejected',
+  'LocationService:',
+  'Introspectable data is missing for class',
+]);
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -16,11 +24,11 @@ export {
 
 export const unstable_settings = {
   // Ensure that reloading on `/modal` keeps a back button present.
-  initialRouteName: '(tabs)',
+  anchor: '(tabs)',
 };
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
-SplashScreen.preventAutoHideAsync();
+preventAutoHideAsync();
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
@@ -34,7 +42,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (loaded) {
-      SplashScreen.hideAsync();
+      hideAsync();
     }
   }, [loaded]);
 

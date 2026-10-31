@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+import { fluidEntering } from '@/shared/animations';
 import {
   TriangleAlert,
   Camera,
@@ -85,7 +86,7 @@ export default function HazardReportModal() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
         {/* Location & Sovereign DigiPIN Card */}
-        <Animated.View entering={FadeInDown.duration(180).springify().damping(22)}>
+        <Animated.View entering={fluidEntering(0)}>
           <Card variant="elevated" padding="md" style={styles.locationCard}>
             <View style={styles.locationHeader}>
               <MapPin size={16} color={colors.primary} />
@@ -114,7 +115,7 @@ export default function HazardReportModal() {
             return (
               <Animated.View
                 key={ht.id}
-                entering={FadeInDown.delay(20 + idx * 15).duration(180).springify().damping(22)}
+                entering={fluidEntering(20 + idx * 20)}
                 style={styles.hazardChipWrapper}>
 
                 <TouchableOpacity

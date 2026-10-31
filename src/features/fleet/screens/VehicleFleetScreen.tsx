@@ -9,7 +9,8 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import Animated, { FadeInDown, FadeInUp, Layout } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+import { fluidEntering, fluidLayout } from '@/shared/animations';
 
 import {
   Car,
@@ -186,7 +187,7 @@ export default function VehicleFleetScreen() {
         ]}
         showsVerticalScrollIndicator={false}>
         {/* FASTag Balance Master Card */}
-        <Animated.View entering={FadeInDown.duration(180).springify().damping(22)}>
+        <Animated.View entering={fluidEntering(0)}>
           <Card
             variant="elevated"
             padding="lg"
@@ -251,8 +252,8 @@ export default function VehicleFleetScreen() {
             return (
               <Animated.View
                 key={v.id}
-                entering={FadeInDown.delay(20 * (index + 1)).duration(180).springify().damping(22)}
-                layout={Layout.springify().damping(22)}>
+                entering={fluidEntering(20 * (index + 1))}
+                layout={fluidLayout}>
                 <Card
                   variant={isSelected ? 'glass' : 'flat'}
                   padding="md"
@@ -296,7 +297,7 @@ export default function VehicleFleetScreen() {
           {RECENT_TOLL_TRANSACTIONS.map((tx, idx) => (
             <Animated.View
               key={tx.id}
-              entering={FadeInUp.delay(idx * 60).duration(260).springify().damping(18)}>
+              entering={fluidEntering(idx * 25)}>
               <View
                 style={[
                   styles.txRow,

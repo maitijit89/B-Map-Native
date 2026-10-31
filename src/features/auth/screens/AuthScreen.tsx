@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+import { fluidEntering } from '@/shared/animations';
 import { haptics } from '@/shared/utils/haptics';
 import {
   Mail,
@@ -187,7 +188,7 @@ export default function AuthScreen() {
           showsVerticalScrollIndicator={false}>
           <View style={[styles.responsiveContent, { maxWidth: contentMaxWidth }]}>
             {/* Brand Banner */}
-            <Animated.View entering={FadeInDown.duration(280).springify().damping(16)}>
+            <Animated.View entering={fluidEntering(0)}>
               <Card variant="elevated" padding="md" style={styles.brandCard}>
                 <Image source={{ uri: LOGO_URI }} style={styles.brandLogo} resizeMode="contain" />
                 <View style={{ flex: 1, gap: 4 }}>

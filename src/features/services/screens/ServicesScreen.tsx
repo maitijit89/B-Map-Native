@@ -9,7 +9,8 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+import { fluidEntering } from '@/shared/animations';
 import {
   Satellite,
   Shield,
@@ -100,7 +101,7 @@ export default function ServicesScreen() {
         ]}
         showsVerticalScrollIndicator={false}>
         {/* NavIC Satellite Status */}
-        <Animated.View entering={FadeInDown.duration(180).springify().damping(22)}>
+        <Animated.View entering={fluidEntering(0)}>
 
           <Card variant="elevated" padding="md" style={styles.cardContainer}>
             <View style={styles.cardHeader}>
@@ -183,7 +184,7 @@ export default function ServicesScreen() {
         </Animated.View>
 
         {/* SOS Emergency Console */}
-        <Animated.View entering={FadeInDown.delay(20).duration(180).springify().damping(22)}>
+        <Animated.View entering={fluidEntering(20)}>
           <Card variant="elevated" padding="md" style={styles.cardContainer}>
             <View style={styles.cardHeader}>
               <View style={styles.headerLeftCluster}>
@@ -243,7 +244,7 @@ export default function ServicesScreen() {
         </Animated.View>
 
         {/* Device Profiling & Security Telemetry */}
-        <Animated.View entering={FadeInDown.delay(30).duration(180).springify().damping(22)}>
+        <Animated.View entering={fluidEntering(40)}>
           <Card variant="elevated" padding="md" style={styles.cardContainer}>
             <View style={styles.cardHeader}>
               <View style={styles.headerLeftCluster}>
@@ -280,7 +281,7 @@ export default function ServicesScreen() {
         </Animated.View>
 
         {/* Real-Time Community Hazards */}
-        <Animated.View entering={FadeInDown.delay(40).duration(180).springify().damping(22)}>
+        <Animated.View entering={fluidEntering(60)}>
           <SectionHeader
             title="Community Hazard Reports"
             subtitle="Crowdsourced Highway Telematics"
@@ -345,7 +346,7 @@ export default function ServicesScreen() {
         </Animated.View>
 
         {/* ADAS Speed Camera Radar */}
-        <Animated.View entering={FadeInDown.delay(60).duration(180).springify().damping(22)}>
+        <Animated.View entering={fluidEntering(80)}>
           <SectionHeader
             title="ADAS Speed Camera Radar"
             subtitle="Fixed Speed Guns & Interceptor Zones"

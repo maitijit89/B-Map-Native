@@ -235,7 +235,7 @@ class CompassService {
       try {
         listener(snapshot);
       } catch (err) {
-        console.warn('CompassService listener error:', err);
+        if (__DEV__) { console.debug('CompassService listener error:', err); }
       }
     });
   }

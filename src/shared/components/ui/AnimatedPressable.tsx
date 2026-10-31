@@ -9,10 +9,11 @@ import {
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
+  withTiming,
   WithSpringConfig,
 } from 'react-native-reanimated';
 import { haptics } from '../../utils/haptics';
+import { FluidCurves, FluidDuration } from '../../animations';
 
 const AnimatedComponent = Animated.createAnimatedComponent(Pressable);
 
@@ -29,12 +30,6 @@ export interface AnimatedPressableProps extends Omit<PressableProps, 'style'> {
   children: React.ReactNode | ((state: { pressed: boolean }) => React.ReactNode);
 }
 
-const DEFAULT_SPRING: WithSpringConfig = {
-  damping: 26,
-  stiffness: 380,
-  mass: 0.4,
-};
-
 export const AnimatedPressable: React.FC<AnimatedPressableProps> = ({
   children,
   onPress,
@@ -42,7 +37,6 @@ export const AnimatedPressable: React.FC<AnimatedPressableProps> = ({
   onPressOut,
   activeScale = 0.975,
   activeOpacity = 0.92,
-  springConfig = DEFAULT_SPRING,
   enableHaptic = true,
 
   hapticType = 'light',
@@ -58,8 +52,14 @@ export const AnimatedPressable: React.FC<AnimatedPressableProps> = ({
 
   const handlePressIn = (e: GestureResponderEvent) => {
     if (disabled) return;
-    scale.value = withSpring(activeScale, springConfig);
-    opacity.value = withSpring(activeOpacity, springConfig);
+    scale.value = withTiming(activeScale, {
+      duration: FluidDuration.pressIn,
+      easing: FluidCurves.pressIn,
+    });
+    opacity.value = withTiming(activeOpacity, {
+      duration: FluidDuration.pressIn,
+      easing: FluidCurves.pressIn,
+    });
     if (enableHaptic) {
       switch (hapticType) {
         case 'selection':
@@ -87,8 +87,14 @@ export const AnimatedPressable: React.FC<AnimatedPressableProps> = ({
   };
 
   const handlePressOut = (e: GestureResponderEvent) => {
-    scale.value = withSpring(1, springConfig);
-    opacity.value = withSpring(1, springConfig);
+    scale.value = withTiming(1, {
+      duration: FluidDuration.pressOut,
+      easing: FluidCurves.pressOut,
+    });
+    opacity.value = withTiming(1, {
+      duration: FluidDuration.pressOut,
+      easing: FluidCurves.pressOut,
+    });
     onPressOut?.(e);
   };
 

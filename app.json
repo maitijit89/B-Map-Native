@@ -7,7 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "bmapnative",
     "userInterfaceStyle": "automatic",
-    "jsEngine": "hermes",
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
@@ -76,7 +75,10 @@
           }
         }
       ],
-      "expo-localization"
+      "expo-localization",
+      "expo-font",
+      "expo-status-bar",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true

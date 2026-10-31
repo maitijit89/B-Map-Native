@@ -122,11 +122,11 @@ export default function ActiveNavigationModal() {
           <Rect x="0" y="0" width="400" height="700" fill="url(#bgGrad)" />
 
           {/* Secondary Roads Grid */}
-          <Path d="M 0,180 L 400,210" stroke="#25324D" strokeWidth="6" strokeLinecap="round" />
-          <Path d="M 0,380 L 400,340" stroke="#25324D" strokeWidth="8" strokeLinecap="round" />
-          <Path d="M 0,560 L 400,590" stroke="#25324D" strokeWidth="6" strokeLinecap="round" />
-          <Path d="M 80,0 L 110,700" stroke="#1F2A42" strokeWidth="8" />
-          <Path d="M 310,0 L 290,700" stroke="#1F2A42" strokeWidth="8" />
+          <Path d="M 0,180 L 400,210" stroke="#25324D" strokeWidth="6" strokeLinecap="round" fill="none" />
+          <Path d="M 0,380 L 400,340" stroke="#25324D" strokeWidth="8" strokeLinecap="round" fill="none" />
+          <Path d="M 0,560 L 400,590" stroke="#25324D" strokeWidth="6" strokeLinecap="round" fill="none" />
+          <Path d="M 80,0 L 110,700" stroke="#1F2A42" strokeWidth="8" fill="none" />
+          <Path d="M 310,0 L 290,700" stroke="#1F2A42" strokeWidth="8" fill="none" />
 
           {/* River / Green corridor */}
           <Path
@@ -172,6 +172,7 @@ export default function ActiveNavigationModal() {
               stroke="#00E5FF"
               strokeWidth="3"
               strokeLinecap="round"
+              fill="none"
             />
           </G>
 

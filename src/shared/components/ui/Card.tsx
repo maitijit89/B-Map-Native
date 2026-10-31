@@ -9,12 +9,13 @@ import {
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
+  withTiming,
   FadeInDown,
 } from 'react-native-reanimated';
 import { useThemeColors } from '../../hooks';
 import { Radius, Shadows, Spacing } from '../../constants/tokens';
 import { haptics } from '../../utils/haptics';
+import { FluidCurves, FluidDuration } from '../../animations';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -35,12 +36,6 @@ export interface CardProps {
   enteringDelay?: number;
 }
 
-const SPRING_CONFIG = {
-  damping: 24,
-  stiffness: 340,
-  mass: 0.5,
-};
-
 export const Card: React.FC<CardProps> = React.memo(({
   children,
   variant = 'elevated',
@@ -58,13 +53,19 @@ export const Card: React.FC<CardProps> = React.memo(({
 
   const handlePressIn = useCallback(() => {
     if (!onPress) return;
-    scale.value = withSpring(0.985, SPRING_CONFIG);
+    scale.value = withTiming(0.985, {
+      duration: FluidDuration.pressIn,
+      easing: FluidCurves.pressIn,
+    });
     haptics.light();
   }, [onPress, scale]);
 
   const handlePressOut = useCallback(() => {
     if (!onPress) return;
-    scale.value = withSpring(1, SPRING_CONFIG);
+    scale.value = withTiming(1, {
+      duration: FluidDuration.pressOut,
+      easing: FluidCurves.pressOut,
+    });
   }, [onPress, scale]);
 
   const animatedScaleStyle = useAnimatedStyle(() => ({
@@ -103,7 +104,7 @@ export const Card: React.FC<CardProps> = React.memo(({
 
   const enteringAnimation = useMemo(() => {
     return entering
-      ? FadeInDown.delay(enteringDelay).duration(200).springify().damping(22)
+      ? FadeInDown.delay(enteringDelay).duration(FluidDuration.normal).easing(FluidCurves.momentum)
       : undefined;
   }, [entering, enteringDelay]);
 

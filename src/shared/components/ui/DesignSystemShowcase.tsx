@@ -36,7 +36,10 @@ export const DesignSystemShowcase: React.FC = () => {
   const [sheetVisible, setSheetVisible] = useState(false);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled">
       <Header
         title="UI/UX Production Base"
         subtitle="Design System & Atomic Primitives"

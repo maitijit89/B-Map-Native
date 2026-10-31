@@ -9,7 +9,8 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+import { fluidEntering } from '@/shared/animations';
 import {
   Zap,
   Plug,
@@ -150,7 +151,7 @@ export default function EvStationScreen() {
         ]}
         showsVerticalScrollIndicator={false}>
         {/* Main Station Banner Card */}
-        <Animated.View entering={FadeInDown.duration(180).springify().damping(22)}>
+        <Animated.View entering={fluidEntering(0)}>
           <Card variant="elevated" padding="md" style={styles.stationCard}>
             <View style={styles.stationHeader}>
               <View style={{ flex: 1 }}>
@@ -211,7 +212,7 @@ export default function EvStationScreen() {
             return (
               <Animated.View
                 key={bay.id}
-                entering={FadeInDown.delay(20 * (idx + 1)).duration(180).springify().damping(22)}>
+                entering={fluidEntering(20 * (idx + 1))}>
                 <Card
                   variant={isSelected ? 'elevated' : 'outlined'}
                   padding="md"
@@ -265,7 +266,7 @@ export default function EvStationScreen() {
         </View>
 
         {/* Live Charging & Energy Estimator */}
-        <Animated.View entering={FadeInDown.delay(200).duration(280).springify().damping(16)}>
+        <Animated.View entering={fluidEntering(40)}>
           <Card variant="flat" padding="md" style={styles.estimatorCard}>
             <Text style={[styles.estimatorTitle, { color: colors.onSurface }]}>Charging Calculator</Text>
 

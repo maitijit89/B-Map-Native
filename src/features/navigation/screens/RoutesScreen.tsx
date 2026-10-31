@@ -8,7 +8,8 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+import { fluidEntering, fluidLayout } from '@/shared/animations';
 
 import {
   Navigation,
@@ -201,7 +202,7 @@ export default function RoutesScreen() {
         ]}
         showsVerticalScrollIndicator={false}>
         {/* Origin → Destination Input Card */}
-        <Animated.View entering={FadeInDown.duration(280).springify().damping(18)}>
+        <Animated.View entering={fluidEntering(0)}>
           <Card variant="flat" padding="md" style={styles.routeInputCard}>
             <TouchableOpacity
               style={styles.routeInputRow}
@@ -281,7 +282,7 @@ export default function RoutesScreen() {
         </Animated.View>
 
         {/* Transport Mode Profile Bar */}
-        <Animated.View entering={FadeInDown.delay(50).duration(280).springify().damping(18)} style={styles.profileRow}>
+        <Animated.View entering={fluidEntering(20)} style={styles.profileRow}>
           {profiles.map((p) => {
             const isSelected = activeProfile === p.key;
             return (
@@ -323,7 +324,7 @@ export default function RoutesScreen() {
         </Animated.View>
 
         {/* IMD Weather Alert */}
-        <Animated.View entering={FadeInDown.delay(100).duration(280).springify().damping(18)}>
+        <Animated.View entering={fluidEntering(30)}>
           <Card
             variant="flat"
             padding="sm"
@@ -353,8 +354,8 @@ export default function RoutesScreen() {
           return (
             <Animated.View
               key={item.id}
-              entering={FadeInDown.delay(idx * 20).duration(180).springify().damping(22)}
-              layout={Layout.springify().damping(22)}>
+              entering={fluidEntering(idx * 25)}
+              layout={fluidLayout}>
               <TouchableOpacity
                 onPress={() => handleRouteSelect(item.id)}
                 activeOpacity={0.85}>
@@ -697,6 +698,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
     marginTop: 12,
   },
   timeText: {

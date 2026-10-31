@@ -15,8 +15,8 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
-  FadeInDown,
 } from 'react-native-reanimated';
+import { fluidEntering } from '@/shared/animations';
 import {
   Phone,
   ShieldAlert,
@@ -151,7 +151,7 @@ export default function SosDistressModal() {
         ]}
         showsVerticalScrollIndicator={false}>
         {/* Pulsing Countdown Radar Box */}
-        <Animated.View entering={FadeInDown.duration(180).springify().damping(22)}>
+        <Animated.View entering={fluidEntering(0)}>
           <View style={[styles.countdownCard, { backgroundColor: colors.surfaceContainer, borderColor: colors.error }]}>
             <Animated.View style={[styles.radarHalo, radarAnimatedStyle]} />
 
@@ -186,7 +186,7 @@ export default function SosDistressModal() {
         </Animated.View>
 
         {/* Live GPS & DigiPIN Coordinates Card */}
-        <Animated.View entering={FadeInDown.delay(20).duration(180).springify().damping(22)}>
+        <Animated.View entering={fluidEntering(20)}>
           <Card variant="flat" padding="md" style={[styles.telematicsCard, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant }]}>
             <View style={styles.telematicsHeader}>
               <Radio size={16} color={colors.primary} />
@@ -220,7 +220,7 @@ export default function SosDistressModal() {
         {EMERGENCY_SERVICES.map((serv, idx) => (
           <Animated.View
             key={serv.code}
-            entering={FadeInDown.delay(30 + idx * 20).duration(180).springify().damping(22)}>
+            entering={fluidEntering(30 + idx * 20)}>
             <TouchableOpacity
               style={[styles.serviceCard, { borderLeftColor: serv.color, backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant }]}
               onPress={() => handleCall(serv)}
@@ -244,7 +244,7 @@ export default function SosDistressModal() {
         ))}
 
         {/* Emergency Medical & ICE Contact Card */}
-        <Animated.View entering={FadeInDown.delay(60).duration(180).springify().damping(22)}>
+        <Animated.View entering={fluidEntering(60)}>
 
           <Card variant="flat" padding="md" style={[styles.iceCard, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant }]}>
             <View style={styles.iceHeader}>

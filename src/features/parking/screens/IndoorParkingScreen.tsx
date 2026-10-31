@@ -9,7 +9,8 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+import { fluidEntering } from '@/shared/animations';
 import {
   Radio,
   Zap,
@@ -105,7 +106,7 @@ export default function IndoorParkingModal() {
         ]}
         showsVerticalScrollIndicator={false}>
         {/* Facility Info Card */}
-        <Animated.View entering={FadeInDown.duration(180).springify().damping(22)}>
+        <Animated.View entering={fluidEntering(0)}>
           <Card variant="elevated" padding="md" style={styles.facilityCard}>
             <View style={styles.facilityTop}>
               <View>
@@ -137,7 +138,7 @@ export default function IndoorParkingModal() {
         </Animated.View>
 
         {/* BLE Beacon Trilateration Sensor Box */}
-        <Animated.View entering={FadeInDown.delay(30).duration(180).springify().damping(22)}>
+        <Animated.View entering={fluidEntering(20)}>
 
           <Card variant="flat" padding="md" style={styles.beaconCard}>
             <View style={styles.beaconHeader}>
@@ -165,7 +166,7 @@ export default function IndoorParkingModal() {
         </Animated.View>
 
         {/* Floor Level Tabs */}
-        <Animated.View entering={FadeInDown.delay(150).duration(350).springify().damping(16)}>
+        <Animated.View entering={fluidEntering(30)}>
           <View style={styles.floorTabs}>
             {FLOORS.map((floor, idx) => (
               <TouchableOpacity
@@ -201,7 +202,7 @@ export default function IndoorParkingModal() {
         </Animated.View>
 
         {/* Visual Parking Bays Grid */}
-        <Animated.View entering={FadeInDown.delay(200).duration(350).springify().damping(16)}>
+        <Animated.View entering={fluidEntering(40)}>
           <Card variant="elevated" padding="md" style={styles.baysCard}>
             <View style={styles.baysHeader}>
               <Text style={[styles.baysTitle, { color: colors.onSurface }]}>Select Parking Bay on Floor B2</Text>
@@ -285,7 +286,7 @@ export default function IndoorParkingModal() {
       {/* Docked Selected Bay Action Bar */}
       {selectedBay && (
         <Animated.View
-          entering={FadeInDown.duration(260).springify().damping(16)}
+          entering={fluidEntering(0)}
           style={[
             styles.bottomDock,
             {

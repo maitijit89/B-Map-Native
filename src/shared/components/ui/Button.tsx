@@ -12,11 +12,12 @@ import {
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 import { useThemeColors } from '../../hooks';
 import { Radius, Shadows } from '../../constants/tokens';
 import { haptics } from '../../utils/haptics';
+import { FluidCurves, FluidDuration } from '../../animations';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -45,12 +46,6 @@ export interface ButtonProps {
   accessibilityLabel?: string;
 }
 
-const SPRING_CONFIG = {
-  damping: 26,
-  stiffness: 380,
-  mass: 0.4,
-};
-
 export const Button: React.FC<ButtonProps> = React.memo(({
   title,
   onPress,
@@ -72,12 +67,18 @@ export const Button: React.FC<ButtonProps> = React.memo(({
 
   const handlePressIn = useCallback(() => {
     if (isDisabled) return;
-    scale.value = withSpring(0.975, SPRING_CONFIG);
+    scale.value = withTiming(0.975, {
+      duration: FluidDuration.pressIn,
+      easing: FluidCurves.pressIn,
+    });
     haptics.light();
   }, [isDisabled, scale]);
 
   const handlePressOut = useCallback(() => {
-    scale.value = withSpring(1, SPRING_CONFIG);
+    scale.value = withTiming(1, {
+      duration: FluidDuration.pressOut,
+      easing: FluidCurves.pressOut,
+    });
   }, [scale]);
 
 

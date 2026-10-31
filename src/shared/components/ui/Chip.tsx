@@ -12,11 +12,12 @@ import {
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 import { useThemeColors } from '../../hooks';
 import { Radius, Spacing, Typography } from '../../constants/tokens';
 import { haptics } from '../../utils/haptics';
+import { FluidCurves, FluidDuration } from '../../animations';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -37,12 +38,6 @@ export interface ChipProps {
   accessibilityLabel?: string;
 }
 
-const SPRING_CONFIG = {
-  damping: 26,
-  stiffness: 380,
-  mass: 0.4,
-};
-
 export const Chip: React.FC<ChipProps> = React.memo(({
   label,
   icon,
@@ -61,13 +56,19 @@ export const Chip: React.FC<ChipProps> = React.memo(({
 
   const handlePressIn = useCallback(() => {
     if (disabled || !onPress) return;
-    scale.value = withSpring(0.96, SPRING_CONFIG);
+    scale.value = withTiming(0.96, {
+      duration: FluidDuration.pressIn,
+      easing: FluidCurves.pressIn,
+    });
     haptics.selection();
   }, [disabled, onPress, scale]);
 
   const handlePressOut = useCallback(() => {
     if (disabled || !onPress) return;
-    scale.value = withSpring(1, SPRING_CONFIG);
+    scale.value = withTiming(1, {
+      duration: FluidDuration.pressOut,
+      easing: FluidCurves.pressOut,
+    });
   }, [disabled, onPress, scale]);
 
 

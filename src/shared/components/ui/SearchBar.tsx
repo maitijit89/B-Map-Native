@@ -12,12 +12,13 @@ import {
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 import { Search, X, Mic } from 'lucide-react-native';
 import { useThemeColors } from '../../hooks';
 import { Radius, Shadows, Spacing, Typography } from '../../constants/tokens';
 import { haptics } from '../../utils/haptics';
+import { FluidCurves, FluidDuration } from '../../animations';
 
 export interface SearchBarProps {
   value?: string;
@@ -36,12 +37,6 @@ export interface SearchBarProps {
   style?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
 }
-
-const SPRING_CONFIG = {
-  damping: 15,
-  stiffness: 300,
-  mass: 0.5,
-};
 
 export const SearchBar: React.FC<SearchBarProps> = memo(({
   value,
@@ -66,23 +61,29 @@ export const SearchBar: React.FC<SearchBarProps> = memo(({
 
   const handlePressIn = useCallback(() => {
     if (onPress) {
-      scale.value = withSpring(0.98, SPRING_CONFIG);
+      scale.value = withTiming(0.98, {
+        duration: FluidDuration.pressIn,
+        easing: FluidCurves.pressIn,
+      });
       haptics.light();
     }
   }, [onPress, scale]);
 
   const handlePressOut = useCallback(() => {
     if (onPress) {
-      scale.value = withSpring(1, SPRING_CONFIG);
+      scale.value = withTiming(1, {
+        duration: FluidDuration.pressOut,
+        easing: FluidCurves.pressOut,
+      });
     }
   }, [onPress, scale]);
 
-  const handleFocus: TextInputProps['onFocus'] = useCallback((e) => {
+  const handleFocus: NonNullable<TextInputProps['onFocus']> = useCallback((e) => {
     setIsFocused(true);
     onFocus?.(e);
   }, [onFocus]);
 
-  const handleBlur: TextInputProps['onBlur'] = useCallback((e) => {
+  const handleBlur: NonNullable<TextInputProps['onBlur']> = useCallback((e) => {
     setIsFocused(false);
     onBlur?.(e);
   }, [onBlur]);
@@ -169,6 +170,7 @@ export const SearchBar: React.FC<SearchBarProps> = memo(({
           <TouchableOpacity
             onPress={handleClearPress}
             activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             style={styles.actionBtn}
             accessibilityLabel="Clear search">
             <X size={18} color={colors.outline} />
@@ -179,6 +181,7 @@ export const SearchBar: React.FC<SearchBarProps> = memo(({
           <TouchableOpacity
             onPress={handleMicPressInternal}
             activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             style={styles.actionBtn}
             accessibilityLabel="Voice search">
             <Mic size={18} color={colors.primary} />

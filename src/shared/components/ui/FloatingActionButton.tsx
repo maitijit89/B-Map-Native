@@ -9,7 +9,6 @@ import {
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
   withRepeat,
   withSequence,
   withTiming,
@@ -18,6 +17,7 @@ import Animated, {
 import { useThemeColors } from '../../hooks';
 import { Shadows } from '../../constants/tokens';
 import { haptics } from '../../utils/haptics';
+import { FluidCurves, FluidDuration } from '../../animations';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -35,12 +35,6 @@ export interface FloatingActionButtonProps {
   accessibilityLabel: string;
   style?: StyleProp<ViewStyle>;
 }
-
-const SPRING_CONFIG = {
-  damping: 26,
-  stiffness: 380,
-  mass: 0.4,
-};
 
 export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
   icon,
@@ -61,8 +55,8 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
     if (pulse) {
       pulseScale.value = withRepeat(
         withSequence(
-          withTiming(1.04, { duration: 700 }),
-          withTiming(1, { duration: 700 })
+          withTiming(1.04, { duration: 700, easing: FluidCurves.standard }),
+          withTiming(1, { duration: 700, easing: FluidCurves.standard })
         ),
         -1,
         true
@@ -77,12 +71,18 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
   }, [pulse, pulseScale]);
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.94, SPRING_CONFIG);
+    scale.value = withTiming(0.94, {
+      duration: FluidDuration.pressIn,
+      easing: FluidCurves.pressIn,
+    });
     haptics.light();
   };
 
   const handlePressOut = () => {
-    scale.value = withSpring(1, SPRING_CONFIG);
+    scale.value = withTiming(1, {
+      duration: FluidDuration.pressOut,
+      easing: FluidCurves.pressOut,
+    });
   };
 
 

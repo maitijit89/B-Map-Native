@@ -8,7 +8,8 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+import { fluidEntering } from '@/shared/animations';
 import {
   Copy,
   Navigation,
@@ -95,9 +96,10 @@ export default function DigiPinExplorerModal() {
           styles.scroll,
           { paddingBottom: Math.max(insets.bottom, 20) + 24 },
         ]}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled">
         {/* Giant Active DigiPIN Display Card */}
-        <Animated.View entering={FadeInDown.duration(180).springify().damping(22)}>
+        <Animated.View entering={fluidEntering(0)}>
 
           <Card variant="elevated" padding="lg" style={styles.digiCard}>
             <View style={styles.digiCardTop}>

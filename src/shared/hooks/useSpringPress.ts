@@ -1,10 +1,11 @@
 import {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
+  withTiming,
   WithSpringConfig,
 } from 'react-native-reanimated';
 import { haptics } from '../utils/haptics';
+import { FluidCurves, FluidDuration } from '../animations';
 
 export interface UseSpringPressOptions {
   activeScale?: number;
@@ -14,28 +15,23 @@ export interface UseSpringPressOptions {
   disabled?: boolean;
 }
 
-const DEFAULT_SPRING_CONFIG: WithSpringConfig = {
-  damping: 26,
-  stiffness: 380,
-  mass: 0.4,
-};
-
 export function useSpringPress(options: UseSpringPressOptions = {}) {
   const {
     activeScale = 0.975,
-    springConfig = DEFAULT_SPRING_CONFIG,
     enableHaptic = true,
     hapticType = 'light',
     disabled = false,
   } = options;
-
 
   const scale = useSharedValue(1);
 
   const onPressIn = () => {
     'worklet';
     if (disabled) return;
-    scale.value = withSpring(activeScale, springConfig);
+    scale.value = withTiming(activeScale, {
+      duration: FluidDuration.pressIn,
+      easing: FluidCurves.pressIn,
+    });
     if (enableHaptic) {
       if (hapticType === 'selection') haptics.selection();
       else if (hapticType === 'medium') haptics.medium();
@@ -45,7 +41,10 @@ export function useSpringPress(options: UseSpringPressOptions = {}) {
 
   const onPressOut = () => {
     'worklet';
-    scale.value = withSpring(1, springConfig);
+    scale.value = withTiming(1, {
+      duration: FluidDuration.pressOut,
+      easing: FluidCurves.pressOut,
+    });
   };
 
   const animatedStyle = useAnimatedStyle(() => {
@@ -62,4 +61,5 @@ export function useSpringPress(options: UseSpringPressOptions = {}) {
   };
 }
 
+export const useFluidPress = useSpringPress;
 export default useSpringPress;

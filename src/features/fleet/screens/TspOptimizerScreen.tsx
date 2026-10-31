@@ -8,7 +8,8 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import Animated, { FadeInDown, FadeOut, Layout } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+import { fluidEntering, fluidExiting, fluidLayout } from '@/shared/animations';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
@@ -23,6 +24,7 @@ import {
   IndianRupee,
 } from 'lucide-react-native';
 import { haptics } from '../../../shared/utils/haptics';
+import { useThemeColors } from '@/shared/hooks';
 
 
 interface Waypoint {
@@ -44,6 +46,7 @@ const INITIAL_WAYPOINTS: Waypoint[] = [
 
 export default function TspOptimizerModal() {
   const insets = useSafeAreaInsets();
+  const colors = useThemeColors();
   const [waypoints, setWaypoints] = useState<Waypoint[]>(INITIAL_WAYPOINTS);
   const [isOptimized, setIsOptimized] = useState(false);
   const [isCalculating, setIsCalculating] = useState(false);
@@ -93,20 +96,26 @@ export default function TspOptimizerModal() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       {/* Top Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.surfaceContainerLowest, borderBottomColor: colors.surfaceContainerHigh }]}>
         <View style={styles.headerLeft}>
           <View style={styles.headerIcon}>
             <RotateCw size={18} color="#ffffff" />
           </View>
           <View>
-            <Text style={styles.headerTitle}>Multi-Stop TSP Optimizer</Text>
-            <Text style={styles.headerSub}>Greedy Nearest-Neighbor & 2-Opt Edge Exchange</Text>
+            <Text style={[styles.headerTitle, { color: colors.onSurface }]}>Multi-Stop TSP Optimizer</Text>
+            <Text style={[styles.headerSub, { color: colors.onSurfaceVariant }]}>Greedy Nearest-Neighbor & 2-Opt Edge Exchange</Text>
           </View>
         </View>
-        <TouchableOpacity style={styles.closeBtn} onPress={() => router.back()} activeOpacity={0.8}>
-          <X size={20} color="#111C2D" />
+        <TouchableOpacity
+          style={[styles.closeBtn, { backgroundColor: colors.surfaceContainerLow }]}
+          onPress={() => router.back()}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel="Close optimizer"
+          activeOpacity={0.8}>
+          <X size={20} color={colors.onSurface} />
         </TouchableOpacity>
       </View>
 
@@ -115,24 +124,29 @@ export default function TspOptimizerModal() {
           styles.scroll,
           { paddingBottom: Math.max(insets.bottom, 20) + 80 },
         ]}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled">
         {/* Math & Algorithm Banner */}
-        <View style={styles.algorithmCard}>
+        <View style={[styles.algorithmCard, { backgroundColor: colors.primaryContainer + '20', borderColor: colors.primaryContainer + '50' }]}>
           <View style={styles.algorithmHeader}>
-            <Sparkles size={16} color="#0096FF" />
-            <Text style={styles.algorithmTitle}>B-Map Traveling Salesperson Engine</Text>
+            <Sparkles size={16} color={colors.primary} />
+            <Text style={[styles.algorithmTitle, { color: colors.primary }]}>B-Map Traveling Salesperson Engine</Text>
           </View>
-          <Text style={styles.algorithmDesc}>
+          <Text style={[styles.algorithmDesc, { color: colors.onSurfaceVariant }]}>
             Eliminates intersecting route segments via 2-opt edge exchange theorem:
             {"\n"}
-            <Text style={styles.mathEquation}>d(A,C) + d(B,D) &lt; d(A,B) + d(C,D) → Reverse sub-tour</Text>
+            <Text style={[styles.mathEquation, { color: colors.primary }]}>d(A,C) + d(B,D) &lt; d(A,B) + d(C,D) → Reverse sub-tour</Text>
           </Text>
         </View>
 
         {/* Efficiency Delta Metrics Banner */}
         <Animated.View
-          layout={Layout.springify().damping(22).stiffness(300)}
-          style={[styles.metricsBanner, isOptimized && styles.metricsBannerOptimized]}>
+          layout={fluidLayout}
+          style={[
+            styles.metricsBanner,
+            { backgroundColor: colors.surfaceContainerLowest, borderColor: colors.surfaceContainerHigh },
+            isOptimized && styles.metricsBannerOptimized,
+          ]}>
           <View style={styles.metricsHeader}>
             <View style={styles.metricsBadge}>
               <Text style={styles.metricsBadgeText}>
@@ -141,8 +155,8 @@ export default function TspOptimizerModal() {
             </View>
             {isOptimized && (
               <Animated.View
-                entering={FadeInDown.duration(180)}
-                exiting={FadeOut.duration(140)}
+                entering={fluidEntering(0)}
+                exiting={fluidExiting(140)}
                 style={styles.savingsPill}>
                 <TrendingDown size={12} color="#00C06D" />
                 <Text style={styles.savingsPillText}>-18.1% Distance Saved</Text>
@@ -153,43 +167,43 @@ export default function TspOptimizerModal() {
           <View style={styles.metricGrid}>
             <View style={styles.metricCol}>
               <View style={styles.metricIconRow}>
-                <Gauge size={13} color="#707884" />
-                <Text style={styles.metricLabel}>Total Distance</Text>
+                <Gauge size={13} color={colors.onSurfaceVariant} />
+                <Text style={[styles.metricLabel, { color: colors.onSurfaceVariant }]}>Total Distance</Text>
               </View>
-              <Text style={[styles.metricValue, isOptimized && { color: '#00C06D' }]}>
+              <Text style={[styles.metricValue, { color: isOptimized ? '#00C06D' : colors.onSurface }]}>
                 {isOptimized ? '39.8 km' : '48.6 km'}
               </Text>
-              <Text style={styles.metricSub}>
+              <Text style={[styles.metricSub, { color: colors.onSurfaceVariant }]}>
                 {isOptimized ? 'Saved 8.8 km' : '3 crossing paths'}
               </Text>
             </View>
 
-            <View style={styles.metricDivider} />
+            <View style={[styles.metricDivider, { backgroundColor: colors.surfaceContainerHigh }]} />
 
             <View style={styles.metricCol}>
               <View style={styles.metricIconRow}>
-                <Clock size={13} color="#707884" />
-                <Text style={styles.metricLabel}>Drive Duration</Text>
+                <Clock size={13} color={colors.onSurfaceVariant} />
+                <Text style={[styles.metricLabel, { color: colors.onSurfaceVariant }]}>Drive Duration</Text>
               </View>
-              <Text style={[styles.metricValue, isOptimized && { color: '#0096FF' }]}>
+              <Text style={[styles.metricValue, { color: isOptimized ? colors.primary : colors.onSurface }]}>
                 {isOptimized ? '1h 28m' : '1h 52m'}
               </Text>
-              <Text style={styles.metricSub}>
+              <Text style={[styles.metricSub, { color: colors.onSurfaceVariant }]}>
                 {isOptimized ? 'Saved 24 min' : 'Corridor congestion'}
               </Text>
             </View>
 
-            <View style={styles.metricDivider} />
+            <View style={[styles.metricDivider, { backgroundColor: colors.surfaceContainerHigh }]} />
 
             <View style={styles.metricCol}>
               <View style={styles.metricIconRow}>
-                <IndianRupee size={13} color="#707884" />
-                <Text style={styles.metricLabel}>Fuel / EV Cost</Text>
+                <IndianRupee size={13} color={colors.onSurfaceVariant} />
+                <Text style={[styles.metricLabel, { color: colors.onSurfaceVariant }]}>Fuel / EV Cost</Text>
               </View>
-              <Text style={styles.metricValue}>
+              <Text style={[styles.metricValue, { color: colors.onSurface }]}>
                 {isOptimized ? '₹318' : '₹388'}
               </Text>
-              <Text style={styles.metricSub}>
+              <Text style={[styles.metricSub, { color: colors.onSurfaceVariant }]}>
                 {isOptimized ? '₹70 saved' : 'Standard flow'}
               </Text>
             </View>
@@ -198,12 +212,12 @@ export default function TspOptimizerModal() {
 
         {/* Waypoints Sequence List */}
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>
+          <Text style={[styles.sectionTitle, { color: colors.onSurface }]}>
             Scheduled Stops ({waypoints.length} / 25 Waypoints)
           </Text>
           {isOptimized ? (
-            <TouchableOpacity onPress={handleReset}>
-              <Text style={styles.resetAction}>Reset Order</Text>
+            <TouchableOpacity onPress={handleReset} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={[styles.resetAction, { color: colors.primary }]}>Reset Order</Text>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -214,31 +228,34 @@ export default function TspOptimizerModal() {
           return (
             <Animated.View
               key={wp.id}
-              entering={FadeInDown.duration(180)}
-              exiting={FadeOut.duration(140)}
-              layout={Layout.springify().damping(22).stiffness(300)}
-              style={styles.waypointCard}>
+              entering={fluidEntering(0)}
+              exiting={fluidExiting(140)}
+              layout={fluidLayout}
+              style={[
+                styles.waypointCard,
+                { backgroundColor: colors.surfaceContainerLowest, borderColor: colors.surfaceContainerHigh },
+              ]}>
               <View style={styles.stepNumCol}>
                 <View
                   style={[
                     styles.stepNumCircle,
-                    isStart && { backgroundColor: '#0096FF' },
+                    isStart && { backgroundColor: colors.primary },
                     isEnd && { backgroundColor: '#F44336' },
                   ]}>
                   <Text style={styles.stepNumText}>{idx + 1}</Text>
                 </View>
-                {!isEnd && <View style={styles.stepDottedLine} />}
+                {!isEnd && <View style={[styles.stepDottedLine, { backgroundColor: colors.surfaceContainerHigh }]} />}
               </View>
 
               <View style={styles.waypointContent}>
-                <Text style={styles.waypointName}>{wp.name}</Text>
-                <Text style={styles.waypointAddress} numberOfLines={1}>{wp.address}</Text>
+                <Text style={[styles.waypointName, { color: colors.onSurface }]}>{wp.name}</Text>
+                <Text style={[styles.waypointAddress, { color: colors.onSurfaceVariant }]} numberOfLines={1}>{wp.address}</Text>
 
                 <View style={styles.digiRow}>
-                  <View style={styles.digiBadge}>
+                  <View style={[styles.digiBadge, { backgroundColor: colors.primary }]}>
                     <Text style={styles.digiBadgeText}>DigiPIN</Text>
                   </View>
-                  <Text style={styles.digiCode}>{wp.digiPin}</Text>
+                  <Text style={[styles.digiCode, { color: colors.onSurface }]}>{wp.digiPin}</Text>
                 </View>
               </View>
 
@@ -246,6 +263,9 @@ export default function TspOptimizerModal() {
                 <TouchableOpacity
                   style={styles.deleteStopBtn}
                   onPress={() => handleRemoveWaypoint(wp.id)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove stop ${wp.name}`}
                   activeOpacity={0.7}>
                   <Trash2 size={16} color="#BA1A1A" />
                 </TouchableOpacity>
@@ -262,6 +282,8 @@ export default function TspOptimizerModal() {
         style={[
           styles.bottomDock,
           {
+            backgroundColor: colors.surfaceContainerLowest,
+            borderTopColor: colors.surfaceContainerHigh,
             paddingBottom: Math.max(insets.bottom, 12) + 8,
           },
         ]}>
@@ -393,9 +415,9 @@ const styles = StyleSheet.create({
 
   waypointCard: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
     borderRadius: 14,
     padding: 12,
+    borderWidth: 1,
     alignItems: 'center',
     gap: 10,
     shadowColor: '#000',

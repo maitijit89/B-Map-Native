@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import Animated, { FadeInDown, Layout } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+import { fluidEntering, fluidLayout } from '@/shared/animations';
 import {
   ShieldCheck,
   ShieldAlert,
@@ -262,7 +263,8 @@ export default function DeviceSignalsTelemetryScreen() {
           styles.scroll,
           { paddingBottom: Math.max(insets.bottom, 16) + 84 },
         ]}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled">
         {/* Native Rebuild Notice if in fallback mode */}
         {report && !report.security.nativeModulesLinked && (
           <View style={[styles.rebuildNotice, { backgroundColor: colors.primaryContainer + '30', borderColor: colors.primary + '50' }]}>
@@ -274,7 +276,7 @@ export default function DeviceSignalsTelemetryScreen() {
 
         {/* Master Cryptographic Trust & Fingerprint Card */}
         {report && (
-          <Animated.View entering={FadeInDown.duration(180).springify().damping(22)}>
+          <Animated.View entering={fluidEntering(0)}>
             <Card
               variant="elevated"
               padding="md"
@@ -359,7 +361,7 @@ export default function DeviceSignalsTelemetryScreen() {
 
         {/* Live Kinetic Sensors HUD Gauge Card */}
         {report && (
-          <Animated.View entering={FadeInDown.delay(20).duration(180).springify().damping(22)}>
+          <Animated.View entering={fluidEntering(20)}>
             <Card variant="flat" padding="md" style={styles.sensorHudCard}>
               <View style={styles.sensorHudHeader}>
                 <View style={styles.sensorHudTitleRow}>
@@ -489,8 +491,8 @@ export default function DeviceSignalsTelemetryScreen() {
             {filteredItems.map((item, idx) => (
               <Animated.View
                 key={`${item.category}_${item.key}_${idx}`}
-                entering={FadeInDown.delay(Math.min(idx * 15, 120)).duration(180).springify().damping(22)}
-                layout={Layout.springify().damping(22)}
+                entering={fluidEntering(Math.min(idx * 15, 100))}
+                layout={fluidLayout}
                 style={[
                   styles.metricRowCard,
                   {

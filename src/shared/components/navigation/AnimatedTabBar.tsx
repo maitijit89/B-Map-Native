@@ -9,7 +9,7 @@ import {
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -17,14 +17,9 @@ import type { Tabs } from 'expo-router';
 import { useTheme, useThemeColors, useResponsive } from '../../hooks';
 import { Radius, Shadows, Spacing, Typography } from '../../constants/tokens';
 import { haptics } from '../../utils/haptics';
+import { FluidCurves, FluidDuration } from '../../animations';
 
 export type TabBarProps = Parameters<NonNullable<React.ComponentProps<typeof Tabs>['tabBar']>>[0];
-
-const SPRING_CONFIG = {
-  damping: 22,
-  stiffness: 320,
-  mass: 0.5,
-};
 
 const TabItem = React.memo(({
   route,
@@ -49,8 +44,14 @@ const TabItem = React.memo(({
   const pillOpacity = useSharedValue(isFocused ? 1 : 0);
 
   useEffect(() => {
-    scale.value = withSpring(isFocused ? 1.02 : 1.0, SPRING_CONFIG);
-    pillOpacity.value = withSpring(isFocused ? 1 : 0, SPRING_CONFIG);
+    scale.value = withTiming(isFocused ? 1.02 : 1.0, {
+      duration: FluidDuration.normal,
+      easing: FluidCurves.momentum,
+    });
+    pillOpacity.value = withTiming(isFocused ? 1 : 0, {
+      duration: FluidDuration.normal,
+      easing: FluidCurves.momentum,
+    });
   }, [isFocused, scale, pillOpacity]);
 
 
@@ -157,7 +158,8 @@ TabItem.displayName = 'TabItem';
 export const AnimatedTabBar: React.FC<TabBarProps> = ({
   state,
   descriptors,
-  navigation,
+  emitter,
+  navigateToTab,
 }) => {
   const insets = useSafeAreaInsets();
   const { isDark } = useTheme();
@@ -167,20 +169,20 @@ export const AnimatedTabBar: React.FC<TabBarProps> = ({
   const bottomMargin = Math.max(insets.bottom, Platform.OS === 'ios' ? 14 : 10);
 
   const handleTabPress = useCallback(
-    (routeKey: string, routeName: string, isFocused: boolean) => {
+    (routeKey: string, _routeName: string, isFocused: boolean) => {
       haptics.selection();
 
-      const event = navigation.emit({
+      const event = emitter.emit({
         type: 'tabPress',
         target: routeKey,
         canPreventDefault: true,
       });
 
       if (!isFocused && !event.defaultPrevented) {
-        navigation.navigate(routeName);
+        navigateToTab(routeKey);
       }
     },
-    [navigation]
+    [emitter, navigateToTab]
   );
 
   return (

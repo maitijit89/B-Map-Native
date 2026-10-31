@@ -40,7 +40,7 @@ class SpeechService {
         onError: options?.onError,
       });
     } catch (error) {
-      console.warn('SpeechService: Error speaking text', error);
+      if (__DEV__) { console.debug('SpeechService: Error speaking text', error); }
     }
   }
 
@@ -51,7 +51,7 @@ class SpeechService {
     try {
       Speech.stop();
     } catch (error) {
-      console.warn('SpeechService: Error stopping speech', error);
+      if (__DEV__) { console.debug('SpeechService: Error stopping speech', error); }
     }
   }
 

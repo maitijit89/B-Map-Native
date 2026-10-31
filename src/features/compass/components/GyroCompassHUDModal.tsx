@@ -13,12 +13,13 @@ import { X, Navigation2, ShieldCheck, MapPin } from 'lucide-react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 
 import { useCompass, useLocation } from '@/shared/hooks';
 import { DynamicCompassIcon } from '@/shared/components/ui';
 import { haptics } from '@/shared/utils/haptics';
+import { FluidCurves } from '@/shared/animations';
 
 function getCardinalDirection(deg: number): string {
   const directions = [
@@ -60,9 +61,9 @@ export const GyroCompassHUDModal: React.FC = () => {
   React.useEffect(() => {
     const target = mode === 'north' ? -heading : heading;
     const diff = (((target - dialRotation.value) % 360) + 540) % 360 - 180;
-    dialRotation.value = withSpring(dialRotation.value + diff, {
-      damping: 20,
-      stiffness: 140,
+    dialRotation.value = withTiming(dialRotation.value + diff, {
+      duration: 160,
+      easing: FluidCurves.standard,
     });
   }, [heading, mode, dialRotation]);
 

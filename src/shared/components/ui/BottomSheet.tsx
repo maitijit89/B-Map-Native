@@ -14,7 +14,6 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
   withTiming,
   runOnJS,
   interpolate,
@@ -25,6 +24,7 @@ import { X } from 'lucide-react-native';
 import { useThemeColors } from '../../hooks';
 import { Radius, Shadows, Spacing, Typography } from '../../constants/tokens';
 import { haptics } from '../../utils/haptics';
+import { FluidCurves, FluidDuration } from '../../animations';
 
 export interface BottomSheetProps {
   visible: boolean;
@@ -36,13 +36,6 @@ export interface BottomSheetProps {
   showCloseButton?: boolean;
   contentStyle?: StyleProp<ViewStyle>;
 }
-
-const SPRING_CONFIG = {
-  damping: 28,
-  stiffness: 320,
-  mass: 0.5,
-};
-
 
 export const BottomSheet: React.FC<BottomSheetProps> = memo(({
   visible,
@@ -81,19 +74,28 @@ export const BottomSheet: React.FC<BottomSheetProps> = memo(({
     })
     .onEnd((event) => {
       if (event.translationY > 100 || event.velocityY > 600) {
-        translateY.value = withTiming(screenHeight, { duration: 220 }, () => {
+        translateY.value = withTiming(screenHeight, { duration: 200, easing: FluidCurves.accelerate }, () => {
           runOnJS(handleDismiss)();
         });
       } else {
-        translateY.value = withSpring(0, SPRING_CONFIG);
+        translateY.value = withTiming(0, {
+          duration: FluidDuration.modal,
+          easing: FluidCurves.momentum,
+        });
       }
     });
 
   useEffect(() => {
     if (visible) {
-      translateY.value = withSpring(0, SPRING_CONFIG);
+      translateY.value = withTiming(0, {
+        duration: FluidDuration.modal,
+        easing: FluidCurves.momentum,
+      });
     } else {
-      translateY.value = withTiming(screenHeight, { duration: 250 });
+      translateY.value = withTiming(screenHeight, {
+        duration: 200,
+        easing: FluidCurves.accelerate,
+      });
     }
   }, [visible, translateY, screenHeight]);
 

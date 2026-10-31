@@ -18,9 +18,8 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
-  FadeInUp,
-  FadeInDown,
 } from 'react-native-reanimated';
+import { fluidEntering, fluidEnteringUp } from '@/shared/animations';
 import {
   Mic,
   MicOff,
@@ -226,11 +225,12 @@ export default function AiCopilotModal() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}>
         {/* Suggested Quick Prompts Carousel */}
       <Animated.View
-        entering={FadeInDown.duration(280).springify().damping(16)}
+        entering={fluidEntering(0)}
         style={[styles.presetContainer, { borderBottomColor: colors.surfaceContainerHigh }]}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.presetTrack}>
           {PRESET_PROMPTS.map((prompt, idx) => (
             <Chip
@@ -248,11 +248,12 @@ export default function AiCopilotModal() {
       <ScrollView
         style={styles.chatScroll}
         contentContainerStyle={styles.chatContent}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled">
         {messages.map((msg) => (
           <Animated.View
             key={msg.id}
-            entering={FadeInUp.duration(300).springify().damping(16)}
+            entering={fluidEnteringUp(0)}
             style={[styles.msgRow, msg.sender === 'user' && styles.msgRowUser]}>
             {msg.sender === 'ai' && (
               <View

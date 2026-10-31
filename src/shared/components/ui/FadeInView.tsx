@@ -9,6 +9,7 @@ import Animated, {
   FadeOut,
   Layout,
 } from 'react-native-reanimated';
+import { FluidCurves, FluidDuration } from '../../animations';
 
 export type FadeDirection = 'up' | 'down' | 'left' | 'right' | 'none';
 
@@ -24,9 +25,8 @@ export interface FadeInViewProps {
 export const FadeInView: React.FC<FadeInViewProps> = ({
   children,
   delay = 0,
-  duration = 200,
+  duration = FluidDuration.normal,
   direction = 'down',
-  springify = true,
   style,
 }) => {
   const getEnteringAnimation = () => {
@@ -50,27 +50,22 @@ export const FadeInView: React.FC<FadeInViewProps> = ({
         break;
     }
 
-    let configuredAnim = anim.duration(duration);
+    let configuredAnim = anim.duration(duration).easing(FluidCurves.momentum);
     if (delay > 0) {
       configuredAnim = configuredAnim.delay(delay);
     }
-    if (springify) {
-      configuredAnim = configuredAnim.springify().damping(22).stiffness(320);
-    }
-
     return configuredAnim;
   };
 
   return (
     <Animated.View
       entering={getEnteringAnimation()}
-      exiting={FadeOut.duration(150)}
-      layout={Layout.springify().damping(22)}
+      exiting={FadeOut.duration(160).easing(FluidCurves.accelerate)}
+      layout={Layout.duration(FluidDuration.normal).easing(FluidCurves.momentum)}
       style={style}>
       {children}
     </Animated.View>
   );
 };
-
 
 export default FadeInView;

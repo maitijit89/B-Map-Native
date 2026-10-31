@@ -15,10 +15,11 @@ import Svg, {
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 
 import { compassService } from '../../services/CompassService';
+import { FluidCurves } from '../../animations';
 
 export interface DynamicCompassIconProps {
   /** Overall size of the icon (width & height in points). Default: 48 */
@@ -78,10 +79,9 @@ export const DynamicCompassIcon: React.FC<DynamicCompassIconProps> = memo(({
     const diff = (((targetRotation - currentTargetRef.current) % 360) + 540) % 360 - 180;
     currentTargetRef.current += diff;
 
-    rotation.value = withSpring(currentTargetRef.current, {
-      damping: 22,
-      stiffness: 150,
-      mass: 0.7,
+    rotation.value = withTiming(currentTargetRef.current, {
+      duration: 140,
+      easing: FluidCurves.standard,
     });
   }, [overrideHeading, mode, rotation]);
 
@@ -96,15 +96,20 @@ export const DynamicCompassIcon: React.FC<DynamicCompassIconProps> = memo(({
         const diff = (((targetRotation - currentTargetRef.current) % 360) + 540) % 360 - 180;
         currentTargetRef.current += diff;
 
-        rotation.value = withSpring(currentTargetRef.current, {
-          damping: 22,
-          stiffness: 150,
-          mass: 0.7,
+        rotation.value = withTiming(currentTargetRef.current, {
+          duration: 140,
+          easing: FluidCurves.standard,
         });
 
         if (tilt3D) {
-          pitchAnim.value = withSpring(-compassData.pitch * 0.45, { damping: 16, stiffness: 130 });
-          rollAnim.value = withSpring(compassData.roll * 0.45, { damping: 16, stiffness: 130 });
+          pitchAnim.value = withTiming(-compassData.pitch * 0.45, {
+            duration: 140,
+            easing: FluidCurves.standard,
+          });
+          rollAnim.value = withTiming(compassData.roll * 0.45, {
+            duration: 140,
+            easing: FluidCurves.standard,
+          });
         }
       },
       { needsTilt: tilt3D }

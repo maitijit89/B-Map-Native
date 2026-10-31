@@ -1,7 +1,19 @@
 import { Platform, AppState, AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { setAppIcon as nativeSetAppIcon, getAppIcon as nativeGetAppIcon } from '@howincodes/expo-dynamic-app-icon';
 import { compassService } from './CompassService';
+
+// Lazy loader for @howincodes/expo-dynamic-app-icon to prevent crash in Expo Go
+function getNativeIconModule(): {
+  setAppIcon?: (icon: string | null, inBackground?: boolean) => Promise<boolean | string>;
+  getAppIcon?: () => Promise<string | null>;
+} | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('@howincodes/expo-dynamic-app-icon');
+  } catch {
+    return null;
+  }
+}
 
 export type CompassIconKey = 'compassNorth' | 'compassEast' | 'compassSouth' | 'compassWest';
 export type AppIconKey = 'DEFAULT' | CompassIconKey;
@@ -99,8 +111,13 @@ class DynamicAppIconService {
         this.currentIcon = savedIcon as AppIconKey;
       } else if (Platform.OS !== 'web') {
         try {
-          const nativeIcon = await nativeGetAppIcon();
-          this.currentIcon = (nativeIcon as AppIconKey) || 'DEFAULT';
+          const mod = getNativeIconModule();
+          if (mod?.getAppIcon) {
+            const nativeIcon = await mod.getAppIcon();
+            this.currentIcon = (nativeIcon as AppIconKey) || 'DEFAULT';
+          } else {
+            this.currentIcon = 'DEFAULT';
+          }
         } catch {
           this.currentIcon = 'DEFAULT';
         }
@@ -180,8 +197,14 @@ class DynamicAppIconService {
     }
 
     try {
+      const mod = getNativeIconModule();
+      if (!mod?.setAppIcon) {
+        this.currentIcon = iconKey;
+        this.notifySubscribers();
+        return true;
+      }
       const nativeParam = iconKey === 'DEFAULT' ? null : iconKey;
-      const result = await nativeSetAppIcon(nativeParam, inBackground);
+      const result = await mod.setAppIcon(nativeParam, inBackground);
       return result !== false;
     } catch {
       // Safe fallback (e.g. in development environments without prebuild)

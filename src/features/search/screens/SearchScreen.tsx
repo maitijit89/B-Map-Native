@@ -8,7 +8,8 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+import { fluidEntering } from '@/shared/animations';
 import { haptics } from '@/shared/utils/haptics';
 import {
   ArrowLeft,
@@ -196,7 +197,8 @@ export default function SearchScreen() {
           styles.scroll,
           { paddingBottom: Math.max(insets.bottom, 20) + 24 },
         ]}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled">
         {/* Results List */}
         {query.trim().length > 0 ? (
           <View style={styles.resultsContainer}>
@@ -208,7 +210,7 @@ export default function SearchScreen() {
             {filteredResults.map((result, idx) => (
               <Animated.View
                 key={result.id}
-                entering={FadeInDown.delay(Math.min(idx * 20, 120)).duration(180).springify().damping(22)}>
+                entering={fluidEntering(Math.min(idx * 20, 100))}>
                 <Card
                   variant="outlined"
                   padding="md"
@@ -326,7 +328,7 @@ export default function SearchScreen() {
                 {recentList.map((recent, idx) => (
                   <Animated.View
                     key={recent}
-                    entering={FadeInDown.delay(Math.min(idx * 15, 100)).duration(180).springify().damping(22)}>
+                    entering={fluidEntering(Math.min(idx * 15, 80))}>
                     <TouchableOpacity
                       style={[
                         styles.recentItem,

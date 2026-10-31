@@ -259,12 +259,14 @@ const ExpresswayAndNavLayer = memo(() => (
     {/* Elevated Expressway / Highway 4 Polyline */}
     <Path
       d="M -20,410 C 120,400 180,360 270,300 S 390,210 440,190"
+      fill="none"
       stroke="#FFE7BA"
       strokeLinecap="round"
       strokeWidth={12}
     />
     <Path
       d="M -20,410 C 120,400 180,360 270,300 S 390,210 440,190"
+      fill="none"
       stroke="#FF9D42"
       strokeLinecap="round"
       strokeWidth={7}
@@ -273,6 +275,7 @@ const ExpresswayAndNavLayer = memo(() => (
     {/* Active Recommended GPS Navigation Polyline Track */}
     <Path
       d="M 210,520 L 210,460 L 110,460 L 110,320 L 270,300 L 330,190"
+      fill="none"
       opacity={0.95}
       stroke="#0096FF"
       strokeLinecap="round"
@@ -281,6 +284,7 @@ const ExpresswayAndNavLayer = memo(() => (
     />
     <Path
       d="M 210,520 L 210,460 L 110,460 L 110,320 L 270,300 L 330,190"
+      fill="none"
       stroke="#FFFFFF"
       strokeDasharray="7 7"
       strokeLinecap="round"

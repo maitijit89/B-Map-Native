@@ -16,11 +16,13 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
-  FadeInDown,
-  FadeInLeft,
-  FadeInRight,
-  FadeInUp,
 } from 'react-native-reanimated';
+import {
+  fluidEntering,
+  fluidEnteringUp,
+  fluidEnteringLeft,
+  fluidEnteringRight,
+} from '@/shared/animations';
 import {
   Bell,
   User,
@@ -174,7 +176,7 @@ export default function HomeScreen() {
         pointerEvents="box-none">
         {/* Brand bar with Live Compass, SOS distress pill & Profile */}
         <Animated.View
-          entering={FadeInDown.duration(180).springify().damping(22)}
+          entering={fluidEntering(0)}
           style={[
             styles.floatingBrandBar,
             {
@@ -247,7 +249,7 @@ export default function HomeScreen() {
 
         {/* Floating Search Bar */}
         <Animated.View
-          entering={FadeInDown.delay(20).duration(180).springify().damping(22)}
+          entering={fluidEntering(20)}
           style={styles.floatingSearchContainer}>
           <SearchBar
             placeholder="Search destination, DigiPIN, fuel..."
@@ -280,10 +282,11 @@ export default function HomeScreen() {
         </Animated.View>
 
         {/* Quick Transit Mode Switcher Chips */}
-        <Animated.View entering={FadeInDown.delay(120).duration(320).springify().damping(18)}>
+        <Animated.View entering={fluidEntering(40)}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.transitChipsTrack}>
             <Chip
               label="Drive"
@@ -329,7 +332,7 @@ export default function HomeScreen() {
       <View style={[styles.floatingLeftWidgets, { top: floatingTop }]} pointerEvents="box-none">
         {/* Weather & Air Quality Pill */}
         <Animated.View
-          entering={FadeInLeft.delay(140).duration(320).springify().damping(18)}
+          entering={fluidEnteringLeft(30)}
           style={[
             styles.weatherPill,
             {
@@ -350,7 +353,7 @@ export default function HomeScreen() {
         </Animated.View>
 
         {/* Speed Camera Alert Badge */}
-        <Animated.View entering={FadeInLeft.delay(220).duration(320).springify().damping(18)}>
+        <Animated.View entering={fluidEnteringLeft(40)}>
           <Animated.View
             style={[
               styles.speedCameraBadge,
@@ -372,7 +375,7 @@ export default function HomeScreen() {
 
       {/* 4. FLOATING RIGHT MAP UTILITY CONTROLS */}
       <Animated.View
-        entering={FadeInRight.delay(60).duration(180).springify().damping(22)}
+        entering={fluidEnteringRight(30)}
         style={[styles.floatingRightControls, { top: floatingTop }]}
         pointerEvents="box-none">
         {/* Map Layers */}
@@ -476,7 +479,7 @@ export default function HomeScreen() {
 
       {/* 5. INTERACTIVE BOTTOM COMMUTE & DISCOVERY HUD */}
       <Animated.View
-        entering={FadeInUp.delay(200).duration(340).springify().damping(18)}
+        entering={fluidEnteringUp(50)}
         style={[
           styles.bottomSheetHUD,
           {

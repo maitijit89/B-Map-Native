@@ -9,7 +9,8 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+import { fluidEntering } from '@/shared/animations';
 import {
   TrainFront,
   Bus,
@@ -232,7 +233,7 @@ export default function TransitPlannerScreen() {
         ]}
         showsVerticalScrollIndicator={false}>
         {/* Origin & Destination Card */}
-        <Animated.View entering={FadeInDown.duration(180).springify().damping(22)}>
+        <Animated.View entering={fluidEntering(0)}>
           <Card variant="elevated" padding="md" style={styles.routeHeaderCard}>
             <View style={[styles.routePill, { backgroundColor: colors.surfaceContainerLow }]}>
               <View style={[styles.stationDot, { backgroundColor: '#FFD600' }]} />
@@ -259,7 +260,7 @@ export default function TransitPlannerScreen() {
         </Animated.View>
 
         {/* Live DMRC Network Status Bar */}
-        <Animated.View entering={FadeInDown.delay(20).duration(180).springify().damping(22)}>
+        <Animated.View entering={fluidEntering(20)}>
           <View style={styles.statusSection}>
             <Text style={[styles.statusSectionTitle, { color: colors.onSurface }]}>Live NCR Transit Feeds</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statusTrack}>
@@ -291,7 +292,7 @@ export default function TransitPlannerScreen() {
             return (
               <Animated.View
                 key={plan.id}
-                entering={FadeInDown.delay(30 + idx * 20).duration(180).springify().damping(22)}>
+                entering={fluidEntering(30 + idx * 20)}>
                 <TouchableOpacity
                   activeOpacity={0.8}
                   onPress={() => {
@@ -335,7 +336,7 @@ export default function TransitPlannerScreen() {
       </View>
 
         {/* Selected Plan Step-by-Step Breakdown */}
-        <Animated.View entering={FadeInDown.delay(50).duration(180).springify().damping(22)}>
+        <Animated.View entering={fluidEntering(60)}>
 
           <Card variant="flat" padding="md" style={styles.breakdownCard}>
             <Text style={[styles.breakdownTitle, { color: colors.onSurface }]}>Step-by-Step Navigation Legs</Text>

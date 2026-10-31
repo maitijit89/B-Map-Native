@@ -89,7 +89,9 @@ class LocationService {
         this.permissionGranted = status === Location.PermissionStatus.GRANTED;
         return this.permissionGranted;
       } catch (error) {
-        console.warn('LocationService: Failed to request foreground location permission', error);
+        if (__DEV__) {
+          console.debug('LocationService: Failed to request foreground location permission', error);
+        }
         return false;
       } finally {
         this.pendingPermissionPromise = null;
@@ -114,6 +116,18 @@ class LocationService {
 
     this.pendingLocationPromise = (async () => {
       try {
+        const lastKnown = await Location.getLastKnownPositionAsync().catch(() => null);
+        if (lastKnown) {
+          this.lastLocation = {
+            latitude: lastKnown.coords.latitude,
+            longitude: lastKnown.coords.longitude,
+            altitude: lastKnown.coords.altitude,
+            accuracy: lastKnown.coords.accuracy,
+            heading: lastKnown.coords.heading,
+            speed: lastKnown.coords.speed,
+          };
+        }
+
         const location = await Location.getCurrentPositionAsync({
           accuracy: this.isLowPowerModeEnabled
             ? Location.Accuracy.Low
@@ -132,7 +146,9 @@ class LocationService {
         this.lastLocation = coords;
         return coords;
       } catch (error) {
-        console.warn('LocationService: Failed to get current position, using last known', error);
+        if (__DEV__) {
+          console.debug('LocationService: Falling back to cached position:', error);
+        }
         return this.lastLocation;
       } finally {
         this.pendingLocationPromise = null;
@@ -205,13 +221,17 @@ class LocationService {
             try {
               sub(coords);
             } catch (e) {
-              console.warn('Location subscriber error:', e);
+              if (__DEV__) {
+                console.debug('Location subscriber error:', e);
+              }
             }
           });
         }
       );
     } catch (error) {
-      console.warn('LocationService: Failed to start watchPositionAsync', error);
+      if (__DEV__) {
+        console.debug('LocationService: Failed to start watchPositionAsync', error);
+      }
     }
   }
 

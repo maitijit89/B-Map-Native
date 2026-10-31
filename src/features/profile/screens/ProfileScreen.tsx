@@ -7,12 +7,11 @@ import {
   TouchableOpacity,
   Alert,
   Switch,
-  FlatList,
-  ListRenderItem,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+import { fluidEntering } from '@/shared/animations';
 import {
   Activity,
   MapPin,
@@ -120,49 +119,6 @@ export default function ProfileScreen() {
     setSelectedLanguage(code);
   }, []);
 
-  const renderLangItem: ListRenderItem<LanguageItem> = useCallback(
-    ({ item }) => {
-      const isSelected = selectedLanguage === item.code;
-      return (
-        <TouchableOpacity
-          style={[
-            styles.langChip,
-            {
-              backgroundColor: isSelected
-                ? colors.primaryContainer
-                : colors.surfaceContainerLow,
-              borderColor: isSelected
-                ? colors.primary
-                : colors.surfaceContainerHigh,
-            },
-          ]}
-          onPress={() => handleLanguageSelect(item.code)}
-          accessibilityRole="button"
-          accessibilityLabel={`Select language ${item.name} (${item.script})`}
-          accessibilityState={{ selected: isSelected }}
-          activeOpacity={0.8}>
-          <Text
-            style={[
-              styles.langName,
-              { color: isSelected ? colors.onPrimary : colors.onSurface },
-            ]}>
-            {item.name}
-          </Text>
-          <Text
-            style={[
-              styles.langScript,
-              { color: isSelected ? colors.onPrimary : colors.onSurfaceVariant },
-            ]}>
-            {item.script}
-          </Text>
-        </TouchableOpacity>
-      );
-    },
-    [selectedLanguage, colors, handleLanguageSelect]
-  );
-
-  const langKeyExtractor = useCallback((item: LanguageItem) => item.code, []);
-
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
       {/* Top Header with Emergency Quick Action */}
@@ -193,7 +149,7 @@ export default function ProfileScreen() {
         ]}
         showsVerticalScrollIndicator={false}>
         {/* User Profile Card */}
-        <Animated.View entering={FadeInDown.duration(180).springify().damping(22)}>
+        <Animated.View entering={fluidEntering(0)}>
           <Card variant="elevated" padding="md" style={styles.cardGap}>
             <View style={styles.profileTop}>
               <Avatar name="Aarav Sharma" size="lg" status="online" />
@@ -243,7 +199,7 @@ export default function ProfileScreen() {
         </Animated.View>
 
         {/* Live Activity Recognition State */}
-        <Animated.View entering={FadeInDown.delay(20).duration(180).springify().damping(22)}>
+        <Animated.View entering={fluidEntering(20)}>
           <Card variant="outlined" padding="md" style={styles.activityBanner}>
             <View style={styles.activityLeft}>
               <View style={[styles.activityIconRing, { backgroundColor: colors.primaryContainer }]}>
@@ -263,7 +219,7 @@ export default function ProfileScreen() {
         </Animated.View>
 
         {/* Saved Places */}
-        <Animated.View entering={FadeInDown.delay(40).duration(180).springify().damping(22)}>
+        <Animated.View entering={fluidEntering(40)}>
           <SectionHeader title="Saved Waypoints & DigiPINs" subtitle="Synchronized Sovereign Coordinates" />
 
           <Card variant="flat" padding="md" style={styles.cardGap}>
@@ -296,21 +252,56 @@ export default function ProfileScreen() {
         </Animated.View>
 
         {/* Multilingual Voice Guidance */}
-        <Animated.View entering={FadeInDown.delay(60).duration(180).springify().damping(22)}>
+        <Animated.View entering={fluidEntering(60)}>
           <SectionHeader title="Multilingual Voice Guidance" subtitle="Supported Regional Dialects" />
 
-          <FlatList
+          <ScrollView
             horizontal
-            data={INDIAN_LANGUAGES}
-            renderItem={renderLangItem}
-            keyExtractor={langKeyExtractor}
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.langScroll}
-          />
+            contentContainerStyle={styles.langScroll}>
+            {INDIAN_LANGUAGES.map((item) => {
+              const isSelected = selectedLanguage === item.code;
+              return (
+                <TouchableOpacity
+                  key={item.code}
+                  style={[
+                    styles.langChip,
+                    {
+                      backgroundColor: isSelected
+                        ? colors.primaryContainer
+                        : colors.surfaceContainerLow,
+                      borderColor: isSelected
+                        ? colors.primary
+                        : colors.surfaceContainerHigh,
+                    },
+                  ]}
+                  onPress={() => handleLanguageSelect(item.code)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Select language ${item.name} (${item.script})`}
+                  accessibilityState={{ selected: isSelected }}
+                  activeOpacity={0.8}>
+                  <Text
+                    style={[
+                      styles.langName,
+                      { color: isSelected ? colors.onPrimary : colors.onSurface },
+                    ]}>
+                    {item.name}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.langScript,
+                      { color: isSelected ? colors.onPrimary : colors.onSurfaceVariant },
+                    ]}>
+                    {item.script}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
         </Animated.View>
 
         {/* Recent Navigation Trips */}
-        <Animated.View entering={FadeInDown.delay(80).duration(180).springify().damping(22)}>
+        <Animated.View entering={fluidEntering(80)}>
           <SectionHeader title="Recent Telematics History" subtitle="Trip Logs & FASTag Deductions" />
 
           <Card variant="flat" padding="md" style={styles.cardGap}>
@@ -338,7 +329,7 @@ export default function ProfileScreen() {
         </Animated.View>
 
         {/* Preferences Toggles */}
-        <Animated.View entering={FadeInDown.delay(100).duration(180).springify().damping(22)}>
+        <Animated.View entering={fluidEntering(100)}>
           <SectionHeader title="Navigation & Privacy Toggles" subtitle="ISRO NavIC · Anonymized Telematics" />
 
           <Card variant="flat" padding="md" style={styles.cardGap}>
@@ -391,7 +382,7 @@ export default function ProfileScreen() {
         </Animated.View>
 
         {/* Device Signals & Anti-Bot Telemetry */}
-        <Animated.View entering={FadeInDown.delay(100).duration(180).springify().damping(22)}>
+        <Animated.View entering={fluidEntering(120)}>
           <SectionHeader
             title="Device Profiling & Security"
             subtitle="138 Hardware, Integrity & Anti-Bot Telemetry Signals"
@@ -433,7 +424,7 @@ export default function ProfileScreen() {
         </Animated.View>
 
         {/* Dynamic App Icon & Compass Orientation */}
-        <Animated.View entering={FadeInDown.delay(120).duration(180).springify().damping(22)}>
+        <Animated.View entering={fluidEntering(140)}>
           <SectionHeader
             title="Dynamic Compass App Icon"
             subtitle="Rotate OS Launcher Icon · iOS & Android"
