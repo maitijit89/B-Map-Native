@@ -454,7 +454,7 @@ const styles = StyleSheet.create({
   facilityName: { ...Typography.titleMedium, fontWeight: '800' },
   facilityAddress: { ...Typography.bodySmall, marginTop: 2 },
   ratePill: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: Radius.sm },
-  rateText: { ...Typography.labelSmall, fontWeight: '800' },
+  rateText: { ...Typography.labelSmall, fontWeight: '800', fontVariant: ['tabular-nums'] },
   facilityStats: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   facilityStat: { alignItems: 'center' },
-  statVal: { ...Typography.titleSmall, fontWeight: '800' },
+  statVal: { ...Typography.titleSmall, fontWeight: '800', fontVariant: ['tabular-nums'] },
   statSub: { ...Typography.labelSmall, fontSize: 10, marginTop: 2 },
   vDivider: { width: 1, height: 28 },
 
@@ -482,8 +482,8 @@ const styles = StyleSheet.create({
   beaconName: { ...Typography.labelSmall, fontWeight: '700' },
   beaconId: { ...Typography.labelSmall, fontSize: 10, fontFamily: 'monospace' },
   beaconRight: { alignItems: 'flex-end' },
-  beaconDistance: { ...Typography.labelSmall, fontWeight: '800' },
-  beaconRssi: { ...Typography.labelSmall, fontSize: 10 },
+  beaconDistance: { ...Typography.labelSmall, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  beaconRssi: { ...Typography.labelSmall, fontSize: 10, fontVariant: ['tabular-nums'] },
 
   floorTabs: { flexDirection: 'row', gap: 8 },
   floorTab: {
@@ -492,7 +492,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 10,
+    paddingVertical: 12,
+    minHeight: 48,
     borderRadius: Radius.md,
     borderWidth: 1,
   },
@@ -519,12 +520,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 4,
   },
-  bayCode: { ...Typography.labelSmall, fontWeight: '700' },
+  bayCode: { ...Typography.labelSmall, fontWeight: '700', fontVariant: ['tabular-nums'] },
   bayTypeLabel: { ...Typography.labelSmall, fontSize: 9, marginTop: 1 },
 
   selectedBayCard: { gap: Spacing.md, borderWidth: 1.5 },
   selectedBayTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  selectedBayCode: { ...Typography.titleMedium, fontWeight: '800' },
+  selectedBayCode: { ...Typography.titleMedium, fontWeight: '800', fontVariant: ['tabular-nums'] },
   selectedBaySub: { ...Typography.bodySmall, marginTop: 2 },
   availableTag: {
     flexDirection: 'row',

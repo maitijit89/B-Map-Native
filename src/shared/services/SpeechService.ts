@@ -183,12 +183,15 @@ class SpeechService {
     const targetLanguage = options?.language || currentLangInfo.locale || 'en-IN';
     const activeGender = options?.voiceGender || this.voiceGender;
 
-    // Distinct acoustic pitch for genders:
-    // Female: 1.18 (crisp, higher frequency, pleasant feminine tone)
-    // Male: 0.88 (lower frequency, resonant masculine tone)
-    const genderPitch = activeGender === 'female' ? 1.18 : 0.88;
-    const genderRate = activeGender === 'female' ? 0.98 : 0.94;
+    // Flowstep v3.0 Formant-Preserved Acoustic Tuning:
+    // Avoid severe 1.18x/0.88x pitch warping ("chipmunk" or artificial bass distortion).
+    // Native neural voices are matched via findVoiceIdentifier; subtle natural pitch tuning (1.05 / 0.95)
+    // is applied to preserve vocal formants while ensuring pleasant gender distinction.
     const voiceId = options?.voice || this.findVoiceIdentifier(targetLanguage, activeGender);
+    const genderPitch = voiceId
+      ? (activeGender === 'female' ? 1.03 : 0.97)
+      : (activeGender === 'female' ? 1.06 : 0.94);
+    const genderRate = activeGender === 'female' ? 0.98 : 0.96;
 
     try {
       Speech.stop(); // Stop any ongoing speech first for clear prompt delivery

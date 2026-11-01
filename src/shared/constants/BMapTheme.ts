@@ -76,6 +76,10 @@ export const BMapColors = {
   trafficOrange: '#FF9800',
   trafficRed: '#F44336',
 
+  /* Flowstep v3.0 High-Visibility & Solid Opaque HUD tokens (zero transparency) */
+  surfaceGlassHud: '#ffffff',
+  monsoonHighVis: '#D97706',
+
   /* Overlay */
   scrim: 'rgba(0, 0, 0, 0.45)',
   backdrop: 'rgba(17, 28, 45, 0.35)',
@@ -150,6 +154,10 @@ export const BMapColorsDark = {
   trafficGreen: '#00E47F',
   trafficOrange: '#FFB347',
   trafficRed: '#FF6B6B',
+
+  /* Flowstep v3.0 High-Visibility & Solid Opaque HUD tokens (zero transparency) */
+  surfaceGlassHud: '#0a0f1a',
+  monsoonHighVis: '#FFEA00',
 
   /* Overlay */
   scrim: 'rgba(0, 0, 0, 0.65)',

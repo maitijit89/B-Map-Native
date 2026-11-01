@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ScrollView,
   Alert,
   Switch,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useIsFocused } from 'expo-router';
@@ -28,11 +29,6 @@ import {
   Bell,
   User,
   Camera,
-  Car,
-  TrainFront,
-  CarTaxiFront,
-  Bike,
-  Footprints,
   Sun,
   Video,
   Layers,
@@ -41,11 +37,9 @@ import {
   Building,
   House,
   Star,
-  Navigation,
   Zap,
   Fuel,
   SquareParking,
-  Utensils,
   ShieldAlert,
   ChevronUp,
   ChevronDown,
@@ -55,18 +49,18 @@ import {
   Droplets,
   Wind,
   Eye,
+  Mic,
+  Search,
 } from 'lucide-react-native';
 import { VectorMapCanvas } from '../components/VectorMapCanvas';
 import { GpsLocationLockModal } from '../components/GpsLocationLockModal';
-import { useThemeColors, useLocation } from '@/shared/hooks';
+import { useThemeColors, useLocation, usePoiCollisionEngine, RawMapPoi, MapEdgePadding } from '@/shared/hooks';
 import { Radius, Shadows, Spacing, Typography } from '@/shared/constants/tokens';
 import {
-  Chip,
   Card,
   Button,
   StatusBadge,
   BottomSheet,
-  SearchBar,
   DynamicCompassIcon,
   AnimatedPressable,
 } from '@/shared/components/ui';
@@ -74,16 +68,57 @@ import { VoiceListeningModal } from '@/shared/components/voice/VoiceListeningMod
 import { haptics } from '@/shared/utils/haptics';
 import { notificationService, VoiceRecognitionResult } from '@/shared/services';
 
-type TransitMode = 'drive' | 'transit' | 'ride' | 'bike' | 'walk';
 type MapLayerType = 'standard' | 'satellite' | 'night' | 'navic';
+
+const INITIAL_POIS: RawMapPoi[] = [
+  { id: 'haz-nh48', title: 'Pothole · km 42', category: 'HAZARD', lat: 28.5921, lng: 77.1642, priority: 100, badgeCount: 18 },
+  { id: 'metro-grand', title: 'Grand Metro Stn', category: 'METRO', lat: 28.5884, lng: 77.1715, priority: 85 },
+  { id: 'ev-bpower', title: 'B-Power 120kW', category: 'EV', lat: 28.5840, lng: 77.1812, priority: 80, freeCount: 6 },
+  { id: 'mall-ifc', title: 'IFC Mall', category: 'PARKING', lat: 28.5819, lng: 77.1795, priority: 70, rating: 4.8 },
+  { id: 'cafe-blue', title: 'Blue Oasis Cafe', category: 'COMMERCIAL', lat: 28.5802, lng: 77.1685, priority: 60 },
+  { id: 'park-tech', title: 'Tech Innovation Park', category: 'COMMERCIAL', lat: 28.5935, lng: 77.1780, priority: 65 },
+];
 
 export default function HomeScreen() {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
-  const [topHudHeight, setTopHudHeight] = useState<number>(0);
-  const floatingTop = topHudHeight > 0 ? topHudHeight + 10 : Math.max(insets.top + 172, 215);
+  const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
 
-  const [activeMode, setActiveMode] = useState<TransitMode>('drive');
+  const [topHudHeight, setTopHudHeight] = useState<number>(0);
+  const floatingTop = topHudHeight > 0 ? topHudHeight + 10 : Math.max(insets.top + 118, 162);
+
+  // Flowstep v3.0 Physics-Driven 3-Detent Bottom Sheet (18% Peek, 45% Half, 88% Expanded)
+  const [detentIndex, setDetentIndex] = useState<0 | 1 | 2>(1);
+
+  const bottomSheetHeight = useMemo(() => {
+    switch (detentIndex) {
+      case 0:
+        return 96;
+      case 1:
+        return 220;
+      case 2:
+        return 460;
+    }
+  }, [detentIndex]);
+
+  // World-Space Camera Safe-Zone Edge Padding (Zero POI overlap with HUD, IMD pills, or Right FABs)
+  const mapEdgePadding: MapEdgePadding = useMemo(() => ({
+    top: floatingTop,
+    bottom: bottomSheetHeight + Math.max(insets.bottom, 14) + 68,
+    left: 164, // 164pt clearance for left IMD Weather & Radar pills
+    right: 76, // 76pt clearance for Right FAB stack
+  }), [floatingTop, bottomSheetHeight, insets.bottom]);
+
+  const resolvedPois = usePoiCollisionEngine({
+    pois: INITIAL_POIS,
+    viewportWidth: viewportWidth || 420,
+    viewportHeight: viewportHeight || 860,
+    edgePadding: mapEdgePadding,
+    centerLat: 28.5870,
+    centerLng: 77.1720,
+    zoomLevel: 14,
+  });
+
   const [showTraffic, setShowTraffic] = useState(true);
   const [isHomeStarred, setIsHomeStarred] = useState(false);
   const [showLayerModal, setShowLayerModal] = useState(false);
@@ -93,7 +128,6 @@ export default function HomeScreen() {
   const [isLocating, setIsLocating] = useState(false);
   const [isGpsLocked, setIsGpsLocked] = useState(false);
   const [showGpsLockModal, setShowGpsLockModal] = useState(false);
-  const [isSheetExpanded, setIsSheetExpanded] = useState(false);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const [showWeatherModal, setShowWeatherModal] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState<number>(() =>
@@ -203,14 +237,6 @@ export default function HomeScreen() {
     }
   }, []);
 
-  const handleModeChange = useCallback((mode: TransitMode) => {
-    haptics.selection();
-    setActiveMode(mode);
-    if (mode === 'transit') {
-      router.push('/transit-planner');
-    }
-  }, []);
-
   const handleLayerModalClose = useCallback(() => {
     setShowLayerModal(false);
   }, []);
@@ -226,6 +252,7 @@ export default function HomeScreen() {
           mapLayer={selectedLayer}
           isLocating={isLocating}
           isGpsLocked={isGpsLocked}
+          resolvedPois={resolvedPois}
         />
       </View>
 
@@ -240,163 +267,184 @@ export default function HomeScreen() {
           }
         }}
         pointerEvents="box-none">
-        {/* Brand bar with Live Compass, SOS distress pill & Profile */}
+        {/* Consolidated 2-Row Omni-Header (Flowstep v3.0 Solid Opaque Architecture) */}
         <Animated.View
           entering={fluidEntering(0)}
           style={[
-            styles.floatingBrandBar,
+            styles.omniHeaderCard,
             {
               backgroundColor: colors.surfaceContainerLowest,
-              borderColor: colors.surfaceContainerHigh + '80',
+              borderColor: colors.surfaceContainerHigh,
             },
           ]}>
-          <View style={styles.brandCluster}>
-            <AnimatedPressable
-              onPress={handleCompassPress}
-              accessibilityRole="button"
-              accessibilityLabel="B Map live compass app icon">
-              <DynamicCompassIcon size={32} dynamic={true} tilt3D={false} borderRadius={8} />
-            </AnimatedPressable>
-            <View style={styles.titleColumn}>
-              <View style={styles.logoRow}>
-                <Text style={[styles.logoTag, { color: colors.primaryContainer }]}>B MAP</Text>
-                <AnimatedPressable
-                  onPress={handleNavicPillPress}
-                  accessibilityRole="button"
-                  accessibilityLabel="NavIC GPS location lock telemetry"
-                  style={[styles.navicMiniPill, { backgroundColor: colors.primaryContainer + '20' }]}>
-                  <Satellite size={10} color={colors.primary} />
-                  <Text style={[styles.navicMiniText, { color: colors.primary }]}>NavIC L5+S</Text>
-                </AnimatedPressable>
+          {/* Row 1: 3D Squircle | B-MAP & NavIC L5+S Badge | SOS 112 | Bell | Profile */}
+          <View style={styles.omniRow1}>
+            <View style={styles.omniRow1Left}>
+              <AnimatedPressable
+                onPress={handleCompassPress}
+                accessibilityRole="button"
+                accessibilityLabel="3D Gyro Compass HUD"
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                <DynamicCompassIcon size={34} dynamic={true} tilt3D={true} borderRadius={10} />
+              </AnimatedPressable>
+
+              <View style={styles.titleColumn}>
+                <View style={styles.logoRow}>
+                  <Text style={[styles.logoTag, { color: colors.primary }]}>B-MAP</Text>
+                  <AnimatedPressable
+                    onPress={handleNavicPillPress}
+                    accessibilityRole="button"
+                    accessibilityLabel="NavIC GPS Telemetry"
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={[
+                      styles.navicMiniPill,
+                      {
+                        backgroundColor: colors.surfaceContainerLow,
+                        borderColor: colors.primary,
+                        borderWidth: 1,
+                      },
+                    ]}>
+                    <Satellite size={11} color={colors.primary} />
+                    <Text
+                      style={[
+                        styles.navicMiniText,
+                        { color: colors.primary, fontVariant: ['tabular-nums'] },
+                      ]}>
+                      NavIC L5+S ±0.7m (8 Sat)
+                    </Text>
+                  </AnimatedPressable>
+                </View>
+                <Text style={[styles.headerSubtitle, { color: colors.onSurfaceVariant }]}>
+                  Explore · NH-48 Express Corridor
+                </Text>
               </View>
-              <Text style={[styles.headerTitle, { color: colors.onSurface }]}>Explore</Text>
+            </View>
+
+            <View style={styles.headerActions}>
+              {/* 1-Tap SOS 112 Safety Beacon */}
+              <AnimatedPressable
+                style={[
+                  styles.sosPillButton,
+                  {
+                    backgroundColor: colors.errorContainer,
+                    borderColor: colors.error,
+                    borderWidth: 1,
+                  },
+                ]}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityRole="button"
+                accessibilityLabel="Emergency SOS 112 Beacon"
+                onPress={() => {
+                  haptics.heavy();
+                  router.push('/sos-distress');
+                }}>
+                <ShieldAlert size={14} color={colors.onErrorContainer} />
+                <Text
+                  style={[
+                    styles.sosPillText,
+                    { color: colors.onErrorContainer, fontVariant: ['tabular-nums'] },
+                  ]}>
+                  SOS
+                </Text>
+              </AnimatedPressable>
+
+              {/* Notifications */}
+              <AnimatedPressable
+                style={[
+                  styles.headerIconButton,
+                  {
+                    backgroundColor: colors.surfaceContainerLow,
+                    borderColor: colors.surfaceContainerHigh,
+                    borderWidth: 1,
+                  },
+                ]}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityRole="button"
+                accessibilityLabel={`Notifications, ${unreadNotifications} unread alerts`}
+                onPress={() => {
+                  haptics.light();
+                  router.push('/notifications');
+                }}>
+                <Bell size={17} color={colors.onSurfaceVariant} />
+                {unreadNotifications > 0 && (
+                  <View style={[styles.notifDot, { backgroundColor: colors.error }]} />
+                )}
+              </AnimatedPressable>
+
+              {/* User Profile */}
+              <AnimatedPressable
+                style={[
+                  styles.profileAvatar,
+                  {
+                    backgroundColor: colors.primary,
+                    borderColor: colors.surfaceContainerHigh,
+                    borderWidth: 1,
+                  },
+                ]}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityRole="button"
+                accessibilityLabel="User profile"
+                onPress={() => {
+                  haptics.light();
+                  router.push('/auth');
+                }}>
+                <User size={16} color={colors.onPrimary} />
+              </AnimatedPressable>
             </View>
           </View>
 
-          <View style={styles.headerActions}>
-            {/* 1-Tap SOS Safety Beacon */}
-            <AnimatedPressable
-              style={[styles.sosPillButton, { backgroundColor: colors.errorContainer }]}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              accessibilityRole="button"
-              accessibilityLabel="Emergency SOS Beacon"
-              onPress={() => {
-                haptics.heavy();
-                router.push('/sos-distress');
-              }}>
-              <ShieldAlert size={14} color={colors.onErrorContainer} />
-              <Text style={[styles.sosPillText, { color: colors.onErrorContainer }]}>SOS</Text>
-            </AnimatedPressable>
-
-            {/* Notifications */}
-            <AnimatedPressable
-              style={[styles.headerIconButton, { backgroundColor: colors.surfaceContainerLow }]}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              accessibilityRole="button"
-              accessibilityLabel={`Notifications, ${unreadNotifications} unread alerts`}
+          {/* Row 2: Search Place, Address or 10-Char DigiPIN | Mic | AR */}
+          <View style={styles.omniRow2}>
+            <TouchableOpacity
+              style={[
+                styles.omniSearchBox,
+                {
+                  backgroundColor: colors.surfaceContainerLow,
+                  borderColor: colors.surfaceContainerHigh,
+                },
+              ]}
               onPress={() => {
                 haptics.light();
-                router.push('/notifications');
-              }}>
-              <Bell size={18} color={colors.onSurfaceVariant} />
-              {unreadNotifications > 0 && (
-                <View style={[styles.notifDot, { backgroundColor: colors.error }]} />
-              )}
-            </AnimatedPressable>
-
-            {/* User Profile */}
-            <AnimatedPressable
-              style={[styles.profileAvatar, { backgroundColor: colors.primary }]}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                router.push('/search');
+              }}
+              activeOpacity={0.85}
               accessibilityRole="button"
-              accessibilityLabel="User profile"
-              onPress={() => {
-                haptics.light();
-                router.push('/auth');
-              }}>
-              <User size={16} color={colors.onPrimary} />
-            </AnimatedPressable>
-          </View>
-        </Animated.View>
-
-        {/* Floating Search Bar */}
-        <Animated.View
-          entering={fluidEntering(20)}
-          style={styles.floatingSearchContainer}>
-          <SearchBar
-            placeholder="Search destination, DigiPIN, fuel..."
-            editable={false}
-            onPress={() => {
-              haptics.light();
-              router.push('/search');
-            }}
-            onMicPress={handleVoiceAssistant}
-            leadingIcon={
-              <View style={styles.searchLeftGroup}>
-                <DynamicCompassIcon size={24} dynamic={false} heading={0} tilt3D={false} borderRadius={6} />
+              accessibilityLabel="Search destination, address or DigiPIN">
+              <Search size={16} color={colors.onSurfaceVariant} />
+              <Text
+                style={[styles.omniSearchPlaceholder, { color: colors.onSurfaceVariant }]}
+                numberOfLines={1}>
+                Search Place, Address or 10-Char DigiPIN...
+              </Text>
+              <View style={styles.omniSearchActions}>
+                <TouchableOpacity
+                  style={[
+                    styles.omniActionBtn,
+                    { backgroundColor: colors.surfaceContainerHighest },
+                  ]}
+                  onPress={handleVoiceAssistant}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Voice Search">
+                  <Mic size={15} color={colors.primary} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.omniActionBtn,
+                    { backgroundColor: colors.surfaceContainerHighest },
+                  ]}
+                  onPress={() => {
+                    haptics.medium();
+                    router.push('/ar-navigation');
+                  }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="AR Photo Navigation">
+                  <Camera size={15} color={colors.primary} />
+                </TouchableOpacity>
               </View>
-            }
-            trailingAction={
-              <TouchableOpacity
-                style={[styles.cameraButton, { backgroundColor: colors.surfaceContainerLow }]}
-                onPress={() => {
-                  haptics.medium();
-                  router.push('/ar-navigation');
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Visual AR Camera"
-                activeOpacity={0.7}>
-                <Camera size={16} color={colors.onSurfaceVariant} />
-              </TouchableOpacity>
-            }
-            variant="floating"
-          />
-        </Animated.View>
-
-        {/* Quick Transit Mode Switcher Chips */}
-        <Animated.View entering={fluidEntering(40)}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={styles.transitChipsTrack}>
-            <Chip
-              label="Drive"
-              size="sm"
-              selected={activeMode === 'drive'}
-              onPress={() => handleModeChange('drive')}
-              icon={<Car size={14} color={activeMode === 'drive' ? colors.onPrimaryContainer : colors.onSurfaceVariant} />}
-            />
-            <Chip
-              label="Transit"
-              size="sm"
-              selected={activeMode === 'transit'}
-              onPress={() => handleModeChange('transit')}
-              icon={<TrainFront size={14} color={activeMode === 'transit' ? colors.onPrimaryContainer : colors.onSurfaceVariant} />}
-              badgeCount={2}
-            />
-            <Chip
-              label="Ride · ₹120"
-              size="sm"
-              selected={activeMode === 'ride'}
-              onPress={() => handleModeChange('ride')}
-              icon={<CarTaxiFront size={14} color={activeMode === 'ride' ? colors.onPrimaryContainer : colors.onSurfaceVariant} />}
-            />
-            <Chip
-              label="Bike"
-              size="sm"
-              selected={activeMode === 'bike'}
-              onPress={() => handleModeChange('bike')}
-              icon={<Bike size={14} color={activeMode === 'bike' ? colors.onPrimaryContainer : colors.onSurfaceVariant} />}
-            />
-            <Chip
-              label="Walk"
-              size="sm"
-              selected={activeMode === 'walk'}
-              onPress={() => handleModeChange('walk')}
-              icon={<Footprints size={14} color={activeMode === 'walk' ? colors.onPrimaryContainer : colors.onSurfaceVariant} />}
-            />
-          </ScrollView>
+            </TouchableOpacity>
+          </View>
         </Animated.View>
       </SafeAreaView>
 
@@ -415,7 +463,7 @@ export default function HomeScreen() {
             styles.weatherPill,
             {
               backgroundColor: colors.surfaceContainerLowest,
-              borderColor: colors.surfaceContainerHigh + '80',
+              borderColor: colors.surfaceContainerHigh,
             },
           ]}>
           <View style={styles.weatherIconCircle}>
@@ -448,7 +496,7 @@ export default function HomeScreen() {
               alertAnimatedStyle,
               {
                 backgroundColor: colors.surfaceContainerLowest,
-                borderColor: colors.surfaceContainerHigh + '80',
+                borderColor: colors.surfaceContainerHigh,
               },
             ]}>
             <View style={[styles.cameraAlertDot, { backgroundColor: colors.error + '20' }]}>
@@ -461,9 +509,9 @@ export default function HomeScreen() {
         </AnimatedPressable>
       </View>
 
-      {/* 4. FLOATING RIGHT MAP UTILITY CONTROLS */}
+      {/* 4. FLOATING RIGHT INTERACTIVE CONTROLS */}
       <Animated.View
-        entering={fluidEnteringRight(30)}
+        entering={fluidEnteringRight(20)}
         style={[styles.floatingRightControls, { top: floatingTop }]}
         pointerEvents="box-none">
         {/* Map Layers */}
@@ -473,12 +521,14 @@ export default function HomeScreen() {
             {
               backgroundColor: colors.surfaceContainerLowest,
               borderColor: colors.surfaceContainerHigh,
+              borderWidth: 1,
             },
           ]}
           onPress={() => {
             haptics.light();
             setShowLayerModal(true);
           }}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           accessibilityRole="button"
           accessibilityLabel="Map layers">
           <Layers size={19} color={colors.onSurfaceVariant} />
@@ -491,12 +541,14 @@ export default function HomeScreen() {
             {
               backgroundColor: colors.surfaceContainerLowest,
               borderColor: showTraffic ? colors.primary : colors.surfaceContainerHigh,
+              borderWidth: 1,
             },
           ]}
           onPress={() => {
             haptics.light();
             setShowTraffic(!showTraffic);
           }}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           accessibilityRole="button"
           accessibilityLabel="Toggle live traffic">
           <View style={styles.trafficIconWrapper}>
@@ -518,79 +570,80 @@ export default function HomeScreen() {
           </View>
         </AnimatedPressable>
 
-        {/* AR Visual Positioning Navigation FAB */}
+        {/* Route Planner FAB */}
         <AnimatedPressable
           style={[
             styles.fabBtn,
             {
               backgroundColor: colors.surfaceContainerLowest,
               borderColor: colors.surfaceContainerHigh,
+              borderWidth: 1,
             },
           ]}
           onPress={() => {
             haptics.medium();
-            router.push('/ar-navigation');
+            router.push('/transit-planner');
           }}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           accessibilityRole="button"
-          accessibilityLabel="AR Photo Navigation">
-          <Camera size={19} color={colors.primary} />
+          accessibilityLabel="Route Planner">
+          <Route size={19} color={colors.primary} />
         </AnimatedPressable>
 
-        {/* North Compass FAB with Live 3D Hardware Gyro Tilt */}
-        <AnimatedPressable
-          style={styles.compassFab}
-          onPress={handleCompassPress}
-          accessibilityRole="button"
-          accessibilityLabel="Compass reset north">
-          <DynamicCompassIcon size={44} dynamic={true} tilt3D={true} borderRadius={12} />
-        </AnimatedPressable>
-
-        {/* Recenter / Locate Me FAB */}
+        {/* Recenter / Locate Me FAB (NavIC L5+S Dual-Band) */}
         <AnimatedPressable
           style={[
             styles.locateMeFab,
             {
               backgroundColor: colors.surfaceContainerLowest,
               borderColor: isLocating ? colors.primary : colors.surfaceContainerHigh,
+              borderWidth: 1,
             },
           ]}
           onPress={handleLocateMe}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           accessibilityRole="button"
           accessibilityLabel="Re-center map">
           <LocateFixed
             size={22}
-            color={isLocating ? colors.secondary : colors.primaryContainer}
+            color={isGpsLocked ? colors.trafficGreen : colors.primaryContainer}
           />
         </AnimatedPressable>
       </Animated.View>
 
-      {/* 5. INTERACTIVE BOTTOM COMMUTE & DISCOVERY HUD */}
+      {/* 5. FLOWSTEP v3.0 PHYSICS-DRIVEN 3-DETENT BOTTOM SHEET */}
       <Animated.View
         entering={fluidEnteringUp(50)}
         style={[
           styles.bottomSheetHUD,
           {
-            bottom: Math.max(insets.bottom, 14) + 78,
+            bottom: detentIndex === 2 ? Math.max(insets.bottom, 10) + 12 : Math.max(insets.bottom, 14) + 76,
             backgroundColor: colors.surfaceContainerLowest,
-            borderColor: colors.surfaceContainerHigh + '60',
+            borderColor: colors.surfaceContainerHigh,
+            borderWidth: 1,
+            maxHeight: bottomSheetHeight + 64,
           },
         ]}>
-        {/* Drag / Expand Handle Row */}
+        {/* Drag / Detent Cycle Handle */}
         <TouchableOpacity
           style={styles.sheetHandleContainer}
           onPress={() => {
             haptics.selection();
-            setIsSheetExpanded(!isSheetExpanded);
+            setDetentIndex((prev) => ((prev + 1) % 3) as 0 | 1 | 2);
           }}
           activeOpacity={0.8}
           accessibilityRole="button"
-          accessibilityLabel={isSheetExpanded ? 'Collapse sheet' : 'Expand sheet'}>
+          accessibilityLabel={`Bottom sheet detent ${detentIndex + 1} of 3`}>
           <View style={[styles.sheetHandle, { backgroundColor: colors.outlineVariant }]} />
           <View style={styles.sheetExpandRow}>
             <Text style={[styles.sheetExpandText, { color: colors.onSurfaceVariant }]}>
-              {isSheetExpanded ? 'Tap to Collapse' : 'Commute & Places'}
+              {detentIndex === 0
+                ? 'Peek (18%) · Tap to Expand'
+                : detentIndex === 1
+                ? 'Commute & Places (45%)'
+                : 'Commute & Sovereign Tools (88%)'}
             </Text>
-            {isSheetExpanded ? (
+            {detentIndex === 2 ? (
               <ChevronDown size={14} color={colors.onSurfaceVariant} />
             ) : (
               <ChevronUp size={14} color={colors.onSurfaceVariant} />
@@ -598,7 +651,7 @@ export default function HomeScreen() {
           </View>
         </TouchableOpacity>
 
-        {/* Commute Target 1: Company */}
+        {/* Commute Target: Company (Available in all 3 detents) */}
         <Card
           variant="flat"
           padding="sm"
@@ -618,14 +671,26 @@ export default function HomeScreen() {
                 <StatusBadge status="success" label="Fastest Route" size="sm" pulsing />
               </View>
               <View style={styles.commuteMetaRow}>
-                <Text style={[styles.commuteTimeText, { color: colors.onSurface }]}>28 min</Text>
+                <Text
+                  style={[
+                    styles.commuteTimeText,
+                    { color: colors.onSurface, fontVariant: ['tabular-nums'] },
+                  ]}>
+                  28 min
+                </Text>
                 <Text style={[styles.dotSeparator, { color: colors.onSurfaceVariant }]}>·</Text>
-                <Text style={[styles.commuteDistText, { color: colors.onSurfaceVariant }]}>14.2 km</Text>
+                <Text
+                  style={[
+                    styles.commuteDistText,
+                    { color: colors.onSurfaceVariant, fontVariant: ['tabular-nums'] },
+                  ]}>
+                  14.2 km
+                </Text>
                 <Text style={[styles.dotSeparator, { color: colors.onSurfaceVariant }]}>·</Text>
                 <Text
                   style={[styles.commuteRoadText, { color: colors.onSurfaceVariant }]}
                   numberOfLines={1}>
-                  via Highway 4
+                  via NH-48
                 </Text>
               </View>
             </View>
@@ -634,14 +699,13 @@ export default function HomeScreen() {
           <Button
             variant="primary"
             size="sm"
-            title="Go"
-            leftIcon={<Navigation size={14} color={colors.onPrimary} />}
+            title="Start ▶"
             onPress={handleStartNav}
           />
         </Card>
 
-        {/* If Expanded, show Home Card & Quick Tools */}
-        {isSheetExpanded && (
+        {/* Detent 2 (Expanded): Home Card & Sovereign Tools Grid */}
+        {detentIndex === 2 && (
           <>
             <Card
               variant="flat"
@@ -686,7 +750,14 @@ export default function HomeScreen() {
             {/* Sovereign Quick Tools Row */}
             <View style={styles.quickToolsRow}>
               <TouchableOpacity
-                style={[styles.quickToolBtn, { backgroundColor: colors.surfaceContainerLow }]}
+                style={[
+                  styles.quickToolBtn,
+                  {
+                    backgroundColor: colors.surfaceContainerLow,
+                    borderColor: colors.surfaceContainerHigh,
+                    borderWidth: 1,
+                  },
+                ]}
                 onPress={() => {
                   haptics.light();
                   router.push('/digipin-explorer');
@@ -697,7 +768,14 @@ export default function HomeScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.quickToolBtn, { backgroundColor: colors.surfaceContainerLow }]}
+                style={[
+                  styles.quickToolBtn,
+                  {
+                    backgroundColor: colors.surfaceContainerLow,
+                    borderColor: colors.surfaceContainerHigh,
+                    borderWidth: 1,
+                  },
+                ]}
                 onPress={() => {
                   haptics.light();
                   router.push('/tsp-optimizer');
@@ -708,7 +786,14 @@ export default function HomeScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.quickToolBtn, { backgroundColor: colors.surfaceContainerLow }]}
+                style={[
+                  styles.quickToolBtn,
+                  {
+                    backgroundColor: colors.surfaceContainerLow,
+                    borderColor: colors.surfaceContainerHigh,
+                    borderWidth: 1,
+                  },
+                ]}
                 onPress={() => {
                   haptics.light();
                   router.push('/indoor-parking');
@@ -719,7 +804,14 @@ export default function HomeScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.quickToolBtn, { backgroundColor: colors.surfaceContainerLow }]}
+                style={[
+                  styles.quickToolBtn,
+                  {
+                    backgroundColor: colors.surfaceContainerLow,
+                    borderColor: colors.surfaceContainerHigh,
+                    borderWidth: 1,
+                  },
+                ]}
                 onPress={() => {
                   haptics.light();
                   router.push('/hazard-report');
@@ -732,126 +824,159 @@ export default function HomeScreen() {
           </>
         )}
 
-        {/* Quick POI Categories Track */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.poiCategoriesTrack}
-          style={styles.poiCategoriesScrollView}>
-          <TouchableOpacity
-            style={[
-              styles.poiCategoryCard,
-              { backgroundColor: colors.surfaceContainerLow },
-            ]}
-            onPress={() => {
-              haptics.light();
-              router.push('/ev-station');
-            }}
-            activeOpacity={0.8}>
-            <View style={[styles.poiCategoryIconBox, { backgroundColor: colors.primaryContainer + '25' }]}>
-              <Zap size={14} color={colors.primaryContainer} />
-            </View>
-            <View>
-              <Text style={[styles.poiCategoryName, { color: colors.onSurface }]}>EV Charge</Text>
-              <Text style={[styles.poiCategorySub, { color: colors.onSurfaceVariant }]}>42 nearby</Text>
-            </View>
-          </TouchableOpacity>
+        {/* Detent 1 & 2: Quick Categories Track */}
+        {detentIndex >= 1 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.poiCategoriesTrack}
+            style={styles.poiCategoriesScrollView}>
+            <TouchableOpacity
+              style={[
+                styles.poiCategoryCard,
+                {
+                  backgroundColor: colors.surfaceContainerLow,
+                  borderColor: colors.surfaceContainerHigh,
+                  borderWidth: 1,
+                },
+              ]}
+              onPress={() => {
+                haptics.light();
+                router.push('/ev-station');
+              }}
+              activeOpacity={0.8}>
+              <View style={[styles.poiCategoryIconBox, { backgroundColor: colors.primaryContainer + '25' }]}>
+                <Zap size={14} color={colors.primaryContainer} />
+              </View>
+              <View>
+                <Text style={[styles.poiCategoryName, { color: colors.onSurface }]}>EV Charge</Text>
+                <Text
+                  style={[
+                    styles.poiCategorySub,
+                    { color: colors.onSurfaceVariant, fontVariant: ['tabular-nums'] },
+                  ]}>
+                  6 free
+                </Text>
+              </View>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.poiCategoryCard,
-              { backgroundColor: colors.surfaceContainerLow },
-            ]}
-            onPress={() => {
-              haptics.light();
-              router.push('/(tabs)/nearby');
-            }}
-            activeOpacity={0.8}>
-            <View style={[styles.poiCategoryIconBox, { backgroundColor: colors.tertiaryContainer + '25' }]}>
-              <Fuel size={14} color={colors.tertiaryContainer} />
-            </View>
-            <View>
-              <Text style={[styles.poiCategoryName, { color: colors.onSurface }]}>Fuel</Text>
-              <Text style={[styles.poiCategorySub, { color: colors.onSurfaceVariant }]}>28 stations</Text>
-            </View>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.poiCategoryCard,
+                {
+                  backgroundColor: colors.surfaceContainerLow,
+                  borderColor: colors.surfaceContainerHigh,
+                  borderWidth: 1,
+                },
+              ]}
+              onPress={() => {
+                haptics.light();
+                Alert.alert('Fuel Stations', 'Showing 28 verified petrol & CNG stations along NH-48');
+              }}
+              activeOpacity={0.8}>
+              <View style={[styles.poiCategoryIconBox, { backgroundColor: colors.tertiary + '20' }]}>
+                <Fuel size={14} color={colors.tertiary} />
+              </View>
+              <View>
+                <Text style={[styles.poiCategoryName, { color: colors.onSurface }]}>Fuel</Text>
+                <Text
+                  style={[
+                    styles.poiCategorySub,
+                    { color: colors.onSurfaceVariant, fontVariant: ['tabular-nums'] },
+                  ]}>
+                  28 stations
+                </Text>
+              </View>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.poiCategoryCard,
-              { backgroundColor: colors.surfaceContainerLow },
-            ]}
-            onPress={() => {
-              haptics.light();
-              router.push('/indoor-parking');
-            }}
-            activeOpacity={0.8}>
-            <View style={[styles.poiCategoryIconBox, { backgroundColor: colors.secondaryContainer + '30' }]}>
-              <SquareParking size={14} color={colors.secondary} />
-            </View>
-            <View>
-              <Text style={[styles.poiCategoryName, { color: colors.onSurface }]}>Indoor Parking</Text>
-              <Text style={[styles.poiCategorySub, { color: colors.onSurfaceVariant }]}>18 lots</Text>
-            </View>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.poiCategoryCard,
+                {
+                  backgroundColor: colors.surfaceContainerLow,
+                  borderColor: colors.surfaceContainerHigh,
+                  borderWidth: 1,
+                },
+              ]}
+              onPress={() => {
+                haptics.light();
+                router.push('/indoor-parking');
+              }}
+              activeOpacity={0.8}>
+              <View style={[styles.poiCategoryIconBox, { backgroundColor: colors.trafficGreen + '20' }]}>
+                <SquareParking size={14} color={colors.trafficGreen} />
+              </View>
+              <View>
+                <Text style={[styles.poiCategoryName, { color: colors.onSurface }]}>Indoor Park</Text>
+                <Text
+                  style={[
+                    styles.poiCategorySub,
+                    { color: colors.onSurfaceVariant, fontVariant: ['tabular-nums'] },
+                  ]}>
+                  18 lots
+                </Text>
+              </View>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.poiCategoryCard,
-              { backgroundColor: colors.surfaceContainerLow },
-            ]}
-            onPress={() => {
-              haptics.light();
-              router.push('/(tabs)/nearby');
-            }}
-            activeOpacity={0.8}>
-            <View style={[styles.poiCategoryIconBox, { backgroundColor: colors.errorContainer + '40' }]}>
-              <Utensils size={14} color={colors.error} />
-            </View>
-            <View>
-              <Text style={[styles.poiCategoryName, { color: colors.onSurface }]}>Dining</Text>
-              <Text style={[styles.poiCategorySub, { color: colors.onSurfaceVariant }]}>65 places</Text>
-            </View>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.poiCategoryCard,
+                {
+                  backgroundColor: colors.surfaceContainerLow,
+                  borderColor: colors.surfaceContainerHigh,
+                  borderWidth: 1,
+                },
+              ]}
+              onPress={() => {
+                haptics.light();
+                Alert.alert('FASTag Plaza', 'Upcoming Toll: Kherki Daula · ₹85 Auto-Debit');
+              }}
+              activeOpacity={0.8}>
+              <View style={[styles.poiCategoryIconBox, { backgroundColor: colors.primary + '20' }]}>
+                <Route size={14} color={colors.primary} />
+              </View>
+              <View>
+                <Text style={[styles.poiCategoryName, { color: colors.onSurface }]}>FASTag</Text>
+                <Text
+                  style={[
+                    styles.poiCategorySub,
+                    { color: colors.onSurfaceVariant, fontVariant: ['tabular-nums'] },
+                  ]}>
+                  Toll ₹85
+                </Text>
+              </View>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.poiCategoryCard,
-              { backgroundColor: colors.surfaceContainerLow },
-            ]}
-            onPress={() => {
-              haptics.light();
-              router.push('/hazard-report');
-            }}
-            activeOpacity={0.8}>
-            <View style={[styles.poiCategoryIconBox, { backgroundColor: colors.error + '20' }]}>
-              <TriangleAlert size={14} color={colors.error} />
-            </View>
-            <View>
-              <Text style={[styles.poiCategoryName, { color: colors.onSurface }]}>Hazards</Text>
-              <Text style={[styles.poiCategorySub, { color: colors.onSurfaceVariant }]}>18 reports</Text>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.poiCategoryCard,
-              { backgroundColor: colors.surfaceContainerLow },
-            ]}
-            onPress={() => {
-              haptics.heavy();
-              router.push('/sos-distress');
-            }}
-            activeOpacity={0.8}>
-            <View style={[styles.poiCategoryIconBox, { backgroundColor: colors.errorContainer + '40' }]}>
-              <ShieldAlert size={14} color={colors.onErrorContainer} />
-            </View>
-            <View>
-              <Text style={[styles.poiCategoryName, { color: colors.onSurface }]}>SOS 112</Text>
-              <Text style={[styles.poiCategorySub, { color: colors.onSurfaceVariant }]}>24/7 Police</Text>
-            </View>
-          </TouchableOpacity>
-        </ScrollView>
+            <TouchableOpacity
+              style={[
+                styles.poiCategoryCard,
+                {
+                  backgroundColor: colors.surfaceContainerLow,
+                  borderColor: colors.surfaceContainerHigh,
+                  borderWidth: 1,
+                },
+              ]}
+              onPress={() => {
+                haptics.light();
+                router.push('/hazard-report');
+              }}
+              activeOpacity={0.8}>
+              <View style={[styles.poiCategoryIconBox, { backgroundColor: colors.error + '20' }]}>
+                <TriangleAlert size={14} color={colors.error} />
+              </View>
+              <View>
+                <Text style={[styles.poiCategoryName, { color: colors.onSurface }]}>V2X Hazard</Text>
+                <Text
+                  style={[
+                    styles.poiCategorySub,
+                    { color: colors.onSurfaceVariant, fontVariant: ['tabular-nums'] },
+                  ]}>
+                  18 reports
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </ScrollView>
+        )}
       </Animated.View>
 
       {/* MAP LAYER SELECTOR BOTTOM SHEET MODAL */}
@@ -1166,6 +1291,72 @@ const styles = StyleSheet.create({
     zIndex: 20,
     paddingHorizontal: Spacing.md,
   },
+  omniHeaderCard: {
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    paddingHorizontal: Spacing.md,
+    paddingTop: 10,
+    paddingBottom: 10,
+    gap: 8,
+    ...Shadows.md,
+  },
+  omniRow1: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  omniRow1Left: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    flex: 1,
+  },
+  headerSubtitle: {
+    fontSize: 10.5,
+    fontWeight: '600',
+    marginTop: -1,
+  },
+  omniRow2: {
+    width: '100%',
+  },
+  omniSearchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.sm + 2,
+    paddingVertical: 7,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    gap: 8,
+  },
+  omniSearchPlaceholder: {
+    flex: 1,
+    fontSize: 12.5,
+    fontWeight: '500',
+  },
+  omniSearchActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  omniActionBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navicMiniPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  navicMiniText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+  },
   floatingBrandBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1173,7 +1364,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md + 2,
     paddingVertical: 10,
     borderRadius: Radius.xxl,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     marginBottom: Spacing.sm,
     ...Shadows.md,
   },
@@ -1184,6 +1375,11 @@ const styles = StyleSheet.create({
   },
   titleColumn: {
     justifyContent: 'center',
+  },
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   logoTag: {
     fontSize: 10,
@@ -1212,6 +1408,7 @@ const styles = StyleSheet.create({
     ...Typography.labelSmall,
     fontWeight: '900',
     fontSize: 10,
+    fontVariant: ['tabular-nums'],
   },
   headerIconButton: {
     width: 34,
@@ -1256,7 +1453,6 @@ const styles = StyleSheet.create({
   },
   floatingLeftWidgets: {
     position: 'absolute',
-    top: 130,
     left: Spacing.md,
     zIndex: 14,
     gap: Spacing.sm,
@@ -1268,7 +1464,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm + 4,
     paddingVertical: 8,
     borderRadius: Radius.full,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     ...Shadows.sm,
   },
   weatherIconCircle: {
@@ -1282,6 +1478,7 @@ const styles = StyleSheet.create({
   weatherTemp: {
     ...Typography.labelMedium,
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   aqiRow: {
     flexDirection: 'row',
@@ -1297,6 +1494,7 @@ const styles = StyleSheet.create({
     ...Typography.labelSmall,
     fontSize: 9,
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   speedCameraBadge: {
     flexDirection: 'row',
@@ -1305,7 +1503,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm + 4,
     paddingVertical: 7,
     borderRadius: Radius.full,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     ...Shadows.sm,
   },
   cameraAlertDot: {
@@ -1318,10 +1516,10 @@ const styles = StyleSheet.create({
   speedCameraText: {
     ...Typography.labelSmall,
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   floatingRightControls: {
     position: 'absolute',
-    top: 130,
     right: Spacing.md,
     zIndex: 14,
     alignItems: 'center',
@@ -1445,12 +1643,14 @@ const styles = StyleSheet.create({
   commuteTimeText: {
     ...Typography.labelMedium,
     fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
   dotSeparator: {
     fontSize: 10,
   },
   commuteDistText: {
     ...Typography.bodySmall,
+    fontVariant: ['tabular-nums'],
   },
   commuteRoadText: {
     ...Typography.bodySmall,
@@ -1527,24 +1727,6 @@ const styles = StyleSheet.create({
   poiCategorySub: {
     ...Typography.labelSmall,
     fontSize: 10,
-  },
-  logoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  navicMiniPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: Radius.xs,
-  },
-  navicMiniText: {
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 0.2,
   },
   layerOptionsGrid: {
     flexDirection: 'row',

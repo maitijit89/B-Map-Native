@@ -5,3 +5,4 @@ export * from './useCompass';
 export * from './useSpringPress';
 export * from './useDynamicAppIcon';
 export * from './useResponsive';
+export * from './usePoiCollisionEngine';

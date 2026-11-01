@@ -86,6 +86,17 @@ export const Typography = {
     fontWeight: '600' as const,
     letterSpacing: 0.4,
   },
+  digipinMono: {
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: '600' as const,
+    letterSpacing: 1.5,
+    fontFamily: 'monospace',
+    fontVariant: ['tabular-nums' as const],
+  },
+  tabularNums: {
+    fontVariant: ['tabular-nums' as const],
+  },
 } as const;
 
 export const Shadows: Record<'none' | 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'glow', ViewStyle> = {

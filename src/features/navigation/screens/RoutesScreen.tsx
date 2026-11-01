@@ -843,6 +843,8 @@ const styles = StyleSheet.create({
   },
   digiPinText: {
     ...Typography.bodySmall,
+    fontFamily: 'monospace',
+    fontVariant: ['tabular-nums'],
   },
   profileRow: {
     flexDirection: "row",
@@ -854,7 +856,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    height: 44,
+    height: 48,
     borderRadius: Radius.lg,
     borderWidth: 1,
   },
@@ -931,9 +933,11 @@ const styles = StyleSheet.create({
   timeText: {
     ...Typography.titleLarge,
     fontWeight: "800",
+    fontVariant: ['tabular-nums'],
   },
   distText: {
     ...Typography.bodySmall,
+    fontVariant: ['tabular-nums'],
   },
   tollPill: {
     flexDirection: "row",
@@ -943,6 +947,7 @@ const styles = StyleSheet.create({
   tollText: {
     ...Typography.labelSmall,
     fontWeight: "600",
+    fontVariant: ['tabular-nums'],
   },
   ecoPill: {
     flexDirection: "row",
@@ -952,6 +957,7 @@ const styles = StyleSheet.create({
   ecoText: {
     ...Typography.labelSmall,
     fontWeight: "700",
+    fontVariant: ['tabular-nums'],
   },
   tollBreakdownCard: {
     borderRadius: Radius.lg,
@@ -971,6 +977,7 @@ const styles = StyleSheet.create({
   plazaFee: {
     ...Typography.titleMedium,
     fontWeight: "800",
+    fontVariant: ['tabular-nums'],
   },
   stepsCard: {
     borderRadius: Radius.lg,
@@ -998,6 +1005,7 @@ const styles = StyleSheet.create({
   stepDist: {
     ...Typography.labelSmall,
     fontWeight: "700",
+    fontVariant: ['tabular-nums'],
   },
   bottomDock: {
     position: "absolute",
@@ -1030,6 +1038,7 @@ const styles = StyleSheet.create({
     ...Typography.titleMedium,
     fontWeight: "800",
     fontSize: 18,
+    fontVariant: ['tabular-nums'],
   },
   dockTrafficDot: {
     width: 8,

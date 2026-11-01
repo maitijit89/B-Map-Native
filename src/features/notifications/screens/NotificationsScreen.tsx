@@ -486,9 +486,14 @@ const styles = StyleSheet.create({
     ...Typography.bodySmall,
     fontSize: 11,
     marginTop: 2,
+    fontVariant: ['tabular-nums'],
   },
   deleteItemBtn: {
-    padding: 4,
+    padding: 8,
+    minWidth: 36,
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cardMessage: {
     ...Typography.bodyMedium,

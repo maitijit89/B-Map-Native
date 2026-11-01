@@ -434,11 +434,13 @@ const styles = StyleSheet.create({
     fontSize: 34,
     fontWeight: '900',
     letterSpacing: -1,
+    fontVariant: ['tabular-nums'],
   },
   walletBalanceDec: {
     color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 18,
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   tagMetaRow: {
     flexDirection: 'row',
@@ -468,8 +470,8 @@ const styles = StyleSheet.create({
   rechargeChip: {
     flex: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.22)',
-    paddingVertical: 10,
-    minHeight: 42,
+    paddingVertical: 12,
+    minHeight: 48,
     borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -478,6 +480,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 12,
     fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
   vehicleList: {
     gap: 10,

@@ -842,6 +842,7 @@ const styles = StyleSheet.create({
   accValue: {
     ...Typography.titleSmall,
     fontWeight: "800",
+    fontVariant: ["tabular-nums"],
   },
   accLabel: {
     ...Typography.labelSmall,
@@ -888,12 +889,14 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     width: 38,
     textAlign: "right",
+    fontVariant: ["tabular-nums"],
   },
   satElev: {
     ...Typography.labelSmall,
     fontSize: 10,
     width: 30,
     textAlign: "right",
+    fontVariant: ["tabular-nums"],
   },
   sosDescription: {
     ...Typography.bodySmall,
@@ -931,8 +934,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   voteBtn: {
-    width: 28,
-    height: 28,
+    width: 34,
+    height: 34,
     borderRadius: Radius.full,
     alignItems: "center",
     justifyContent: "center",
@@ -942,6 +945,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     minWidth: 20,
     textAlign: "center",
+    fontVariant: ["tabular-nums"],
   },
   cameraRow: {
     flexDirection: "row",
@@ -971,5 +975,6 @@ const styles = StyleSheet.create({
   limitText: {
     ...Typography.labelSmall,
     fontWeight: "800",
+    fontVariant: ["tabular-nums"],
   },
 });

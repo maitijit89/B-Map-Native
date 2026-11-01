@@ -12,7 +12,9 @@ import Svg, {
   Polygon,
 } from 'react-native-svg';
 import { Zap, ShoppingBag, Coffee, Star, Briefcase, TriangleAlert } from 'lucide-react-native';
-import { BMapColors } from '@/shared';
+import { useTheme } from '@/shared/hooks';
+import { ResolvedMapPoi } from '@/shared/hooks/usePoiCollisionEngine';
+import { BMapColors } from '@/shared/constants/BMapTheme';
 
 const SVG_VIEW_WIDTH = 420;
 const SVG_VIEW_HEIGHT = 860;
@@ -26,6 +28,8 @@ interface VectorMapCanvasProps {
   mapLayer?: MapLayerType;
   isLocating?: boolean;
   isGpsLocked?: boolean;
+  resolvedPois?: ResolvedMapPoi[];
+  monsoonAlert?: boolean;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -257,85 +261,96 @@ TrafficOverlayLayer.displayName = 'TrafficOverlayLayer';
 /**
  * 4. Expressway & Navigation Polyline Track Layer
  */
-const ExpresswayAndNavLayer = memo<{ isLocating?: boolean; isGpsLocked?: boolean }>(({
+const ExpresswayAndNavLayer = memo<{
+  isLocating?: boolean;
+  isGpsLocked?: boolean;
+  monsoonAlert?: boolean;
+  monsoonColor?: string;
+}>(({
   isLocating = false,
   isGpsLocked = false,
-}) => (
-  <>
-    {/* Elevated Expressway / Highway 4 Polyline */}
-    <Path
-      d="M -20,410 C 120,400 180,360 270,300 S 390,210 440,190"
-      fill="none"
-      stroke="#FFE7BA"
-      strokeLinecap="round"
-      strokeWidth={12}
-    />
-    <Path
-      d="M -20,410 C 120,400 180,360 270,300 S 390,210 440,190"
-      fill="none"
-      stroke="#FF9D42"
-      strokeLinecap="round"
-      strokeWidth={7}
-    />
+  monsoonAlert = false,
+  monsoonColor = '#FFEA00',
+}) => {
+  const activePolylineColor = monsoonAlert ? monsoonColor : '#0096FF';
 
-    {/* Active Recommended GPS Navigation Polyline Track */}
-    <Path
-      d="M 210,520 L 210,460 L 110,460 L 110,320 L 270,300 L 330,190"
-      fill="none"
-      opacity={0.95}
-      stroke="#0096FF"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={8}
-    />
-    <Path
-      d="M 210,520 L 210,460 L 110,460 L 110,320 L 270,300 L 330,190"
-      fill="none"
-      stroke="#FFFFFF"
-      strokeDasharray="7 7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2.5}
-    />
+  return (
+    <>
+      {/* Elevated Expressway / Highway 4 Polyline */}
+      <Path
+        d="M -20,410 C 120,400 180,360 270,300 S 390,210 440,190"
+        fill="none"
+        stroke="#FFE7BA"
+        strokeLinecap="round"
+        strokeWidth={12}
+      />
+      <Path
+        d="M -20,410 C 120,400 180,360 270,300 S 390,210 440,190"
+        fill="none"
+        stroke="#FF9D42"
+        strokeLinecap="round"
+        strokeWidth={7}
+      />
 
-    {/* Metro Line 2 Ribbon */}
-    <Path
-      d="M 10,720 Q 180,680 230,500 T 380,240"
-      fill="none"
-      opacity={0.6}
-      stroke="#9C27B0"
-      strokeDasharray="6 4"
-      strokeWidth={3}
-    />
+      {/* Active Recommended GPS Navigation Polyline Track (Flowstep v3.0 Monsoon High-Vis support) */}
+      <Path
+        d="M 210,520 L 210,460 L 110,460 L 110,320 L 270,300 L 330,190"
+        fill="none"
+        opacity={monsoonAlert ? 1 : 0.95}
+        stroke={activePolylineColor}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={monsoonAlert ? 9 : 8}
+      />
+      <Path
+        d="M 210,520 L 210,460 L 110,460 L 110,320 L 270,300 L 330,190"
+        fill="none"
+        stroke="#FFFFFF"
+        strokeDasharray="7 7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2.5}
+      />
 
-    {/* GPS User Location Radar Beam & NavIC Dual-Band Reticle */}
-    <G x="210" y="520">
-      <Path d="M 0,0 L -45,-90 A 100 100 0 0 1 45,-90 Z" fill="url(#radarCone)" />
+      {/* Metro Line 2 Ribbon */}
+      <Path
+        d="M 10,720 Q 180,680 230,500 T 380,240"
+        fill="none"
+        opacity={0.6}
+        stroke="#9C27B0"
+        strokeDasharray="6 4"
+        strokeWidth={3}
+      />
 
-      {/* Lock Establishment Visual Wave Rings */}
-      {isLocating && (
-        <>
-          <Circle r="54" fill="#00E5FF" opacity={0.18} />
-          <Circle r="42" fill="none" stroke="#00E5FF" strokeWidth={1.5} strokeDasharray="3 3" />
-        </>
-      )}
+      {/* GPS User Location Radar Beam & NavIC Dual-Band Reticle */}
+      <G x="210" y="520">
+        <Path d="M 0,0 L -45,-90 A 100 100 0 0 1 45,-90 Z" fill="url(#radarCone)" />
 
-      {isGpsLocked && (
-        <>
-          <Circle r="48" fill="none" stroke="#00C853" strokeWidth={2} strokeDasharray="5 3" />
-          <Circle r="38" fill="#00C853" opacity={0.16} />
-          <Path d="M -20,0 L -10,0 M 10,0 L 20,0 M 0,-20 L 0,-10 M 0,10 L 0,20" stroke="#00C853" strokeWidth={1.8} />
-        </>
-      )}
+        {/* Lock Establishment Visual Wave Rings */}
+        {isLocating && (
+          <>
+            <Circle r="54" fill="#00E5FF" opacity={0.18} />
+            <Circle r="42" fill="none" stroke="#00E5FF" strokeWidth={1.5} strokeDasharray="3 3" />
+          </>
+        )}
 
-      <Circle r="36" fill="#0096FF" opacity={0.12} />
-      <Circle r="24" fill="#0096FF" opacity={0.22} />
-      <Circle r="13" fill="#FFFFFF" />
-      <Circle r="8" fill={isGpsLocked ? '#00C853' : '#0096FF'} />
-      <Polygon points="0,-16 -4,-9 4,-9" fill={isGpsLocked ? '#00C853' : '#0096FF'} />
-    </G>
-  </>
-));
+        {isGpsLocked && (
+          <>
+            <Circle r="48" fill="none" stroke="#00C853" strokeWidth={2} strokeDasharray="5 3" />
+            <Circle r="38" fill="#00C853" opacity={0.16} />
+            <Path d="M -20,0 L -10,0 M 10,0 L 20,0 M 0,-20 L 0,-10 M 0,10 L 0,20" stroke="#00C853" strokeWidth={1.8} />
+          </>
+        )}
+
+        <Circle r="36" fill="#0096FF" opacity={0.12} />
+        <Circle r="24" fill="#0096FF" opacity={0.22} />
+        <Circle r="13" fill="#FFFFFF" />
+        <Circle r="8" fill={isGpsLocked ? '#00C853' : '#0096FF'} />
+        <Polygon points="0,-16 -4,-9 4,-9" fill={isGpsLocked ? '#00C853' : '#0096FF'} />
+      </G>
+    </>
+  );
+});
 ExpresswayAndNavLayer.displayName = 'ExpresswayAndNavLayer';
 
 /**
@@ -348,8 +363,12 @@ export const VectorMapCanvas: React.FC<VectorMapCanvasProps> = memo(({
   mapLayer = 'standard',
   isLocating = false,
   isGpsLocked = false,
+  resolvedPois,
+  monsoonAlert = false,
   style,
 }) => {
+  const { colors } = useTheme();
+
   const handleGrandMetroPress = useCallback(() => onPoiPress?.('Grand Metro Stn'), [onPoiPress]);
   const handleEvStationPress = useCallback(() => onPoiPress?.('B-Power 120kW'), [onPoiPress]);
   const handleMallPress = useCallback(() => onPoiPress?.('IFC Mall'), [onPoiPress]);
@@ -387,106 +406,296 @@ export const VectorMapCanvas: React.FC<VectorMapCanvasProps> = memo(({
         <StaticLandmassLayer mapLayer={mapLayer} />
         <StreetNetworkLayer mapLayer={mapLayer} />
         <TrafficOverlayLayer showTraffic={showTraffic} />
-        <ExpresswayAndNavLayer isLocating={isLocating} isGpsLocked={isGpsLocked} />
+        <ExpresswayAndNavLayer
+          isLocating={isLocating}
+          isGpsLocked={isGpsLocked}
+          monsoonAlert={monsoonAlert}
+          monsoonColor={colors.monsoonHighVis}
+        />
       </Svg>
 
-      {/* POI Overlay Badges */}
-      {/* 1. Metro Station */}
-      <TouchableOpacity
-        style={[styles.poiBadge, { top: '38%', left: 16 }]}
-        onPress={handleGrandMetroPress}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        accessibilityRole="button"
-        accessibilityLabel="Grand Metro Station map pin"
-        activeOpacity={0.8}>
-        <View style={styles.metroIcon}>
-          <Text style={styles.metroIconText}>M</Text>
-        </View>
-        <Text style={styles.poiTitle}>Grand Metro Stn</Text>
-      </TouchableOpacity>
+      {/* R-Tree World-Space Resolved POIs (Flowstep v3.0 Zero-Collision Engine) */}
+      {resolvedPois && resolvedPois.length > 0 ? (
+        resolvedPois
+          .filter((p) => p.visible && (showHazards || p.category !== 'HAZARD'))
+          .map((poi) => {
+            if (poi.category === 'HAZARD') {
+              return (
+                <TouchableOpacity
+                  key={poi.id}
+                  style={[
+                    styles.hazardPinContainer,
+                    poi.labelAnchor === 'LEFT'
+                      ? { left: poi.screenX - 140, top: poi.screenY - 14 }
+                      : poi.labelAnchor === 'TOP'
+                      ? { left: poi.screenX - 60, top: poi.screenY - 36 }
+                      : { left: poi.screenX - 16, top: poi.screenY - 14 },
+                  ]}
+                  onPress={() => onPoiPress?.(poi.title)}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={poi.title}
+                  activeOpacity={0.8}>
+                  <View style={[styles.hazardPinPill, { backgroundColor: colors.error }]}>
+                    <TriangleAlert size={12} color="#ffffff" />
+                    <Text style={[styles.hazardPinText, { fontVariant: ['tabular-nums'] }]}>
+                      {poi.title}
+                    </Text>
+                    {poi.badgeCount ? (
+                      <View style={styles.hazardCountBadge}>
+                        <Text style={[styles.hazardCountText, { fontVariant: ['tabular-nums'] }]}>
+                          {poi.badgeCount}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <View style={[styles.hazardPinArrow, { borderTopColor: colors.error }]} />
+                </TouchableOpacity>
+              );
+            }
 
-      {/* 2. EV Supercharger */}
-      <TouchableOpacity
-        style={[styles.poiBadge, { top: '50%', right: 76 }]}
-        onPress={handleEvStationPress}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        accessibilityRole="button"
-        accessibilityLabel="B-Power 120kW EV Supercharger map pin"
-        activeOpacity={0.8}>
-        <Zap size={14} color="#0096FF" fill="#0096FF" />
-        <Text style={styles.poiTitle}>B-Power 120kW</Text>
-        <View style={styles.greenTag}>
-          <Text style={styles.greenTagText}>6 free</Text>
-        </View>
-      </TouchableOpacity>
+            if (poi.category === 'METRO') {
+              return (
+                <TouchableOpacity
+                  key={poi.id}
+                  style={[
+                    styles.poiBadge,
+                    {
+                      backgroundColor: colors.surfaceContainerLowest,
+                      borderColor: colors.surfaceContainerHigh,
+                    },
+                    poi.labelAnchor === 'LEFT'
+                      ? { left: poi.screenX - 140, top: poi.screenY - 16, flexDirection: 'row-reverse' }
+                      : poi.labelAnchor === 'TOP'
+                      ? { left: poi.screenX - 60, top: poi.screenY - 42 }
+                      : { left: poi.screenX - 16, top: poi.screenY - 16 },
+                  ]}
+                  onPress={() => onPoiPress?.(poi.title)}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={poi.title}
+                  activeOpacity={0.8}>
+                  <View style={styles.metroIcon}>
+                    <Text style={styles.metroIconText}>M</Text>
+                  </View>
+                  <Text style={[styles.poiTitle, { color: colors.onSurface }]}>{poi.title}</Text>
+                </TouchableOpacity>
+              );
+            }
 
-      {/* 3. IFC Mall */}
-      <TouchableOpacity
-        style={[styles.mallCardContainer, { top: '28%', left: '46%' }]}
-        onPress={handleMallPress}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        accessibilityRole="button"
-        accessibilityLabel="IFC Mall map pin"
-        activeOpacity={0.8}>
-        <View style={styles.mallCard}>
-          <ShoppingBag size={15} color={BMapColors.tertiaryContainer} />
-          <View>
-            <Text style={styles.mallTitle}>IFC Mall</Text>
-            <View style={styles.mallRatingRow}>
-              <Star size={10} color="#FF9800" fill="#FF9800" />
-              <Text style={styles.mallRatingText}>4.8 · Popular</Text>
+            if (poi.category === 'EV') {
+              return (
+                <TouchableOpacity
+                  key={poi.id}
+                  style={[
+                    styles.poiBadge,
+                    {
+                      backgroundColor: colors.surfaceContainerLowest,
+                      borderColor: colors.surfaceContainerHigh,
+                    },
+                    poi.labelAnchor === 'LEFT'
+                      ? { left: poi.screenX - 160, top: poi.screenY - 16, flexDirection: 'row-reverse' }
+                      : poi.labelAnchor === 'TOP'
+                      ? { left: poi.screenX - 70, top: poi.screenY - 42 }
+                      : { left: poi.screenX - 16, top: poi.screenY - 16 },
+                  ]}
+                  onPress={() => onPoiPress?.(poi.title)}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={poi.title}
+                  activeOpacity={0.8}>
+                  <Zap size={14} color={colors.primaryContainer} fill={colors.primaryContainer} />
+                  <Text style={[styles.poiTitle, { color: colors.onSurface }]}>{poi.title}</Text>
+                  {poi.freeCount !== undefined ? (
+                    <View style={styles.greenTag}>
+                      <Text style={[styles.greenTagText, { fontVariant: ['tabular-nums'] }]}>
+                        {poi.freeCount} free
+                      </Text>
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+              );
+            }
+
+            if (poi.category === 'PARKING') {
+              return (
+                <TouchableOpacity
+                  key={poi.id}
+                  style={[
+                    styles.mallCardContainer,
+                    poi.labelAnchor === 'LEFT'
+                      ? { left: poi.screenX - 160, top: poi.screenY - 24 }
+                      : poi.labelAnchor === 'TOP'
+                      ? { left: poi.screenX - 75, top: poi.screenY - 48 }
+                      : { left: poi.screenX - 16, top: poi.screenY - 24 },
+                  ]}
+                  onPress={() => onPoiPress?.(poi.title)}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={poi.title}
+                  activeOpacity={0.8}>
+                  <View
+                    style={[
+                      styles.mallCard,
+                      {
+                        backgroundColor: colors.surfaceContainerLowest,
+                        borderColor: colors.surfaceContainerHigh,
+                      },
+                    ]}>
+                    <ShoppingBag size={15} color={colors.tertiary} />
+                    <View>
+                      <Text style={[styles.mallTitle, { color: colors.onSurface }]}>{poi.title}</Text>
+                      <View style={styles.mallRatingRow}>
+                        <Star size={10} color="#FF9800" fill="#FF9800" />
+                        <Text style={[styles.mallRatingText, { fontVariant: ['tabular-nums'] }]}>
+                          {poi.rating ? `${poi.rating} · Popular` : '4.8 · Popular'}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                  <View
+                    style={[
+                      styles.mallCardArrow,
+                      { borderTopColor: colors.surfaceContainerLowest },
+                    ]}
+                  />
+                </TouchableOpacity>
+              );
+            }
+
+            // COMMERCIAL & other categories
+            return (
+              <TouchableOpacity
+                key={poi.id}
+                style={[
+                  styles.poiBadge,
+                  {
+                    backgroundColor: colors.surfaceContainerLowest,
+                    borderColor: colors.surfaceContainerHigh,
+                  },
+                  poi.labelAnchor === 'LEFT'
+                    ? { left: poi.screenX - 150, top: poi.screenY - 16, flexDirection: 'row-reverse' }
+                    : poi.labelAnchor === 'TOP'
+                    ? { left: poi.screenX - 60, top: poi.screenY - 42 }
+                    : { left: poi.screenX - 16, top: poi.screenY - 16 },
+                ]}
+                onPress={() => onPoiPress?.(poi.title)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityRole="button"
+                accessibilityLabel={poi.title}
+                activeOpacity={0.8}>
+                {poi.title.includes('Cafe') ? (
+                  <Coffee size={13} color="#8B5000" />
+                ) : (
+                  <Briefcase size={13} color={colors.primary} />
+                )}
+                <Text style={[styles.poiTitle, { color: colors.onSurface, fontSize: 11 }]}>
+                  {poi.title}
+                </Text>
+              </TouchableOpacity>
+            );
+          })
+      ) : (
+        /* Fallback Static POIs when collision engine is not provided */
+        <>
+          {/* 1. Metro Station */}
+          <TouchableOpacity
+            style={[styles.poiBadge, { top: '38%', left: 16 }]}
+            onPress={handleGrandMetroPress}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel="Grand Metro Station map pin"
+            activeOpacity={0.8}>
+            <View style={styles.metroIcon}>
+              <Text style={styles.metroIconText}>M</Text>
             </View>
-          </View>
-        </View>
-        <View style={styles.mallCardArrow} />
-      </TouchableOpacity>
+            <Text style={styles.poiTitle}>Grand Metro Stn</Text>
+          </TouchableOpacity>
 
-      {/* 4. Specialty Coffee */}
-      <TouchableOpacity
-        style={[styles.poiBadge, { top: '58%', left: '25%' }]}
-        onPress={handleCafePress}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        accessibilityRole="button"
-        accessibilityLabel="Blue Oasis Cafe map pin"
-        activeOpacity={0.8}>
-        <Coffee size={13} color="#8B5000" />
-        <Text style={[styles.poiTitle, { fontSize: 11 }]}>Blue Oasis Cafe</Text>
-      </TouchableOpacity>
-
-      {/* 5. Destination Pin Flag (Tech Innovation Park) */}
-      <TouchableOpacity
-        style={[styles.destinationContainer, { top: '22%', right: '24%' }]}
-        onPress={handleTechParkPress}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        accessibilityRole="button"
-        accessibilityLabel="Tech Innovation Park destination map pin"
-        activeOpacity={0.8}>
-        <View style={styles.destinationPill}>
-          <Briefcase size={12} color="#ffffff" />
-          <Text style={styles.destinationText}>Tech Innovation Park</Text>
-        </View>
-        <View style={styles.destinationArrow} />
-        <View style={styles.destinationShadow} />
-      </TouchableOpacity>
-
-      {/* 6. Crowdsourced Hazard Pin (NH-48 Pothole Alert) */}
-      {showHazards && (
-        <TouchableOpacity
-          style={[styles.hazardPinContainer, { top: '34%', left: '16%' }]}
-          onPress={handleHazardPress}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          accessibilityRole="button"
-          accessibilityLabel="Crowdsourced Road Hazard Pothole map pin"
-          activeOpacity={0.8}>
-          <View style={styles.hazardPinPill}>
-            <TriangleAlert size={12} color="#ffffff" />
-            <Text style={styles.hazardPinText}>Pothole · km 42</Text>
-            <View style={styles.hazardCountBadge}>
-              <Text style={styles.hazardCountText}>18</Text>
+          {/* 2. EV Supercharger */}
+          <TouchableOpacity
+            style={[styles.poiBadge, { top: '50%', right: 76 }]}
+            onPress={handleEvStationPress}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel="B-Power 120kW EV Supercharger map pin"
+            activeOpacity={0.8}>
+            <Zap size={14} color="#0096FF" fill="#0096FF" />
+            <Text style={styles.poiTitle}>B-Power 120kW</Text>
+            <View style={styles.greenTag}>
+              <Text style={styles.greenTagText}>6 free</Text>
             </View>
-          </View>
-          <View style={styles.hazardPinArrow} />
-        </TouchableOpacity>
+          </TouchableOpacity>
+
+          {/* 3. IFC Mall */}
+          <TouchableOpacity
+            style={[styles.mallCardContainer, { top: '28%', left: '46%' }]}
+            onPress={handleMallPress}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel="IFC Mall map pin"
+            activeOpacity={0.8}>
+            <View style={styles.mallCard}>
+              <ShoppingBag size={15} color={colors.tertiary} />
+              <View>
+                <Text style={styles.mallTitle}>IFC Mall</Text>
+                <View style={styles.mallRatingRow}>
+                  <Star size={10} color="#FF9800" fill="#FF9800" />
+                  <Text style={styles.mallRatingText}>4.8 · Popular</Text>
+                </View>
+              </View>
+            </View>
+            <View style={styles.mallCardArrow} />
+          </TouchableOpacity>
+
+          {/* 4. Specialty Coffee */}
+          <TouchableOpacity
+            style={[styles.poiBadge, { top: '58%', left: '25%' }]}
+            onPress={handleCafePress}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel="Blue Oasis Cafe map pin"
+            activeOpacity={0.8}>
+            <Coffee size={13} color="#8B5000" />
+            <Text style={[styles.poiTitle, { fontSize: 11 }]}>Blue Oasis Cafe</Text>
+          </TouchableOpacity>
+
+          {/* 5. Destination Pin Flag (Tech Innovation Park) */}
+          <TouchableOpacity
+            style={[styles.destinationContainer, { top: '22%', right: '24%' }]}
+            onPress={handleTechParkPress}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel="Tech Innovation Park destination map pin"
+            activeOpacity={0.8}>
+            <View style={styles.destinationPill}>
+              <Briefcase size={12} color="#ffffff" />
+              <Text style={styles.destinationText}>Tech Innovation Park</Text>
+            </View>
+            <View style={styles.destinationArrow} />
+            <View style={styles.destinationShadow} />
+          </TouchableOpacity>
+
+          {/* 6. Crowdsourced Hazard Pin (NH-48 Pothole Alert) */}
+          {showHazards && (
+            <TouchableOpacity
+              style={[styles.hazardPinContainer, { top: '34%', left: '16%' }]}
+              onPress={handleHazardPress}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel="Crowdsourced Road Hazard Pothole map pin"
+              activeOpacity={0.8}>
+              <View style={styles.hazardPinPill}>
+                <TriangleAlert size={12} color="#ffffff" />
+                <Text style={styles.hazardPinText}>Pothole · km 42</Text>
+                <View style={styles.hazardCountBadge}>
+                  <Text style={styles.hazardCountText}>18</Text>
+                </View>
+              </View>
+              <View style={styles.hazardPinArrow} />
+            </TouchableOpacity>
+          )}
+        </>
       )}
     </View>
   );

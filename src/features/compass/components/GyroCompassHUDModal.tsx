@@ -419,6 +419,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#E2E8F0',
     marginTop: 2,
+    fontVariant: ['tabular-nums'],
   },
   locationBadge: {
     flexDirection: 'row',

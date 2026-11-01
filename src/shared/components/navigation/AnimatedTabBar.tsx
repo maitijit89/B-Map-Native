@@ -12,7 +12,6 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import type { Tabs } from 'expo-router';
 import { useTheme, useThemeColors, useResponsive } from '../../hooks';
 import { Radius, Shadows, Spacing, Typography } from '../../constants/tokens';
@@ -167,18 +166,14 @@ export const AnimatedTabBar: React.FC<TabBarProps> = ({
         },
       ]}
       pointerEvents="box-none">
-      <BlurView
-        intensity={Platform.OS === 'ios' ? 85 : 60}
-        tint={isDark ? 'dark' : 'light'}
+      <View
         style={[
           styles.dockContainer,
           {
             backgroundColor: isDark
-              ? 'rgba(15, 22, 36, 0.90)'
-              : 'rgba(255, 255, 255, 0.94)',
-            borderColor: isDark
-              ? 'rgba(255, 255, 255, 0.14)'
-              : 'rgba(0, 97, 167, 0.12)',
+              ? colors.surfaceContainerLowest
+              : '#ffffff',
+            borderColor: colors.surfaceContainerHigh,
             maxWidth: isTablet ? 480 : 520,
           },
         ]}>
@@ -201,7 +196,7 @@ export const AnimatedTabBar: React.FC<TabBarProps> = ({
             );
           })}
         </View>
-      </BlurView>
+      </View>
     </View>
   );
 };

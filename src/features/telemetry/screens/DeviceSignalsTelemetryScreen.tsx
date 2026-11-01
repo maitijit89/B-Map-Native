@@ -752,6 +752,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     fontFamily: 'monospace',
+    fontVariant: ['tabular-nums'],
   },
   gaugeUnit: {
     fontSize: 10,
@@ -760,6 +761,7 @@ const styles = StyleSheet.create({
   gaugeSub: {
     fontSize: 9,
     marginTop: 2,
+    fontVariant: ['tabular-nums'],
   },
   searchBox: {
     flexDirection: 'row',
@@ -832,10 +834,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     marginTop: 2,
+    fontVariant: ['tabular-nums'],
   },
   metricCopyBtn: {
-    width: 28,
-    height: 28,
+    width: 32,
+    height: 32,
     borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
@@ -866,7 +869,8 @@ const styles = StyleSheet.create({
     gap: 6,
     borderWidth: 1,
     borderRadius: Radius.lg,
-    paddingVertical: 12,
+    paddingVertical: 14,
+    minHeight: 48,
   },
   dockBtnSecText: {
     ...Typography.labelMedium,
@@ -879,7 +883,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     borderRadius: Radius.lg,
-    paddingVertical: 12,
+    paddingVertical: 14,
+    minHeight: 48,
   },
   dockBtnPrimText: {
     ...Typography.labelMedium,

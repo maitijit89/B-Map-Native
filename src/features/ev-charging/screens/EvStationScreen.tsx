@@ -557,6 +557,7 @@ const styles = StyleSheet.create({
   gunsAvailText: {
     ...Typography.labelSmall,
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   estimatorCard: {
     borderRadius: Radius.xl,
@@ -582,6 +583,7 @@ const styles = StyleSheet.create({
   socVal: {
     ...Typography.titleLarge,
     fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
   socAdjustBtn: {
     paddingHorizontal: 6,
@@ -592,6 +594,7 @@ const styles = StyleSheet.create({
     ...Typography.labelSmall,
     fontWeight: '700',
     fontSize: 9,
+    fontVariant: ['tabular-nums'],
   },
   targetChip: {
     paddingHorizontal: 6,
@@ -603,6 +606,7 @@ const styles = StyleSheet.create({
     ...Typography.labelSmall,
     fontWeight: '700',
     fontSize: 10,
+    fontVariant: ['tabular-nums'],
   },
   socArrow: {
     width: 24,
@@ -623,6 +627,7 @@ const styles = StyleSheet.create({
   estValue: {
     ...Typography.titleSmall,
     fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
   estLabel: {
     ...Typography.labelSmall,
@@ -663,6 +668,7 @@ const styles = StyleSheet.create({
     ...Typography.titleMedium,
     fontWeight: '800',
     fontSize: 20,
+    fontVariant: ['tabular-nums'],
   },
   dockPriceSub: {
     ...Typography.bodySmall,

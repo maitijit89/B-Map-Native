@@ -461,6 +461,7 @@ const styles = StyleSheet.create({
   gridPrecisionText: {
     ...Typography.labelSmall,
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   digiCodeBig: {
     ...Typography.headline,
@@ -468,6 +469,8 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 2,
     marginVertical: 4,
+    fontFamily: 'monospace',
+    fontVariant: ['tabular-nums'],
   },
   digiPlaceName: {
     ...Typography.bodyMedium,
@@ -483,6 +486,7 @@ const styles = StyleSheet.create({
   actionBtnFlex: {
     flex: 1,
     minWidth: 130,
+    minHeight: 48,
   },
   presetsTrack: {
     gap: 8,
@@ -501,6 +505,8 @@ const styles = StyleSheet.create({
   presetPin: {
     fontSize: 10,
     fontWeight: '700',
+    fontFamily: 'monospace',
+    fontVariant: ['tabular-nums'],
   },
   geocoderCard: {
     gap: 12,
@@ -543,6 +549,7 @@ const styles = StyleSheet.create({
   tierRes: {
     ...Typography.bodySmall,
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   tierDesc: {
     ...Typography.bodySmall,
@@ -559,7 +566,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 10,
+    paddingVertical: 12,
+    minHeight: 48,
     borderRadius: Radius.md,
   },
   modeTabText: {
@@ -599,6 +607,7 @@ const styles = StyleSheet.create({
     ...Typography.bodyMedium,
     fontWeight: '800',
     fontFamily: 'monospace',
+    fontVariant: ['tabular-nums'],
     marginTop: 2,
   },
 });

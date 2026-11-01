@@ -534,6 +534,7 @@ const styles = StyleSheet.create({
   lineFreq: {
     ...Typography.labelSmall,
     fontSize: 10,
+    fontVariant: ['tabular-nums'],
   },
   plansContainer: {
     gap: 10,
@@ -558,6 +559,7 @@ const styles = StyleSheet.create({
   planFare: {
     ...Typography.titleMedium,
     fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
   planTitle: {
     ...Typography.titleSmall,
@@ -578,6 +580,7 @@ const styles = StyleSheet.create({
   metricText: {
     ...Typography.bodySmall,
     fontWeight: '600',
+    fontVariant: ['tabular-nums'],
   },
   breakdownCard: {
     borderRadius: Radius.xl,
@@ -610,6 +613,7 @@ const styles = StyleSheet.create({
   segDur: {
     ...Typography.labelSmall,
     fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
   bottomDock: {
     position: 'absolute',
@@ -642,10 +646,12 @@ const styles = StyleSheet.create({
     ...Typography.titleMedium,
     fontWeight: '800',
     fontSize: 20,
+    fontVariant: ['tabular-nums'],
   },
   dockTimeText: {
     ...Typography.titleSmall,
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   dockPlanTitle: {
     ...Typography.bodySmall,
@@ -705,5 +711,6 @@ const styles = StyleSheet.create({
   countdownText: {
     ...Typography.labelMedium,
     fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
 });

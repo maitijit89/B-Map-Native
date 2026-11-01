@@ -451,7 +451,7 @@ export default function ProfileScreen() {
                       styles.genderChipSub,
                       { color: userGender === 'male' ? colors.primary : colors.onSurfaceVariant },
                     ]}>
-                    → Female Voice (1.18x)
+                    → Female Neural Voice (Formant-Preserved)
                   </Text>
                 </View>
                 {userGender === 'male' && <CheckCircle2 size={16} color={colors.primary} />}
@@ -489,7 +489,7 @@ export default function ProfileScreen() {
                       styles.genderChipSub,
                       { color: userGender === 'female' ? colors.primary : colors.onSurfaceVariant },
                     ]}>
-                    → Male Voice (0.88x)
+                    → Male Neural Voice (Formant-Preserved)
                   </Text>
                 </View>
                 {userGender === 'female' && <CheckCircle2 size={16} color={colors.primary} />}
@@ -517,7 +517,7 @@ export default function ProfileScreen() {
               <View style={styles.schematicNode}>
                 <Text style={[styles.schematicRole, { color: colors.onSurfaceVariant }]}>PAIRED APP VOICE</Text>
                 <Text style={[styles.schematicValue, { color: colors.primary }]}>
-                  {voiceGender === 'female' ? '♀ Female (1.18x Pitch)' : '♂ Male (0.88x Pitch)'}
+                  {voiceGender === 'female' ? '♀ Female (Neural Formant)' : '♂ Male (Neural Formant)'}
                 </Text>
               </View>
 
@@ -911,14 +911,17 @@ const styles = StyleSheet.create({
   },
   tripDate: {
     ...Typography.bodySmall,
+    fontVariant: ['tabular-nums'],
   },
   tripDist: {
     ...Typography.titleSmall,
     fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
   tripToll: {
     ...Typography.labelSmall,
     fontSize: 10,
+    fontVariant: ['tabular-nums'],
   },
   toggleRow: {
     flexDirection: 'row',
@@ -957,7 +960,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 12,
+    minHeight: 48,
     borderRadius: Radius.lg,
     borderWidth: 1.5,
   },

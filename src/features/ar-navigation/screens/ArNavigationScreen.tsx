@@ -912,9 +912,9 @@ const styles = StyleSheet.create({
     height: 40,
     paddingHorizontal: 10,
     borderRadius: 20,
-    backgroundColor: 'rgba(10, 18, 32, 0.85)',
+    backgroundColor: '#0A1220',
     borderWidth: 1,
-    borderColor: 'rgba(0, 229, 255, 0.4)',
+    borderColor: '#00E5FF',
     justifyContent: 'center',
   },
   langPillText: {
@@ -928,12 +928,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(10, 18, 32, 0.8)',
+    backgroundColor: '#0A1220',
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: '#1E2C42',
   },
   vpsConfidenceGroup: {
     flexDirection: 'row',
@@ -944,11 +944,13 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: '#00C06D',
+    fontVariant: ['tabular-nums'],
   },
   vpsLatencyText: {
     fontSize: 10,
     color: '#A0A8B4',
     fontWeight: '500',
+    fontVariant: ['tabular-nums'],
   },
 
   /* Bottom HUD */
@@ -963,7 +965,7 @@ const styles = StyleSheet.create({
   guidanceCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(10, 18, 32, 0.94)',
+    backgroundColor: '#0A1220',
     borderRadius: 18,
     padding: 14,
     borderWidth: 1.5,
@@ -994,6 +996,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '900',
     color: '#00E5FF',
+    fontVariant: ['tabular-nums'],
   },
   stepDistanceLabel: {
     fontSize: 11,
@@ -1008,9 +1011,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   speakRepeatBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: 'rgba(0, 229, 255, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1026,7 +1029,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 13,
+    paddingVertical: 14,
+    minHeight: 48,
     borderRadius: 14,
     gap: 6,
     borderWidth: 1,
@@ -1036,11 +1040,11 @@ const styles = StyleSheet.create({
     borderColor: '#00B0FF',
   },
   uploadBtn: {
-    backgroundColor: 'rgba(10, 18, 32, 0.92)',
+    backgroundColor: '#0A1220',
     borderColor: '#00E5FF',
   },
   sampleBtn: {
-    backgroundColor: 'rgba(10, 18, 32, 0.92)',
+    backgroundColor: '#0A1220',
     borderColor: '#FFD700',
   },
   actionBtnText: {

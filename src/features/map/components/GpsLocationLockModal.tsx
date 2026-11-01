@@ -1005,6 +1005,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontFamily: 'monospace',
     letterSpacing: 1.5,
+    fontVariant: ['tabular-nums'],
   },
   copyPillBtn: {
     flexDirection: 'row',
@@ -1038,6 +1039,7 @@ const styles = StyleSheet.create({
   metricValue: {
     fontSize: 14,
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   constellationCard: {
     borderRadius: 16,
@@ -1094,6 +1096,7 @@ const styles = StyleSheet.create({
   satSnr: {
     fontSize: 10,
     fontWeight: '500',
+    fontVariant: ['tabular-nums'],
   },
   bottomDock: {
     position: 'absolute',

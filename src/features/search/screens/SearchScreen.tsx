@@ -536,6 +536,7 @@ const styles = StyleSheet.create({
     ...Typography.bodySmall,
     fontSize: 11,
     marginTop: 2,
+    fontVariant: ['tabular-nums'],
   },
   resultsContainer: {
     gap: 10,
@@ -545,6 +546,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     marginBottom: 2,
+    fontVariant: ['tabular-nums'],
   },
   resultCard: {
     flexDirection: 'row',
@@ -589,11 +591,12 @@ const styles = StyleSheet.create({
     ...Typography.bodySmall,
     fontSize: 10,
     fontWeight: '600',
+    fontVariant: ['tabular-nums'],
   },
   routeActionBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 10,

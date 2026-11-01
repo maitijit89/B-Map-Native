@@ -625,6 +625,7 @@ const styles = StyleSheet.create({
   otpDigit: {
     fontSize: 22,
     fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
   resendRow: {
     flexDirection: 'row',
@@ -635,12 +636,13 @@ const styles = StyleSheet.create({
   },
   timerText: {
     ...Typography.bodySmall,
+    fontVariant: ['tabular-nums'],
   },
   resendBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    minHeight: 44,
+    minHeight: 48,
     paddingHorizontal: 8,
     justifyContent: 'center',
   },
@@ -651,7 +653,7 @@ const styles = StyleSheet.create({
   changeEmailBtn: {
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 44,
+    minHeight: 48,
     paddingVertical: Spacing.xs,
   },
   changeEmailText: {

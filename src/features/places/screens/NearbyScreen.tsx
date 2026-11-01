@@ -1066,6 +1066,7 @@ const styles = StyleSheet.create({
   availBadgeText: {
     ...Typography.labelSmall,
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   connectorsRow: {
     flexDirection: 'row',
@@ -1103,6 +1104,7 @@ const styles = StyleSheet.create({
   priceHighlight: {
     ...Typography.titleMedium,
     fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
   statusText: {
     ...Typography.bodySmall,
@@ -1119,6 +1121,7 @@ const styles = StyleSheet.create({
   ratingText: {
     ...Typography.labelSmall,
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   transitLineBadge: {
     width: 24,
@@ -1164,6 +1167,7 @@ const styles = StyleSheet.create({
   frequencyText: {
     ...Typography.labelSmall,
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   fareCard: {
     marginTop: Spacing.xs,
@@ -1187,6 +1191,7 @@ const styles = StyleSheet.create({
     ...Typography.titleSmall,
     fontWeight: '700',
     marginTop: 2,
+    fontVariant: ['tabular-nums'],
   },
   fareEstimateRow: {
     flexDirection: 'row',
@@ -1207,10 +1212,11 @@ const styles = StyleSheet.create({
   fareEstValue: {
     ...Typography.titleMedium,
     fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
   navMiniBtn: {
-    width: 32,
-    height: 32,
+    width: 38,
+    height: 38,
     borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1232,6 +1238,7 @@ const styles = StyleSheet.create({
     ...Typography.titleMedium,
     fontWeight: '800',
     marginTop: 2,
+    fontVariant: ['tabular-nums'],
   },
   amenitiesRow: {
     flexDirection: 'row',
@@ -1303,5 +1310,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: 'monospace',
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
 });
