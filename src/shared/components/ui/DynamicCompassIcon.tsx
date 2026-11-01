@@ -86,6 +86,9 @@ export const DynamicCompassIcon: React.FC<DynamicCompassIconProps> = memo(({
   }, [overrideHeading, mode, rotation]);
 
   // 2. If dynamic is active and focused and no override is set, subscribe to centralized CompassService
+  const lastPitchRef = useRef(0);
+  const lastRollRef = useRef(0);
+
   useEffect(() => {
     if (!shouldBeDynamic) return;
 
@@ -94,22 +97,36 @@ export const DynamicCompassIcon: React.FC<DynamicCompassIconProps> = memo(({
         const liveHeading = compassData.heading;
         const targetRotation = mode === 'north' ? -liveHeading : liveHeading;
         const diff = (((targetRotation - currentTargetRef.current) % 360) + 540) % 360 - 180;
-        currentTargetRef.current += diff;
 
-        rotation.value = withTiming(currentTargetRef.current, {
-          duration: 140,
-          easing: FluidCurves.standard,
-        });
+        // Micro-jitter deadband: only schedule withTiming when heading rotates >= 0.8 deg
+        if (Math.abs(diff) >= 0.8) {
+          currentTargetRef.current += diff;
+          rotation.value = withTiming(currentTargetRef.current, {
+            duration: 110,
+            easing: FluidCurves.standard,
+          });
+        }
 
         if (tilt3D) {
-          pitchAnim.value = withTiming(-compassData.pitch * 0.45, {
-            duration: 140,
-            easing: FluidCurves.standard,
-          });
-          rollAnim.value = withTiming(compassData.roll * 0.45, {
-            duration: 140,
-            easing: FluidCurves.standard,
-          });
+          const targetPitch = -compassData.pitch * 0.55;
+          const targetRoll = compassData.roll * 0.55;
+
+          if (
+            Math.abs(targetPitch - lastPitchRef.current) >= 0.6 ||
+            Math.abs(targetRoll - lastRollRef.current) >= 0.6
+          ) {
+            lastPitchRef.current = targetPitch;
+            lastRollRef.current = targetRoll;
+
+            pitchAnim.value = withTiming(targetPitch, {
+              duration: 95,
+              easing: FluidCurves.standard,
+            });
+            rollAnim.value = withTiming(targetRoll, {
+              duration: 95,
+              easing: FluidCurves.standard,
+            });
+          }
         }
       },
       { needsTilt: tilt3D }

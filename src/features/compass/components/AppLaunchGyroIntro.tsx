@@ -16,7 +16,7 @@ interface AppLaunchGyroIntroProps {
 }
 
 export const AppLaunchGyroIntro: React.FC<AppLaunchGyroIntroProps> = ({ onDismiss }) => {
-  const { heading, pitch, roll, source } = useCompass(50, 0.2);
+  const { heading, pitch, roll, gyroMagnitude, source } = useCompass(50, 0.2, true, true);
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
@@ -70,14 +70,22 @@ export const AppLaunchGyroIntro: React.FC<AppLaunchGyroIntroProps> = ({ onDismis
           <View style={styles.headingBadge}>
             <Text style={styles.headingDigits}>{formattedHeading}°</Text>
             <Text style={styles.headingSource}>
-              {source === 'location-fused' ? 'GPS Fused' : 'Hardware Gyro'}
+              {source === 'location-fused' ? 'NavIC Fused' : 'Hardware Gyro'}
             </Text>
           </View>
 
           <View style={styles.telemetryMiniRow}>
-            <Text style={styles.telemetryMiniText}>Pitch: {pitch}°</Text>
+            <Text style={styles.telemetryMiniText}>
+              Pitch: {pitch > 0 ? '+' : ''}{pitch.toFixed(1)}°
+            </Text>
             <Text style={styles.dot}>·</Text>
-            <Text style={styles.telemetryMiniText}>Roll: {roll}°</Text>
+            <Text style={styles.telemetryMiniText}>
+              Roll: {roll > 0 ? '+' : ''}{roll.toFixed(1)}°
+            </Text>
+            <Text style={styles.dot}>·</Text>
+            <Text style={[styles.telemetryMiniText, { color: '#38BDF8' }]}>
+              Gyro: {(gyroMagnitude ?? 0).toFixed(2)} r/s
+            </Text>
           </View>
 
           <TouchableOpacity

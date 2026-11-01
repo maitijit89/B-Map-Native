@@ -289,7 +289,7 @@ useEffect(() => {
 ### 11.2 Web Compatibility
 
 - Platform-specific files use the `.web.ts` / `.web.tsx` extension convention.
-- Hooks like `useColorScheme` and `useClientOnlyValue` have platform-split implementations.
+- Hooks like `useColorScheme` have platform-split implementations.
 - Web support is **experimental** — Android and iOS are the primary targets.
 
 ---

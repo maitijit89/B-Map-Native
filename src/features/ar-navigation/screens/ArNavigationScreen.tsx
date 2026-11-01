@@ -14,7 +14,6 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { Magnetometer } from 'expo-sensors';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -58,6 +57,7 @@ import {
   speechService,
   voiceLanguageService,
   VoiceLanguageCode,
+  compassService,
 } from '@/shared/services';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -113,30 +113,21 @@ export default function ArNavigationScreen() {
     transform: [{ translateY: scanBeamY.value }],
   }));
 
-  // Subscribe to device magnetometer sensor for real-time 360° AR positioning
+  // Subscribe to device compass & gyro sensor for real-time 360° AR positioning
   useEffect(() => {
-    let subscription: ReturnType<typeof Magnetometer.addListener> | null = null;
-
-    const setupMagnetometer = async () => {
-      const isAvailable = await Magnetometer.isAvailableAsync();
-      if (isAvailable) {
-        Magnetometer.setUpdateInterval(60);
-        subscription = Magnetometer.addListener((data) => {
-          let angle = Math.atan2(data.y, data.x) * (180 / Math.PI);
-          let compassDegrees = Math.round(angle < 0 ? angle + 360 : angle);
-          setDeviceHeading(compassDegrees);
-        });
-      }
-    };
-
-    setupMagnetometer();
+    const unsubscribeCompass = compassService.subscribe(
+      (compassData) => {
+        setDeviceHeading(compassData.heading);
+      },
+      { needsTilt: true }
+    );
 
     const unsubscribeLang = voiceLanguageService.subscribe((lang) => {
       setVoiceLang(lang);
     });
 
     return () => {
-      if (subscription) subscription.remove();
+      unsubscribeCompass();
       unsubscribeLang();
     };
   }, []);

@@ -59,7 +59,8 @@ export default function AuthScreen() {
   const [name, setName] = useState('Aarav Sharma');
   const [age, setAge] = useState('26');
   const [phone, setPhone] = useState('+91 98765 43210');
-  const [otp, setOtp] = useState(['4', '9', '7', '5', '1', '1']);
+  const [serverOtp, setServerOtp] = useState('');
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [timer, setTimer] = useState(30);
   const [canResend, setCanResend] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -94,12 +95,15 @@ export default function AuthScreen() {
     setIsLoading(true);
     setTimeout(() => {
       setIsLoading(false);
+      const generatedCode = Math.floor(100000 + Math.random() * 900000).toString();
+      setServerOtp(generatedCode);
+      setOtp(generatedCode.split(''));
       setMode('otp');
       setTimer(30);
       setCanResend(false);
       Alert.alert(
         'OTP Dispatched! ✉️',
-        `A 6-digit verification code has been dispatched to ${email}. Use test code 497511.`
+        `A 6-digit verification code has been dispatched to ${email}.\n(Simulator Code: ${generatedCode})`
       );
     }, 600);
   };
@@ -109,6 +113,10 @@ export default function AuthScreen() {
     const enteredOtp = otp.join('');
     if (enteredOtp.length < 6) {
       Alert.alert('Incomplete Code', 'Please enter all 6 digits of the OTP.');
+      return;
+    }
+    if (serverOtp && enteredOtp !== serverOtp) {
+      Alert.alert('Invalid OTP', 'The verification code you entered is incorrect.');
       return;
     }
 

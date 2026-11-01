@@ -45,7 +45,7 @@ function getCardinalDirection(deg: number): string {
 }
 
 export const GyroCompassHUDModal: React.FC = () => {
-  const { heading, pitch, roll, source, accuracy } = useCompass(50, 0.25);
+  const { heading, pitch, roll, gyroMagnitude, source, accuracy } = useCompass(50, 0.25, true, true);
   const { location } = useLocation(false);
   const [mode, setMode] = useState<'north' | 'heading'>('north');
 
@@ -83,6 +83,37 @@ export const GyroCompassHUDModal: React.FC = () => {
 
   const formattedHeading = Math.round(heading).toString().padStart(3, '0');
   const cardinal = getCardinalDirection(heading);
+  const isLevel = Math.abs(pitch) < 2.0 && Math.abs(roll) < 2.0;
+
+  // Clamped bubble offset (-24 to +24 px inside 72px reticle)
+  const bubbleX = Math.max(-24, Math.min(24, roll * 0.8));
+  const bubbleY = Math.max(-24, Math.min(24, pitch * 0.8));
+
+  const getProviderName = () => {
+    switch (source) {
+      case 'location-fused':
+        return 'NavIC Fused & 3D Gyroscope';
+      case 'device-motion':
+        return 'Hardware Gyroscope & Motion Sensor';
+      case 'gyroscope':
+        return 'Hardware Gyroscope (Live Rad/s)';
+      case 'accelerometer':
+        return 'Gravity Vector Tilt Sensor';
+      case 'magnetometer':
+        return 'Magnetometer Azimuth & Gyro Tilt';
+      case 'web-orientation':
+        return 'Web DeviceOrientation & Gyro';
+      default:
+        return 'Hardware Gyroscope Active';
+    }
+  };
+
+  const getAccuracyLabel = () => {
+    if (accuracy >= 3) return 'High';
+    if (accuracy === 2) return 'Good';
+    if (accuracy === 1) return 'Fair';
+    return 'Calibrated';
+  };
 
   return (
     <View style={styles.screen}>
@@ -150,20 +181,74 @@ export const GyroCompassHUDModal: React.FC = () => {
               <Text style={styles.cardinalBadge}>{cardinal}</Text>
             </View>
 
-            {/* Pitch & Roll Hardware Telematics */}
+            {/* Pitch & Roll Hardware Telematics with Gyro Angular Rate */}
             <View style={styles.telematicsRow}>
               <View style={styles.telematicPill}>
                 <Text style={styles.telematicLabel}>PITCH</Text>
-                <Text style={styles.telematicValue}>{pitch.toFixed(1)}°</Text>
+                <Text style={styles.telematicValue}>
+                  {pitch > 0 ? '+' : ''}{pitch.toFixed(1)}°
+                </Text>
               </View>
               <View style={styles.telematicPill}>
                 <Text style={styles.telematicLabel}>ROLL</Text>
-                <Text style={styles.telematicValue}>{roll.toFixed(1)}°</Text>
+                <Text style={styles.telematicValue}>
+                  {roll > 0 ? '+' : ''}{roll.toFixed(1)}°
+                </Text>
+              </View>
+              <View style={styles.telematicPill}>
+                <Text style={styles.telematicLabel}>GYRO RATE</Text>
+                <Text style={[styles.telematicValue, { color: '#38BDF8' }]}>
+                  {(gyroMagnitude ?? 0.00).toFixed(2)} r/s
+                </Text>
               </View>
               <View style={styles.telematicPill}>
                 <Text style={styles.telematicLabel}>ACCURACY</Text>
-                <Text style={styles.telematicValue}>{accuracy}</Text>
+                <Text style={[styles.telematicValue, { color: '#34D399' }]}>
+                  {getAccuracyLabel()}
+                </Text>
               </View>
+            </View>
+          </View>
+
+          {/* 3D Artificial Horizon & Tilt Level Gauge */}
+          <View style={styles.horizonGaugeCard}>
+            <View style={styles.horizonReticleContainer}>
+              <View style={styles.reticleCrosshairH} />
+              <View style={styles.reticleCrosshairV} />
+              <View style={styles.reticleCenterRing} />
+              <View
+                style={[
+                  styles.horizonBubble,
+                  {
+                    transform: [{ translateX: bubbleX }, { translateY: bubbleY }],
+                    backgroundColor: isLevel ? '#10B981' : '#38BDF8',
+                    shadowColor: isLevel ? '#10B981' : '#38BDF8',
+                  },
+                ]}
+              />
+            </View>
+            <View style={styles.horizonTextColumn}>
+              <View style={styles.horizonHeaderRow}>
+                <Text style={styles.horizonTitle}>3D Horizon Level</Text>
+                <View
+                  style={[
+                    styles.levelStatusBadge,
+                    { backgroundColor: isLevel ? 'rgba(16, 185, 129, 0.2)' : 'rgba(56, 189, 248, 0.2)' },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.levelStatusText,
+                      { color: isLevel ? '#10B981' : '#38BDF8' },
+                    ]}
+                  >
+                    {isLevel ? 'PERFECT LEVEL' : 'TILT DETECTED'}
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.horizonSubtext}>
+                Physical orientation: {Math.abs(pitch).toFixed(1)}° inclination, {Math.abs(roll).toFixed(1)}° bank.
+              </Text>
             </View>
           </View>
 
@@ -181,9 +266,7 @@ export const GyroCompassHUDModal: React.FC = () => {
           <View style={styles.footerControls}>
             <View style={styles.providerInfo}>
               <ShieldCheck size={14} color="#34D399" />
-              <Text style={styles.providerText}>
-                {source !== 'none' ? 'Fused Magnetometer & Gyro' : 'Fallback Direction'}
-              </Text>
+              <Text style={styles.providerText}>{getProviderName()}</Text>
             </View>
 
             <TouchableOpacity
@@ -348,6 +431,89 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(96, 165, 250, 0.2)',
+  },
+  horizonGaugeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.18)',
+    gap: 14,
+  },
+  horizonReticleContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(2, 6, 23, 0.85)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(56, 189, 248, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  reticleCrosshairH: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  reticleCrosshairV: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  reticleCenterRing: {
+    position: 'absolute',
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  horizonBubble: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 5,
+    elevation: 4,
+  },
+  horizonTextColumn: {
+    flex: 1,
+    gap: 4,
+  },
+  horizonHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  horizonTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#F8FAFC',
+  },
+  levelStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  levelStatusText: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  horizonSubtext: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#94A3B8',
+    lineHeight: 15,
   },
   locationText: {
     fontSize: 12,

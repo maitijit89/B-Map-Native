@@ -16,7 +16,6 @@ export { SearchBar, type SearchBarProps } from './SearchBar';
 export { MetricCard, type MetricCardProps } from './MetricCard';
 export { EmptyState, type EmptyStateProps } from './EmptyState';
 export { FloatingActionButton, type FloatingActionButtonProps, type FABSize, type FABVariant } from './FloatingActionButton';
-export { DesignSystemShowcase } from './DesignSystemShowcase';
 export { DynamicCompassIcon } from './DynamicCompassIcon';
 export { AnimatedPressable, type AnimatedPressableProps } from './AnimatedPressable';
 export { FadeInView, type FadeInViewProps, type FadeDirection } from './FadeInView';

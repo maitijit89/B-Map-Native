@@ -14,6 +14,7 @@ import {
   BotRiskVerdict,
   DeviceType,
 } from '../types/telemetry';
+import { compassService } from '../../../shared/services/CompassService';
 
 // Safe lazy loaders preventing top-level crashes if native APK rebuild is pending
 function safeRequire<T>(loader: () => T): T | null {
@@ -479,22 +480,25 @@ export class DeviceSignalsService {
     const barometerAvail = barometerAvailResult.status === 'fulfilled' && Boolean(barometerAvailResult.value);
     const pedometerAvail = pedometerAvailResult.status === 'fulfilled' && Boolean(pedometerAvailResult.value);
 
+    const currentCompass = compassService.getCurrentData();
+    const hasLiveGyro = currentCompass.isAvailable && (currentCompass.gyroMagnitude > 0 || currentCompass.pitch !== 0 || currentCompass.roll !== 0);
+
     const sensors: SensorSignals = {
       accelerometerAvailable: accelAvail,
       accelX: 0.02,
       accelY: 0.98,
       accelZ: 0.12,
       accelTotalMagnitude: 0.99,
-      gyroscopeAvailable: gyroAvail,
-      gyroX: 0.001,
-      gyroY: -0.002,
-      gyroZ: 0.0,
-      gyroRotationMagnitude: 0.002,
+      gyroscopeAvailable: gyroAvail || hasLiveGyro,
+      gyroX: hasLiveGyro ? currentCompass.gyroX : 0.001,
+      gyroY: hasLiveGyro ? currentCompass.gyroY : -0.002,
+      gyroZ: hasLiveGyro ? currentCompass.gyroZ : 0.0,
+      gyroRotationMagnitude: hasLiveGyro ? currentCompass.gyroMagnitude : 0.002,
       magnetometerAvailable: magAvail,
       magX: 22.4,
       magY: -12.1,
       magZ: 44.8,
-      magHeadingDegrees: 124,
+      magHeadingDegrees: currentCompass.heading || 124,
       barometerAvailable: barometerAvail,
       barometerPressureHpa: 1013.25,
       barometerRelativeAltitudeM: 215.4,

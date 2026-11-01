@@ -63,6 +63,129 @@ export interface UserProfileData {
   voiceGender?: VoiceGender;
 }
 
+export type HazardType =
+  | 'pothole'
+  | 'waterlogging'
+  | 'speed_trap'
+  | 'accident'
+  | 'roadwork'
+  | 'breakdown';
+
+export type HazardSeverity = 'low' | 'medium' | 'high';
+
+export interface HazardReportItem {
+  id: string;
+  hazardType: HazardType;
+  label: string;
+  severity: HazardSeverity;
+  lanePosition: string;
+  latitude: number;
+  longitude: number;
+  address: string;
+  digipin: string;
+  description?: string;
+  photoUri?: string | null;
+  verifiedCount: number;
+  unverifiedCount: number;
+  trustScore: number;
+  reportedAt: string;
+  isUserReport?: boolean;
+  cleared?: boolean;
+}
+
+export const SEED_HAZARDS: HazardReportItem[] = [
+  {
+    id: 'hazard_seed_1',
+    hazardType: 'pothole',
+    label: 'Pothole / Road Damage',
+    severity: 'high',
+    lanePosition: 'Right Lane',
+    latitude: 28.3587,
+    longitude: 76.9428,
+    address: 'NH-48 Jaipur Highway Corridor, km 42.4 (Near Manesar)',
+    digipin: '28J4-K8M2-9P',
+    description: 'Deep road depression after flyover descent. Speed reduction advised.',
+    verifiedCount: 18,
+    unverifiedCount: 1,
+    trustScore: 94,
+    reportedAt: '12 min ago',
+    isUserReport: false,
+    cleared: false,
+  },
+  {
+    id: 'hazard_seed_2',
+    hazardType: 'waterlogging',
+    label: 'Waterlogging / Flood',
+    severity: 'high',
+    lanePosition: 'Left Lane',
+    latitude: 28.5833,
+    longitude: 77.2514,
+    address: 'Barapullah Elevated Corridor, Sarai Kale Khan Ramp',
+    digipin: '28J3-M9P2-4Q',
+    description: 'Heavy rain puddle accumulation; 15cm standing water in curb lane.',
+    verifiedCount: 32,
+    unverifiedCount: 2,
+    trustScore: 98,
+    reportedAt: '25 min ago',
+    isUserReport: false,
+    cleared: false,
+  },
+  {
+    id: 'hazard_seed_3',
+    hazardType: 'speed_trap',
+    label: 'Speed Radar / Interceptor',
+    severity: 'medium',
+    lanePosition: 'Center Lane',
+    latitude: 28.4952,
+    longitude: 77.0891,
+    address: 'Cyber City Boulevard, DLF Phase 2 Corridor',
+    digipin: '28J4-L6N8-1V',
+    description: 'Highway police laser interceptor deployed. Strict 60 km/h radar.',
+    verifiedCount: 45,
+    unverifiedCount: 3,
+    trustScore: 96,
+    reportedAt: '42 min ago',
+    isUserReport: false,
+    cleared: false,
+  },
+  {
+    id: 'hazard_seed_4',
+    hazardType: 'roadwork',
+    label: 'Road Construction',
+    severity: 'medium',
+    lanePosition: 'Shoulder / Flyover',
+    latitude: 28.6271,
+    longitude: 77.3725,
+    address: 'Delhi-Meerut Expressway km 18.2 (Indirapuram Flyover)',
+    digipin: '28K2-P4R8-7T',
+    description: 'Expansion joint resurfacing. Diversion barricades in place.',
+    verifiedCount: 21,
+    unverifiedCount: 0,
+    trustScore: 99,
+    reportedAt: '1 hour ago',
+    isUserReport: false,
+    cleared: false,
+  },
+  {
+    id: 'hazard_seed_5',
+    hazardType: 'accident',
+    label: 'Traffic Accident',
+    severity: 'high',
+    lanePosition: 'Center Lane',
+    latitude: 28.5702,
+    longitude: 77.2589,
+    address: 'Ring Road Ashram Underpass (Eastbound)',
+    digipin: '28J3-X7Y1-5W',
+    description: 'Minor fender bender blocking 1 lane. Traffic slowing down.',
+    verifiedCount: 56,
+    unverifiedCount: 4,
+    trustScore: 92,
+    reportedAt: '1 hour ago',
+    isUserReport: false,
+    cleared: false,
+  },
+];
+
 export const DEFAULT_USER_PROFILE: UserProfileData = {
   name: 'Aarav Sharma',
   email: 'aarav.sharma@example.com',
@@ -95,6 +218,7 @@ const STORAGE_KEYS = {
   OFFLINE_REGIONS: '@bmap/offline_regions',
   RESERVATIONS: '@bmap/reservations',
   USER_PROFILE: '@bmap/user_profile',
+  HAZARD_REPORTS: '@bmap/hazard_reports',
 };
 
 /**
@@ -301,6 +425,88 @@ class StorageService {
       }
     }
     return updated;
+  }
+
+  /**
+   * Community Hazard Reports Management
+   */
+  async getHazardReports(): Promise<HazardReportItem[]> {
+    if (this.cache.has(STORAGE_KEYS.HAZARD_REPORTS)) {
+      return this.cache.get(STORAGE_KEYS.HAZARD_REPORTS);
+    }
+    try {
+      const json = await AsyncStorage.getItem(STORAGE_KEYS.HAZARD_REPORTS);
+      if (json) {
+        const loaded: HazardReportItem[] = JSON.parse(json);
+        this.cache.set(STORAGE_KEYS.HAZARD_REPORTS, loaded);
+        return loaded;
+      }
+    } catch (e) {
+      if (__DEV__) {
+        console.debug('StorageService: Failed to load hazard reports', e);
+      }
+    }
+    this.cache.set(STORAGE_KEYS.HAZARD_REPORTS, SEED_HAZARDS);
+    return SEED_HAZARDS;
+  }
+
+  async addHazardReport(
+    report: Omit<HazardReportItem, 'id' | 'reportedAt' | 'verifiedCount' | 'unverifiedCount' | 'trustScore'>
+  ): Promise<HazardReportItem> {
+    const current = await this.getHazardReports();
+    const newItem: HazardReportItem = {
+      ...report,
+      id: `hazard_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      reportedAt: 'Just now',
+      verifiedCount: 1,
+      unverifiedCount: 0,
+      trustScore: 95,
+      isUserReport: true,
+      cleared: false,
+    };
+    const updated = [newItem, ...current];
+    this.cache.set(STORAGE_KEYS.HAZARD_REPORTS, updated);
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.HAZARD_REPORTS, JSON.stringify(updated));
+    } catch (e) {
+      if (__DEV__) {
+        console.debug('StorageService: Failed to add hazard report', e);
+      }
+    }
+    return newItem;
+  }
+
+  async voteHazardReport(id: string, isStillThere: boolean): Promise<HazardReportItem | null> {
+    const current = await this.getHazardReports();
+    let updatedItem: HazardReportItem | null = null;
+    const updated = current.map((item) => {
+      if (item.id === id) {
+        const verifiedCount = isStillThere ? item.verifiedCount + 1 : item.verifiedCount;
+        const unverifiedCount = !isStillThere ? item.unverifiedCount + 1 : item.unverifiedCount;
+        const total = verifiedCount + unverifiedCount;
+        const trustScore = Math.max(10, Math.min(100, Math.round((verifiedCount / total) * 100)));
+        const cleared = unverifiedCount >= 5 && unverifiedCount > verifiedCount * 2;
+        updatedItem = {
+          ...item,
+          verifiedCount,
+          unverifiedCount,
+          trustScore,
+          cleared,
+        };
+        return updatedItem;
+      }
+      return item;
+    });
+
+    this.cache.set(STORAGE_KEYS.HAZARD_REPORTS, updated);
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.HAZARD_REPORTS, JSON.stringify(updated));
+    } catch (e) {
+      if (__DEV__) {
+        console.debug('StorageService: Failed to update hazard report vote', e);
+      }
+    }
+    return updatedItem;
   }
 }
 

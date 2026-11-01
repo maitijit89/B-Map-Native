@@ -11,7 +11,7 @@ import Svg, {
   Circle,
   Polygon,
 } from 'react-native-svg';
-import { Zap, ShoppingBag, Coffee, Star, Briefcase } from 'lucide-react-native';
+import { Zap, ShoppingBag, Coffee, Star, Briefcase, TriangleAlert } from 'lucide-react-native';
 import { BMapColors } from '@/shared';
 
 const SVG_VIEW_WIDTH = 420;
@@ -22,7 +22,10 @@ export type MapLayerType = 'standard' | 'satellite' | 'night' | 'navic';
 interface VectorMapCanvasProps {
   onPoiPress?: (poiName: string) => void;
   showTraffic?: boolean;
+  showHazards?: boolean;
   mapLayer?: MapLayerType;
+  isLocating?: boolean;
+  isGpsLocked?: boolean;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -254,7 +257,10 @@ TrafficOverlayLayer.displayName = 'TrafficOverlayLayer';
 /**
  * 4. Expressway & Navigation Polyline Track Layer
  */
-const ExpresswayAndNavLayer = memo(() => (
+const ExpresswayAndNavLayer = memo<{ isLocating?: boolean; isGpsLocked?: boolean }>(({
+  isLocating = false,
+  isGpsLocked = false,
+}) => (
   <>
     {/* Elevated Expressway / Highway 4 Polyline */}
     <Path
@@ -302,14 +308,31 @@ const ExpresswayAndNavLayer = memo(() => (
       strokeWidth={3}
     />
 
-    {/* GPS User Location Radar Beam */}
+    {/* GPS User Location Radar Beam & NavIC Dual-Band Reticle */}
     <G x="210" y="520">
       <Path d="M 0,0 L -45,-90 A 100 100 0 0 1 45,-90 Z" fill="url(#radarCone)" />
+
+      {/* Lock Establishment Visual Wave Rings */}
+      {isLocating && (
+        <>
+          <Circle r="54" fill="#00E5FF" opacity={0.18} />
+          <Circle r="42" fill="none" stroke="#00E5FF" strokeWidth={1.5} strokeDasharray="3 3" />
+        </>
+      )}
+
+      {isGpsLocked && (
+        <>
+          <Circle r="48" fill="none" stroke="#00C853" strokeWidth={2} strokeDasharray="5 3" />
+          <Circle r="38" fill="#00C853" opacity={0.16} />
+          <Path d="M -20,0 L -10,0 M 10,0 L 20,0 M 0,-20 L 0,-10 M 0,10 L 0,20" stroke="#00C853" strokeWidth={1.8} />
+        </>
+      )}
+
       <Circle r="36" fill="#0096FF" opacity={0.12} />
       <Circle r="24" fill="#0096FF" opacity={0.22} />
       <Circle r="13" fill="#FFFFFF" />
-      <Circle r="8" fill="#0096FF" />
-      <Polygon points="0,-16 -4,-9 4,-9" fill="#0096FF" />
+      <Circle r="8" fill={isGpsLocked ? '#00C853' : '#0096FF'} />
+      <Polygon points="0,-16 -4,-9 4,-9" fill={isGpsLocked ? '#00C853' : '#0096FF'} />
     </G>
   </>
 ));
@@ -321,7 +344,10 @@ ExpresswayAndNavLayer.displayName = 'ExpresswayAndNavLayer';
 export const VectorMapCanvas: React.FC<VectorMapCanvasProps> = memo(({
   onPoiPress,
   showTraffic = true,
+  showHazards = true,
   mapLayer = 'standard',
+  isLocating = false,
+  isGpsLocked = false,
   style,
 }) => {
   const handleGrandMetroPress = useCallback(() => onPoiPress?.('Grand Metro Stn'), [onPoiPress]);
@@ -329,6 +355,7 @@ export const VectorMapCanvas: React.FC<VectorMapCanvasProps> = memo(({
   const handleMallPress = useCallback(() => onPoiPress?.('IFC Mall'), [onPoiPress]);
   const handleCafePress = useCallback(() => onPoiPress?.('Blue Oasis Cafe'), [onPoiPress]);
   const handleTechParkPress = useCallback(() => onPoiPress?.('Tech Innovation Park'), [onPoiPress]);
+  const handleHazardPress = useCallback(() => onPoiPress?.('Road Hazard: NH-48 Pothole'), [onPoiPress]);
 
   return (
     <View style={[styles.container, style]}>
@@ -360,7 +387,7 @@ export const VectorMapCanvas: React.FC<VectorMapCanvasProps> = memo(({
         <StaticLandmassLayer mapLayer={mapLayer} />
         <StreetNetworkLayer mapLayer={mapLayer} />
         <TrafficOverlayLayer showTraffic={showTraffic} />
-        <ExpresswayAndNavLayer />
+        <ExpresswayAndNavLayer isLocating={isLocating} isGpsLocked={isGpsLocked} />
       </Svg>
 
       {/* POI Overlay Badges */}
@@ -380,7 +407,7 @@ export const VectorMapCanvas: React.FC<VectorMapCanvasProps> = memo(({
 
       {/* 2. EV Supercharger */}
       <TouchableOpacity
-        style={[styles.poiBadge, { top: '48%', right: 16 }]}
+        style={[styles.poiBadge, { top: '50%', right: 76 }]}
         onPress={handleEvStationPress}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         accessibilityRole="button"
@@ -395,7 +422,7 @@ export const VectorMapCanvas: React.FC<VectorMapCanvasProps> = memo(({
 
       {/* 3. IFC Mall */}
       <TouchableOpacity
-        style={[styles.mallCardContainer, { top: '26%', right: 16 }]}
+        style={[styles.mallCardContainer, { top: '28%', left: '46%' }]}
         onPress={handleMallPress}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         accessibilityRole="button"
@@ -441,6 +468,26 @@ export const VectorMapCanvas: React.FC<VectorMapCanvasProps> = memo(({
         <View style={styles.destinationArrow} />
         <View style={styles.destinationShadow} />
       </TouchableOpacity>
+
+      {/* 6. Crowdsourced Hazard Pin (NH-48 Pothole Alert) */}
+      {showHazards && (
+        <TouchableOpacity
+          style={[styles.hazardPinContainer, { top: '34%', left: '16%' }]}
+          onPress={handleHazardPress}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityRole="button"
+          accessibilityLabel="Crowdsourced Road Hazard Pothole map pin"
+          activeOpacity={0.8}>
+          <View style={styles.hazardPinPill}>
+            <TriangleAlert size={12} color="#ffffff" />
+            <Text style={styles.hazardPinText}>Pothole · km 42</Text>
+            <View style={styles.hazardCountBadge}>
+              <Text style={styles.hazardCountText}>18</Text>
+            </View>
+          </View>
+          <View style={styles.hazardPinArrow} />
+        </TouchableOpacity>
+      )}
     </View>
   );
 });
@@ -583,5 +630,47 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: 'rgba(17, 28, 45, 0.25)',
     marginTop: 2,
+  },
+  hazardPinContainer: {
+    position: 'absolute',
+    alignItems: 'center',
+    zIndex: 14,
+  },
+  hazardPinPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F44336',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  hazardPinText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#ffffff',
+  },
+  hazardCountBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 8,
+  },
+  hazardCountText: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#ffffff',
+  },
+  hazardPinArrow: {
+    width: 8,
+    height: 8,
+    backgroundColor: '#F44336',
+    transform: [{ rotate: '45deg' }],
+    marginTop: -4,
   },
 });

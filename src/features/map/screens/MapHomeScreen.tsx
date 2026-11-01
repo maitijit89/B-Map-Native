@@ -9,13 +9,14 @@ import {
   Switch,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useIsFocused } from 'expo-router';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
   withSequence,
   withTiming,
+  cancelAnimation,
 } from 'react-native-reanimated';
 import {
   fluidEntering,
@@ -50,8 +51,13 @@ import {
   ChevronDown,
   Satellite,
   MapPin,
+  TriangleAlert,
+  Droplets,
+  Wind,
+  Eye,
 } from 'lucide-react-native';
 import { VectorMapCanvas } from '../components/VectorMapCanvas';
+import { GpsLocationLockModal } from '../components/GpsLocationLockModal';
 import { useThemeColors, useLocation } from '@/shared/hooks';
 import { Radius, Shadows, Spacing, Typography } from '@/shared/constants/tokens';
 import {
@@ -74,7 +80,8 @@ type MapLayerType = 'standard' | 'satellite' | 'night' | 'navic';
 export default function HomeScreen() {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
-  const floatingTop = Math.max(insets.top + 105, 125);
+  const [topHudHeight, setTopHudHeight] = useState<number>(0);
+  const floatingTop = topHudHeight > 0 ? topHudHeight + 10 : Math.max(insets.top + 172, 215);
 
   const [activeMode, setActiveMode] = useState<TransitMode>('drive');
   const [showTraffic, setShowTraffic] = useState(true);
@@ -84,8 +91,11 @@ export default function HomeScreen() {
   const [showCameras, setShowCameras] = useState(true);
   const [showHazards, setShowHazards] = useState(true);
   const [isLocating, setIsLocating] = useState(false);
+  const [isGpsLocked, setIsGpsLocked] = useState(false);
+  const [showGpsLockModal, setShowGpsLockModal] = useState(false);
   const [isSheetExpanded, setIsSheetExpanded] = useState(false);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
+  const [showWeatherModal, setShowWeatherModal] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState<number>(() =>
     notificationService.getUnreadCountSync()
   );
@@ -97,19 +107,26 @@ export default function HomeScreen() {
     return unsubscribe;
   }, []);
 
-  // Pulse animation for weather & speed camera badge
+  const isFocused = useIsFocused();
+
+  // Pulse animation for weather & speed camera badge (active only when focused)
   const alertPulse = useSharedValue(1);
 
   useEffect(() => {
-    alertPulse.value = withRepeat(
-      withSequence(
-        withTiming(1.04, { duration: 900 }),
-        withTiming(1, { duration: 900 })
-      ),
-      -1,
-      true
-    );
-  }, [alertPulse]);
+    if (isFocused) {
+      alertPulse.value = withRepeat(
+        withSequence(
+          withTiming(1.04, { duration: 900 }),
+          withTiming(1, { duration: 900 })
+        ),
+        -1,
+        true
+      );
+    } else {
+      cancelAnimation(alertPulse);
+      alertPulse.value = 1;
+    }
+  }, [isFocused, alertPulse]);
 
   const alertAnimatedStyle = useAnimatedStyle(() => {
     return {
@@ -129,30 +146,46 @@ export default function HomeScreen() {
 
   const handlePoiSelect = useCallback((poiName: string) => {
     haptics.medium();
+    if (poiName.includes('Road Hazard')) {
+      Alert.alert(
+        'Crowdsourced Road Hazard ⚠️',
+        `${poiName}\nHigh severity road depression reported on Right Lane.\n18 NavIC community drivers verified.`,
+        [
+          { text: 'Dismiss', style: 'cancel' },
+          {
+            text: 'View Hazard Details',
+            onPress: () => router.push('/hazard-report'),
+          },
+        ]
+      );
+      return;
+    }
     Alert.alert('Waypoint Selected', `${poiName}\nReady for turn-by-turn guidance.`, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Start Route', onPress: handleStartNav },
     ]);
   }, [handleStartNav]);
 
-  const { location, refreshLocation } = useLocation(true);
+  const { establishGpsLock, gpsLockTelemetry } = useLocation(false);
 
   const handleLocateMe = useCallback(async () => {
     haptics.heavy();
     setIsLocating(true);
     try {
-      await refreshLocation();
-      const lat = location.latitude.toFixed(4);
-      const lon = location.longitude.toFixed(4);
-      const acc = location.accuracy ? `${location.accuracy.toFixed(1)}m` : '±0.8m';
-      Alert.alert(
-        'GPS Location Lock Established',
-        `Latitude: ${lat}\nLongitude: ${lon}\nAccuracy Fix: ${acc}`
-      );
+      await establishGpsLock();
+      setIsGpsLocked(true);
+      setShowGpsLockModal(true);
+    } catch {
+      setShowGpsLockModal(true);
     } finally {
       setIsLocating(false);
     }
-  }, [location, refreshLocation]);
+  }, [establishGpsLock]);
+
+  const handleNavicPillPress = useCallback(() => {
+    haptics.selection();
+    setShowGpsLockModal(true);
+  }, []);
 
   const handleVoiceAssistant = useCallback(() => {
     haptics.medium();
@@ -189,7 +222,10 @@ export default function HomeScreen() {
         <VectorMapCanvas
           onPoiPress={handlePoiSelect}
           showTraffic={showTraffic}
+          showHazards={showHazards}
           mapLayer={selectedLayer}
+          isLocating={isLocating}
+          isGpsLocked={isGpsLocked}
         />
       </View>
 
@@ -197,6 +233,12 @@ export default function HomeScreen() {
       <SafeAreaView
         edges={['top']}
         style={styles.floatingTopSafeArea}
+        onLayout={(e) => {
+          const { height } = e.nativeEvent.layout;
+          if (height > 0 && Math.abs(height - topHudHeight) > 2) {
+            setTopHudHeight(height);
+          }
+        }}
         pointerEvents="box-none">
         {/* Brand bar with Live Compass, SOS distress pill & Profile */}
         <Animated.View
@@ -213,15 +255,19 @@ export default function HomeScreen() {
               onPress={handleCompassPress}
               accessibilityRole="button"
               accessibilityLabel="B Map live compass app icon">
-              <DynamicCompassIcon size={32} dynamic={false} borderRadius={8} />
+              <DynamicCompassIcon size={32} dynamic={true} tilt3D={false} borderRadius={8} />
             </AnimatedPressable>
             <View style={styles.titleColumn}>
               <View style={styles.logoRow}>
                 <Text style={[styles.logoTag, { color: colors.primaryContainer }]}>B MAP</Text>
-                <View style={[styles.navicMiniPill, { backgroundColor: colors.primaryContainer + '20' }]}>
+                <AnimatedPressable
+                  onPress={handleNavicPillPress}
+                  accessibilityRole="button"
+                  accessibilityLabel="NavIC GPS location lock telemetry"
+                  style={[styles.navicMiniPill, { backgroundColor: colors.primaryContainer + '20' }]}>
                   <Satellite size={10} color={colors.primary} />
                   <Text style={[styles.navicMiniText, { color: colors.primary }]}>NavIC L5+S</Text>
-                </View>
+                </AnimatedPressable>
               </View>
               <Text style={[styles.headerTitle, { color: colors.onSurface }]}>Explore</Text>
             </View>
@@ -287,7 +333,7 @@ export default function HomeScreen() {
             onMicPress={handleVoiceAssistant}
             leadingIcon={
               <View style={styles.searchLeftGroup}>
-                <DynamicCompassIcon size={24} dynamic={false} borderRadius={6} />
+                <DynamicCompassIcon size={24} dynamic={false} heading={0} tilt3D={false} borderRadius={6} />
               </View>
             }
             trailingAction={
@@ -357,8 +403,14 @@ export default function HomeScreen() {
       {/* 3. FLOATING LEFT ENVIRONMENTAL & ROAD SAFETY WIDGETS */}
       <View style={[styles.floatingLeftWidgets, { top: floatingTop }]} pointerEvents="box-none">
         {/* Weather & Air Quality Pill */}
-        <Animated.View
+        <AnimatedPressable
           entering={fluidEnteringLeft(30)}
+          onPress={() => {
+            haptics.light();
+            setShowWeatherModal(true);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="View live weather and air quality report"
           style={[
             styles.weatherPill,
             {
@@ -376,10 +428,20 @@ export default function HomeScreen() {
               <Text style={[styles.aqiText, { color: colors.secondary }]}>AQI 28 · Good</Text>
             </View>
           </View>
-        </Animated.View>
+        </AnimatedPressable>
 
         {/* Speed Camera Alert Badge */}
-        <Animated.View entering={fluidEnteringLeft(40)}>
+        <AnimatedPressable
+          entering={fluidEnteringLeft(40)}
+          onPress={() => {
+            haptics.light();
+            Alert.alert(
+              'NH-48 Radar Enforcement',
+              'Fixed Speed Camera 450m ahead on Northbound Express Corridor.\nSpeed Limit: 70 km/h · Distance: 450m.\nTraffic condition: Clear flow.'
+            );
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Speed camera alert advisory">
           <Animated.View
             style={[
               styles.speedCameraBadge,
@@ -396,7 +458,7 @@ export default function HomeScreen() {
               Camera 450m ahead
             </Text>
           </Animated.View>
-        </Animated.View>
+        </AnimatedPressable>
       </View>
 
       {/* 4. FLOATING RIGHT MAP UTILITY CONTROLS */}
@@ -456,25 +518,6 @@ export default function HomeScreen() {
           </View>
         </AnimatedPressable>
 
-        {/* Route Planner Shortcut */}
-        <AnimatedPressable
-          style={[
-            styles.fabBtn,
-            {
-              backgroundColor: colors.surfaceContainerLowest,
-              borderColor: colors.surfaceContainerHigh,
-            },
-          ]}
-          onPress={() => {
-            haptics.light();
-            router.push('/(tabs)/routes');
-          }}
-          accessibilityRole="button"
-          accessibilityLabel="Route planner">
-          <Route size={16} color={colors.primaryContainer} />
-          <Text style={[styles.routeFabText, { color: colors.primaryContainer }]}>Route</Text>
-        </AnimatedPressable>
-
         {/* AR Visual Positioning Navigation FAB */}
         <AnimatedPressable
           style={[
@@ -490,17 +533,16 @@ export default function HomeScreen() {
           }}
           accessibilityRole="button"
           accessibilityLabel="AR Photo Navigation">
-          <Camera size={16} color={colors.primary} />
-          <Text style={[styles.routeFabText, { color: colors.primary }]}>AR</Text>
+          <Camera size={19} color={colors.primary} />
         </AnimatedPressable>
 
-        {/* North Compass FAB */}
+        {/* North Compass FAB with Live 3D Hardware Gyro Tilt */}
         <AnimatedPressable
           style={styles.compassFab}
           onPress={handleCompassPress}
           accessibilityRole="button"
           accessibilityLabel="Compass reset north">
-          <DynamicCompassIcon size={44} dynamic={true} tilt3D={false} borderRadius={12} />
+          <DynamicCompassIcon size={44} dynamic={true} tilt3D={true} borderRadius={12} />
         </AnimatedPressable>
 
         {/* Recenter / Locate Me FAB */}
@@ -675,6 +717,17 @@ export default function HomeScreen() {
                 <SquareParking size={16} color={colors.trafficGreen} />
                 <Text style={[styles.quickToolLabel, { color: colors.onSurface }]}>Indoor Bay</Text>
               </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.quickToolBtn, { backgroundColor: colors.surfaceContainerLow }]}
+                onPress={() => {
+                  haptics.light();
+                  router.push('/hazard-report');
+                }}
+                activeOpacity={0.8}>
+                <TriangleAlert size={16} color={colors.error} />
+                <Text style={[styles.quickToolLabel, { color: colors.onSurface }]}>Report Hazard</Text>
+              </TouchableOpacity>
             </View>
           </>
         )}
@@ -758,6 +811,44 @@ export default function HomeScreen() {
             <View>
               <Text style={[styles.poiCategoryName, { color: colors.onSurface }]}>Dining</Text>
               <Text style={[styles.poiCategorySub, { color: colors.onSurfaceVariant }]}>65 places</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.poiCategoryCard,
+              { backgroundColor: colors.surfaceContainerLow },
+            ]}
+            onPress={() => {
+              haptics.light();
+              router.push('/hazard-report');
+            }}
+            activeOpacity={0.8}>
+            <View style={[styles.poiCategoryIconBox, { backgroundColor: colors.error + '20' }]}>
+              <TriangleAlert size={14} color={colors.error} />
+            </View>
+            <View>
+              <Text style={[styles.poiCategoryName, { color: colors.onSurface }]}>Hazards</Text>
+              <Text style={[styles.poiCategorySub, { color: colors.onSurfaceVariant }]}>18 reports</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.poiCategoryCard,
+              { backgroundColor: colors.surfaceContainerLow },
+            ]}
+            onPress={() => {
+              haptics.heavy();
+              router.push('/sos-distress');
+            }}
+            activeOpacity={0.8}>
+            <View style={[styles.poiCategoryIconBox, { backgroundColor: colors.errorContainer + '40' }]}>
+              <ShieldAlert size={14} color={colors.onErrorContainer} />
+            </View>
+            <View>
+              <Text style={[styles.poiCategoryName, { color: colors.onSurface }]}>SOS 112</Text>
+              <Text style={[styles.poiCategorySub, { color: colors.onSurfaceVariant }]}>24/7 Police</Text>
             </View>
           </TouchableOpacity>
         </ScrollView>
@@ -914,11 +1005,150 @@ export default function HomeScreen() {
         </View>
       </BottomSheet>
 
+      {/* IMD WEATHER & AIR QUALITY ADVISORY BOTTOM SHEET MODAL */}
+      <BottomSheet
+        visible={showWeatherModal}
+        onClose={() => setShowWeatherModal(false)}
+        title="Weather & Air Quality"
+        subtitle="IMD Sovereign Weather · CPCB Delhi NCR Telematics">
+        <View style={styles.weatherModalContent}>
+          {/* Main Temperature & Condition Card */}
+          <View
+            style={[
+              styles.weatherHeroCard,
+              {
+                backgroundColor: colors.surfaceContainerLow,
+                borderColor: colors.surfaceContainerHigh,
+              },
+            ]}>
+            <View style={styles.weatherHeroLeft}>
+              <View style={[styles.weatherHeroIconCircle, { backgroundColor: '#FF9800' + '20' }]}>
+                <Sun size={28} color="#FF9800" />
+              </View>
+              <View>
+                <Text style={[styles.weatherHeroTemp, { color: colors.onSurface }]}>24°C</Text>
+                <Text style={[styles.weatherHeroCondition, { color: colors.onSurfaceVariant }]}>
+                  Sunny · Clear Sky
+                </Text>
+              </View>
+            </View>
+            <View style={styles.weatherHeroRight}>
+              <Text style={[styles.weatherFeelsLike, { color: colors.onSurfaceVariant }]}>
+                Feels like 25°C
+              </Text>
+              <Text style={[styles.weatherStationText, { color: colors.primary }]}>
+                IMD Palam Stn
+              </Text>
+            </View>
+          </View>
+
+          {/* AQI Telematics Strip */}
+          <View
+            style={[
+              styles.aqiCard,
+              {
+                backgroundColor: colors.surfaceContainerLow,
+                borderColor: colors.surfaceContainerHigh,
+              },
+            ]}>
+            <View style={styles.aqiHeaderRow}>
+              <View style={styles.aqiTitleGroup}>
+                <Text style={[styles.aqiCardTitle, { color: colors.onSurface }]}>
+                  Air Quality Index (AQI)
+                </Text>
+                <Text style={[styles.aqiStationSub, { color: colors.onSurfaceVariant }]}>
+                  CPCB Real-Time Telemetry
+                </Text>
+              </View>
+              <View style={[styles.aqiScoreBadge, { backgroundColor: colors.secondary + '20' }]}>
+                <Text style={[styles.aqiScoreText, { color: colors.secondary }]}>28 · Good</Text>
+              </View>
+            </View>
+            <View style={styles.aqiBarTrack}>
+              <View style={[styles.aqiBarFill, { backgroundColor: colors.secondary, width: '28%' }]} />
+            </View>
+            <Text style={[styles.aqiAdvisoryText, { color: colors.onSurfaceVariant }]}>
+              Air quality is optimal. Perfect conditions for open corridor transit and outdoor commuting.
+            </Text>
+          </View>
+
+          {/* 4-Metric Grid (Humidity, Wind, UV Index, Visibility) */}
+          <View style={styles.weatherMetricGrid}>
+            <View
+              style={[
+                styles.weatherMetricTile,
+                {
+                  backgroundColor: colors.surfaceContainerLow,
+                  borderColor: colors.surfaceContainerHigh,
+                },
+              ]}>
+              <Droplets size={16} color={colors.primary} />
+              <Text style={[styles.weatherMetricValue, { color: colors.onSurface }]}>48%</Text>
+              <Text style={[styles.weatherMetricLabel, { color: colors.onSurfaceVariant }]}>
+                HUMIDITY
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.weatherMetricTile,
+                {
+                  backgroundColor: colors.surfaceContainerLow,
+                  borderColor: colors.surfaceContainerHigh,
+                },
+              ]}>
+              <Wind size={16} color={colors.secondary} />
+              <Text style={[styles.weatherMetricValue, { color: colors.onSurface }]}>11 km/h</Text>
+              <Text style={[styles.weatherMetricLabel, { color: colors.onSurfaceVariant }]}>
+                WIND NE
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.weatherMetricTile,
+                {
+                  backgroundColor: colors.surfaceContainerLow,
+                  borderColor: colors.surfaceContainerHigh,
+                },
+              ]}>
+              <Sun size={16} color="#FF9800" />
+              <Text style={[styles.weatherMetricValue, { color: colors.onSurface }]}>4 Mod</Text>
+              <Text style={[styles.weatherMetricLabel, { color: colors.onSurfaceVariant }]}>
+                UV INDEX
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.weatherMetricTile,
+                {
+                  backgroundColor: colors.surfaceContainerLow,
+                  borderColor: colors.surfaceContainerHigh,
+                },
+              ]}>
+              <Eye size={16} color={colors.primaryContainer} />
+              <Text style={[styles.weatherMetricValue, { color: colors.onSurface }]}>4.8 km</Text>
+              <Text style={[styles.weatherMetricLabel, { color: colors.onSurfaceVariant }]}>
+                VISIBILITY
+              </Text>
+            </View>
+          </View>
+        </View>
+      </BottomSheet>
+
       {/* Sovereign Flowstep Voice Listening Modal */}
       <VoiceListeningModal
         visible={showVoiceModal}
         onClose={() => setShowVoiceModal(false)}
         onResult={handleVoiceResult}
+      />
+
+      {/* Sovereign NavIC Dual-Band GPS Location Lock Establishment Modal */}
+      <GpsLocationLockModal
+        visible={showGpsLockModal}
+        onClose={() => setShowGpsLockModal(false)}
+        initialTelemetry={gpsLockTelemetry}
+        onCenterMap={() => {
+          setIsGpsLocked(true);
+        }}
       />
     </View>
   );
@@ -1129,12 +1359,6 @@ const styles = StyleSheet.create({
     width: 3,
     height: 12,
     borderRadius: 1.5,
-  },
-  routeFabText: {
-    fontSize: 8,
-    fontWeight: '800',
-    marginTop: 2,
-    letterSpacing: 0.3,
   },
   compassFab: {
     marginTop: 6,
@@ -1353,5 +1577,119 @@ const styles = StyleSheet.create({
   layerSwitchLabel: {
     ...Typography.bodyMedium,
     fontWeight: '600',
+  },
+  weatherModalContent: {
+    gap: 12,
+    paddingTop: 4,
+    paddingBottom: 8,
+  },
+  weatherHeroCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+  },
+  weatherHeroLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  weatherHeroIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  weatherHeroTemp: {
+    fontSize: 28,
+    fontWeight: '900',
+  },
+  weatherHeroCondition: {
+    ...Typography.bodySmall,
+    fontWeight: '600',
+  },
+  weatherHeroRight: {
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  weatherFeelsLike: {
+    ...Typography.labelSmall,
+  },
+  weatherStationText: {
+    ...Typography.labelSmall,
+    fontWeight: '800',
+  },
+  aqiCard: {
+    padding: 14,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    gap: 8,
+  },
+  aqiHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  aqiTitleGroup: {
+    gap: 1,
+  },
+  aqiCardTitle: {
+    ...Typography.titleSmall,
+    fontWeight: '800',
+  },
+  aqiStationSub: {
+    ...Typography.bodySmall,
+    fontSize: 11,
+  },
+  aqiScoreBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: Radius.full,
+  },
+  aqiScoreText: {
+    ...Typography.labelSmall,
+    fontWeight: '800',
+  },
+  aqiBarTrack: {
+    height: 6,
+    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  aqiBarFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  aqiAdvisoryText: {
+    ...Typography.bodySmall,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  weatherMetricGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  weatherMetricTile: {
+    width: '48.5%',
+    padding: 12,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 3,
+  },
+  weatherMetricValue: {
+    ...Typography.titleSmall,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+  weatherMetricLabel: {
+    ...Typography.labelSmall,
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.8,
   },
 });
